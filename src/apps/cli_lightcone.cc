@@ -1,3 +1,3 @@
-#include "KdApplication.hh"
+#include "kdapplication.hh"
 #define HPC_APP_CLASS tao::KdApplication
 #include "libhpc/mpi/checkpoints.hh"

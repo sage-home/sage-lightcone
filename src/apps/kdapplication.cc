@@ -1,11 +1,10 @@
-#include <iostream>
-#include <pugixml.hpp>
-#include "KdApplication.hh"
+#include "kdapplication.hh"
 #include "libtao/modules/modules.hh"
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/filesystem.hpp>
+#include <pugixml.hpp>
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -55,13 +54,6 @@ namespace tao {
         }
 
         if (mpi::comm::world.rank() == 0) {
-            std::cout << "dataset="<<_global_cli_dict._dataset<<std::endl;
-            std::cout << "decmin="<<_global_cli_dict._decmin<<std::endl;
-            std::cout << "decmax="<<_global_cli_dict._decmax<<std::endl;
-            std::cout << "ramin="<<_global_cli_dict._ramin<<std::endl;
-            std::cout << "ramax="<<_global_cli_dict._ramax<<std::endl;
-            std::cout << "zmin="<<_global_cli_dict._zmin<<std::endl;
-            std::cout << "zmax="<<_global_cli_dict._zmax<<std::endl;
             // validation of the declination and right ascension ranges
             if (validate(_global_cli_dict)) {
                 if (!exists(_global_cli_dict._outdir)) {
@@ -72,6 +64,13 @@ namespace tao {
                 std::cerr << "Error: Invalid command line arguments." << std::endl;
                 throw silent_terminate();
             }
+            std::cout << "dataset="<<_global_cli_dict._dataset<<std::endl;
+            std::cout << "decmin="<<_global_cli_dict._decmin<<std::endl;
+            std::cout << "decmax="<<_global_cli_dict._decmax<<std::endl;
+            std::cout << "ramin="<<_global_cli_dict._ramin<<std::endl;
+            std::cout << "ramax="<<_global_cli_dict._ramax<<std::endl;
+            std::cout << "zmin="<<_global_cli_dict._zmin<<std::endl;
+            std::cout << "zmax="<<_global_cli_dict._zmax<<std::endl;
             std::cout << "unique="<<_global_cli_dict._unique<<std::endl;
             std::cout << "seed="<<_global_cli_dict._rng_seed<<std::endl;
             std::cout << "filterfield="<<_global_cli_dict._filter_field<<std::endl;
@@ -119,6 +118,43 @@ namespace tao {
 
     bool KdApplication::validate(const cli_dict& _global_cli_dict) {
         // Validate the command line arguments.
+        // decimation validation
+        if (_global_cli_dict._decmin < -90.0 || _global_cli_dict._decmin > 90.0) {
+            std::cerr << "Minimum DEC cannot be less than -90 or greater than 90 degrees" << std::endl;
+            return false;
+        }
+        if (_global_cli_dict._decmax < -90.0 || _global_cli_dict._decmax > 90.0) {
+            std::cerr << "Maximum DEC cannot be less than -90 or greater than 90 degrees" << std::endl;
+            return false;
+        }
+        if (_global_cli_dict._decmin >= _global_cli_dict._decmax) {
+            std::cerr << "Minimum DEC must be less than Maximum DEC" << std::endl;
+            return false;
+        }
+        // right ascension validation
+        if (_global_cli_dict._ramin < 0.0 || _global_cli_dict._ramin > 360.0) {
+            std::cerr << "Minimum RA cannot be less than zero or greater than 360 degrees" << std::endl;
+            return false;
+        }
+        if (_global_cli_dict._ramax < 0.0 || _global_cli_dict._ramax > 360.0) {
+            std::cerr << "Maximum RA cannot be less than zero or greater than 360 degrees" << std::endl;
+            return false;
+        }
+        if (_global_cli_dict._ramin >= _global_cli_dict._ramax) {
+            std::cerr << "Minimum RA must be less than Maximum RA" << std::endl;
+            return false;
+        }
+
+        // redshift validation
+        if (_global_cli_dict._zmin < 0.0) {
+            std::cerr << "Minimum redshift must be greater than or equal to zero." << std::endl;
+            return false;
+        }
+        if (_global_cli_dict._zmax <= _global_cli_dict._zmin) {
+            std::cerr << "Minimum redshift must be less than Maximum redshift." << std::endl;
+            return false;
+        }
+
         if (_global_cli_dict._outdir.empty()) {
             std::cerr << "Error: --outdir cannot be empty." << std::endl;
             return false;

@@ -1,7 +1,7 @@
 # This is the CMakeList.txt file used to build the project
 #    - We use this old version because it is the  -
 #    -   latest version availale on Travis CI     -
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.2)
 
 # Read the file with the macro definitions which specify
 # the behaviour specific to this project and then run
@@ -30,10 +30,25 @@ set(CMAKE_CXX_COMPILER "g++")
 
 # Compiler flags - separate C and C++ flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wextra -mtune=native -march=native")
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wextra -mtune=native -march=native")
-set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_FLAGS "-std=c++14 -Wextra -mtune=native -march=native")
+#set(CMAKE_CXX_FLAGS "-std=c++17 -Wextra -mtune=native -march=native")
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_CXX_EXTENSIONS OFF)
+# Configure the cmake C++ compile features
+# To change the C++ standard at build time (to c++23, for example), run cmake like so:
+#    `cmake -DCMAKE_CXX_STANDARD=23 .."
+set(CXX_STANDARD_DEFAULT 20)
+set(CMAKE_CXX_STANDARD ${CXX_STANDARD_DEFAULT} CACHE STRING "The default C++ standard used")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+if (NOT CMAKE_CXX_STANDARD EQUAL CXX_STANDARD_DEFAULT)
+    message(STATUS "Selected C++ standard: c++" ${CMAKE_CXX_STANDARD})
+else()
+    message(STATUS "Using default C++ standard: c++" ${CXX_STANDARD_DEFAULT})
+endif()
+# Set the project name
+set(GBP_PROJECT_NAME "cli_lightcone")
 
 # Declare the project name
 project (${GBP_PROJECT_NAME})

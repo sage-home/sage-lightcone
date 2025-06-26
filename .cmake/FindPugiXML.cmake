@@ -11,11 +11,15 @@ unset (PUGIXML_INCLUDE_DIR CACHE)
 find_path (PUGIXML_INCLUDE_DIR
            NAMES pugixml.hpp
            PATHS ${PUGIXML_HOME}/include
+           ${PUGIXML_HOME}/scripts/include
            /usr/local/include
            /usr/local/include/pugixml-1.8)
 find_library (PUGIXML_LIBRARY
               NAMES pugixml
               PATHS ${PUGIXML_HOME}/lib
+              ${PUGIXML_HOME}/lib64
+              ${PUGIXML_HOME}/scripts/lib
+              ${PUGIXML_HOME}/scripts/lib64
               /usr/local/lib
               /usr/local/lib/pugixml-1.8)
 

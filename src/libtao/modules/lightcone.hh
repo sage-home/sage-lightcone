@@ -397,6 +397,16 @@ namespace tao {
                {
                   for( auto const& field : global_cli_dict._output_fields )
                   {
+                     // Check if the field exists in the input hdf5 file.
+                     auto it = std::find_if( allfields.begin(), allfields.end(),
+                                             [&field](const tao::data_dict_field& f) {
+                                                return f._name == field || f._label == field;
+                                             } );
+                     if (it == allfields.end()) {
+                        LOGILN( "Field '", field, "' not found in input hdf5 file. stop." );
+                        exit(-1);
+                     }
+                     // If it does not exist, log a warning.
                      _qry.add_output_field( field );
                      LOGILN( "CLI.Adding field ", field );
                   }

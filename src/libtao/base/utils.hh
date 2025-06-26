@@ -23,8 +23,8 @@ namespace tao {
    };
 
    template< class T >
-   T
-   expansion_to_redshift( T ef )
+   auto
+   expansion_to_redshift( T ef ) -> T
    {
       return 1.0/ef - 1.0;
    }

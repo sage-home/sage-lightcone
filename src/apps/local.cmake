@@ -46,7 +46,7 @@ set(DATASUBDIR "" )
 
 # Add header files
 # eg. list(APPEND INCFILES "file" )
-list(APPEND INCFILES "KdApplication.hh" )
+list(APPEND INCFILES "kdapplication.hh" )
 
 # Add source files
 # eg. list(APPEND SRCFILES "file" )
@@ -55,7 +55,7 @@ list(APPEND INCFILES "KdApplication.hh" )
 # ** The template places all source files here, but some/all
 # ** may need to be manually placed in the EXEFILES list
 #list(APPEND SRCFILES "add_tree_info.cc" )
-list(APPEND SRCFILES "KdApplication.cc" )
+list(APPEND SRCFILES "kdapplication.cc" )
 # **********************************************************
 
 # Add executable source files (those with a main())

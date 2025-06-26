@@ -1,93 +1,127 @@
-# tao-lightcone-cli
-
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
+# ASVO-TAO Science Modules #
 
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+These are the science modules, designed to carry out the HPC operations, such
+as building a lightcone and calculating the SEDs.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Dependencies
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+ * Python - An object-oriented interpreted programming language.
+ * Boost - A set of efficient C++ extensions.
+ * MPI - Message Passing Interface implementation. Tested with OpenMPI.
+ * HDF5 - Hierarchical Data Format libraries. Currently tested with version 1.8.7.
+    (Must be compiled with OpenMPI or compilation errors will be encountered)
+ * GSL - The GNU Scientific Library.
+ * PugiXML - A C++ XML parsing library.
+ * cfitsio - A C implementation of a FITS file reader/writer.
+ * SOCI - A C++ database access wrapper, capable of using a wide variety of drivers.
+ * PostgresQL (optional) - A production quality database management system.
+ * sqlite3 (optional) - A simple SQL database implementation, used for testing only.
+ 
+ * git submodules - You may need to run `git submodule update --init` after a git clone to get these.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Building
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+The science modules use autotools as the build system. As with any package
+that has numerous dependencies, we recommend installing as many of them
+as possible using your system's package management software.
+Note that some of the dependencies are included as git submodules.
+Ensure you run git submodule update to check them out.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Once you have your dependencies in place, run
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+cmake -DCMAKE_BUILD_TYPE=Debug . && make
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+to build the science modules. If you find that there are some dependencies
+that could not be found you can specify them on the command line to `./configure` using
+various options. For example, to specify the location of Boost you may
+give the base location:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+cmake -DHDF5_ROOT=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Note that you can also supply multiple directories by separating
+them with a colon:
 
-## License
-For open source projects, say how it is licensed.
+```bash
+./configure --with-boost_inc=/path/to/boost=/path1:/path2 
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+To see more options, please run:
+
+```bash
+./configure --help
+```
+
+## Testing
+
+To run the full suite of unit-tests, please run:
+... TODO (unsure how to run these post autotools, previous it was `scons check`)
+
+## Installing
+
+To install, please use:
+
+```bash
+make install
+```
+
+You may specify the installation path using `PREFIX` when configuring:
+
+```bash
+./configure PREFIX=/path/to/install 
+make
+make install
+```
+
+## G2 installation
+A compilation script is provided for the g2 environment which loads the required modules, runs `bootstrap` `configure` and `make`.
+
+This script may be useful as a reference for how to use some of the `./configure` options as well.
+
+```bash
+./sstar-compile.sh`
+```
+
+## Development Environment (docker)
+There are a few docker images that exist which can make local development much easier.
+As a vague reference you can look at the CircleCI configuration (which is not passing due to some failing unit tests, but the docker instance does work) in `.circle/config.yml`
+
+### Set up:
+* `git clone https://github.com/ASVO-TAO/TAO-ScienceModules`
+* `git submodule update --init`
+* `pip install -qr requirements.txt`
+* `fab build`
+
+### To run unit tests
+* `ctest`
+
+### To run a specific job
+These will require preparing an XML file for the job (The `params.xml` file that exists in the job directory on TAO, note this is *NOT* the same as the `params.xml` file that the UI lets you download.) Ensure that the `<database>` key in your params matches the name of the database on your docker db. By default the docker db has minimillennium is installed in the `postgres` database.
+
+You may also need to set up a database for this job if you're not using mini-millennium (which docker has by default). You can connect to the database with `fab psql` if you need to view it. (Or `fab cli` to get a bash prompt then `psql -h db -U postgres postgres`)
+
+Note that you cannot be running a postgresql server on the docker host, or the ports will conflict.
+* `fab run:<params.xml>` (eg. `fab run:params.xml`)
+* To use the regression testing xml file as an example `fab run:./regression/unique_cones/params.xml`
+
+To debug it
+* `fab gdb:<params.xml>` or `fab gdb_remote:<params.xml>`
+
+The latter can be useful when using an IDE such as cLion (you can run a remote GDB session in cLion which docker will then connect to)
+
+`fabfile.py` has various other useful functions for other things you may want to do.
+
+
+### Technical note on format of skymaker ".list" file
+Bulge:
+200, px, py, mag, bulge_to_total,                                         scale_radius, 1.0, pos_angle,          0.0, 1.0, pos_angle, redshift
+Disk:
+200, px, py, mag, bulge_to_total,                                                  0.0, 1.0, pos_angle, scale_radius,  ar, pos_angle, redshift
+Disk_Bulge:
+200, px, py, mag, bulge_to_total, get_bulge_to_disk_scale(bulge_to_total)*scale_radius, 1.0, pos_angle, scale_radius,  ar, pos_angle, redshift
+
