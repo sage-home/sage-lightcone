@@ -15,24 +15,52 @@ variables:
   
   # Parallel build jobs
   MAKE_JOBS: "4"
+  
+  # HDF5 version
+  HDF5_VERSION: "1.14.0"
 
 # Define a template for installing dependencies
 .install_dependencies: &install_dependencies
   - apt-get update -qq
-  - apt-get install -y build-essential cmake git
+  - apt-get install -y build-essential cmake git wget
   - apt-get install -y gcc-12 g++-12
   - apt-get install -y libboost-all-dev
   - apt-get install -y libopenmpi-dev openmpi-bin
-  # Install parallel HDF5 instead of serial version
-  - apt-get install -y libhdf5-openmpi-dev hdf5-tools
   - apt-get install -y libgsl-dev
-  - apt-get install -y pkg-config
+  - apt-get install -y pkg-config zlib1g-dev libsz2
   # Set GCC 12 as default
   - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
   - update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
-  # Set up MPI compiler wrappers for CMake to find the right HDF5
-  - export CC=mpicc
-  - export CXX=mpicxx
+  
+  # Set HDF5 installation directory
+  - export HDF5_PREFIX=$CI_PROJECT_DIR/hdf5-install
+  
+  # Check if HDF5 is already built (from cache)
+  - |
+    if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ]; then
+      echo "Building HDF5 ${HDF5_VERSION} from source with MPI support..."
+      cd /tmp
+      wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz
+      tar -xzf hdf5-${HDF5_VERSION}.tar.gz
+      cd hdf5-${HDF5_VERSION}
+      export CC=mpicc
+      export CXX=mpicxx
+      ./configure --prefix=$HDF5_PREFIX --enable-parallel --enable-shared --enable-static
+      make -j4
+      make install
+    else
+      echo "HDF5 already installed, skipping build..."
+    fi
+  - cd $CI_PROJECT_DIR
+  
+  # Update library paths
+  - export LD_LIBRARY_PATH=$HDF5_PREFIX/lib:$LD_LIBRARY_PATH
+  - export PKG_CONFIG_PATH=$HDF5_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+  - export PATH=$HDF5_PREFIX/bin:$PATH
+  
+  # Verify HDF5 installation
+  - h5cc -show || echo "h5cc not found"
+  - pkg-config --modversion hdf5 || echo "HDF5 pkg-config not found"
 
 build:
   stage: build
@@ -46,12 +74,17 @@ build:
     - mpicc --version
     - mpicxx --version
     # Check HDF5 configuration
-    - h5cc -show || echo "h5cc not found, using pkg-config"
-    - pkg-config --modversion hdf5 || echo "HDF5 pkg-config not found"
+    - h5cc -show || echo "h5cc not found"
+    - h5pcc -show || echo "h5pcc not found"
+    - /usr/local/bin/h5dump --version || echo "h5dump not found"
   script:
-    # Set environment variables for MPI compilers
+    # Set environment variables for MPI compilers and HDF5
     - export CC=mpicc
     - export CXX=mpicxx
+    - export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
+    - export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
+    - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
+    - export PATH=$HDF5_ROOT/bin:$PATH
     
     # Clean up any old CMake cache files
     - find . -name CMakeCache.txt -exec rm -f {} \;
@@ -68,7 +101,7 @@ build:
     
     # Build main project
     - echo "Building main project..."
-    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx .
+    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
     - cd bin
     - make clean
     - make -j$MAKE_JOBS
@@ -80,6 +113,7 @@ build:
   cache:
     key: build-cache-$CI_COMMIT_REF_SLUG
     paths:
+      - hdf5-install/
       - dep/pugixml-1.7/scripts/build/
       - bin/
     policy: pull-push
@@ -111,9 +145,13 @@ build_release:
   before_script:
     - *install_dependencies
   script:
-    # Set environment variables for MPI compilers
+    # Set environment variables for MPI compilers and HDF5
     - export CC=mpicc
     - export CXX=mpicxx
+    - export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
+    - export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
+    - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
+    - export PATH=$HDF5_ROOT/bin:$PATH
     
     - find . -name CMakeCache.txt -exec rm -f {} \;
     - echo "Building PugiXML (Release)..."
@@ -125,7 +163,7 @@ build_release:
     - make install
     - cd ../../../..
     - echo "Building main project (Release)..."
-    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx .
+    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
     - cd bin_release
     - make clean
     - make -j$MAKE_JOBS
