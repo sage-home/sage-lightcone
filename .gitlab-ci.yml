@@ -23,12 +23,16 @@ variables:
   - apt-get install -y gcc-12 g++-12
   - apt-get install -y libboost-all-dev
   - apt-get install -y libopenmpi-dev openmpi-bin
-  - apt-get install -y libhdf5-dev hdf5-tools
+  # Install parallel HDF5 instead of serial version
+  - apt-get install -y libhdf5-openmpi-dev hdf5-tools
   - apt-get install -y libgsl-dev
   - apt-get install -y pkg-config
   # Set GCC 12 as default
   - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
   - update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+  # Set up MPI compiler wrappers for CMake to find the right HDF5
+  - export CC=mpicc
+  - export CXX=mpicxx
 
 build:
   stage: build
@@ -39,7 +43,16 @@ build:
     - gcc --version
     - g++ --version
     - cmake --version
+    - mpicc --version
+    - mpicxx --version
+    # Check HDF5 configuration
+    - h5cc -show || echo "h5cc not found, using pkg-config"
+    - pkg-config --modversion hdf5 || echo "HDF5 pkg-config not found"
   script:
+    # Set environment variables for MPI compilers
+    - export CC=mpicc
+    - export CXX=mpicxx
+    
     # Clean up any old CMake cache files
     - find . -name CMakeCache.txt -exec rm -f {} \;
     
@@ -48,14 +61,14 @@ build:
     - cd dep/pugixml-1.7/scripts
     - mkdir -p build
     - cd build
-    - cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DCMAKE_INSTALL_PREFIX=.. ..
+    - cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
     - make -j$MAKE_JOBS
     - make install
     - cd ../../../..
     
     # Build main project
     - echo "Building main project..."
-    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 .
+    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx .
     - cd bin
     - make clean
     - make -j$MAKE_JOBS
@@ -98,17 +111,21 @@ build_release:
   before_script:
     - *install_dependencies
   script:
+    # Set environment variables for MPI compilers
+    - export CC=mpicc
+    - export CXX=mpicxx
+    
     - find . -name CMakeCache.txt -exec rm -f {} \;
     - echo "Building PugiXML (Release)..."
     - cd dep/pugixml-1.7/scripts
     - mkdir -p build_release
     - cd build_release
-    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=.. ..
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
     - make -j$MAKE_JOBS
     - make install
     - cd ../../../..
     - echo "Building main project (Release)..."
-    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 .
+    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx .
     - cd bin_release
     - make clean
     - make -j$MAKE_JOBS
