@@ -376,6 +376,10 @@ namespace tao {
              std::string input_hdf5_file = global_cli_dict._dataset;
              tao::xml_dict sidecar_xml = tao::data_dict::getSidecar(input_hdf5_file, "/sageinput");
              std::vector<tao::data_dict_field> allfields = tao::data_dict::getFieldsANY(sidecar_xml, "/sageinput/Field");
+            // Convert allfields._name to lowercase for case-insensitive comparison
+            for (auto& field : allfields) {
+               std::transform(field._name.begin(), field._name.end(), field._name.begin(), ::tolower);
+            }
 
                LOGILN( "Using output fields specified in the command line." );
                // Use the output fields specified in the command line.
