@@ -1,0 +1,138 @@
+# GitLab CI/CD Pipeline for tao-lightcone-cli
+# This pipeline builds a C++ project with CMake that requires multiple system dependencies
+
+stages:
+  - build
+  - test
+
+variables:
+  # Use a Docker image with development tools pre-installed
+  # You may need to customize this based on your specific requirements
+  DOCKER_IMAGE: "ubuntu:22.04"
+  
+  # Build configuration
+  CMAKE_BUILD_TYPE: "Debug"
+  
+  # Parallel build jobs
+  MAKE_JOBS: "4"
+
+# Define a template for installing dependencies
+.install_dependencies: &install_dependencies
+  - apt-get update -qq
+  - apt-get install -y build-essential cmake git
+  - apt-get install -y gcc-12 g++-12
+  - apt-get install -y libboost-all-dev
+  - apt-get install -y libopenmpi-dev openmpi-bin
+  - apt-get install -y libhdf5-dev hdf5-tools
+  - apt-get install -y libgsl-dev
+  - apt-get install -y pkg-config
+  # Set GCC 12 as default
+  - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+  - update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+
+build:
+  stage: build
+  image: $DOCKER_IMAGE
+  before_script:
+    - *install_dependencies
+    # Verify compiler versions
+    - gcc --version
+    - g++ --version
+    - cmake --version
+  script:
+    # Clean up any old CMake cache files
+    - find . -name CMakeCache.txt -exec rm -f {} \;
+    
+    # Build PugiXML dependency first
+    - echo "Building PugiXML..."
+    - cd dep/pugixml-1.7/scripts
+    - mkdir -p build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DCMAKE_INSTALL_PREFIX=.. ..
+    - make -j$MAKE_JOBS
+    - make install
+    - cd ../../../..
+    
+    # Build main project
+    - echo "Building main project..."
+    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 .
+    - cd bin
+    - make clean
+    - make -j$MAKE_JOBS
+  artifacts:
+    paths:
+      - bin/cli_lightcone
+      - bin/*.a
+    expire_in: 1 week
+  cache:
+    key: build-cache-$CI_COMMIT_REF_SLUG
+    paths:
+      - dep/pugixml-1.7/scripts/build/
+      - bin/
+    policy: pull-push
+
+# Optional: Add a test stage if you have tests
+test:
+  stage: test
+  image: $DOCKER_IMAGE
+  before_script:
+    - *install_dependencies
+  script:
+    # Run any tests here
+    - echo "Running tests..."
+    # Example: if you have test scripts in the tests/ directory
+    - ls -la tests/
+    # You could run something like:
+    # - cd tests && bash test_cli_validation.sh
+    - echo "No specific test commands defined yet"
+  dependencies:
+    - build
+  only:
+    - main
+    - merge_requests
+
+# Alternative build job for Release mode
+build_release:
+  stage: build
+  image: $DOCKER_IMAGE
+  before_script:
+    - *install_dependencies
+  script:
+    - find . -name CMakeCache.txt -exec rm -f {} \;
+    - echo "Building PugiXML (Release)..."
+    - cd dep/pugixml-1.7/scripts
+    - mkdir -p build_release
+    - cd build_release
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=.. ..
+    - make -j$MAKE_JOBS
+    - make install
+    - cd ../../../..
+    - echo "Building main project (Release)..."
+    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 .
+    - cd bin_release
+    - make clean
+    - make -j$MAKE_JOBS
+  artifacts:
+    paths:
+      - bin_release/cli_lightcone
+      - bin_release/*.a
+    expire_in: 1 week
+  only:
+    - tags
+    - main
+  when: manual
+
+# Code quality checks (optional)
+code_quality:
+  stage: test
+  image: $DOCKER_IMAGE
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y clang-format clang-tidy
+  script:
+    - echo "Running code quality checks..."
+    # Example clang-format check
+    - find src/ -name "*.cc" -o -name "*.hh" | xargs clang-format --dry-run --Werror
+  allow_failure: true
+  only:
+    - merge_requests
