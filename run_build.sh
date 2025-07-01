@@ -15,7 +15,7 @@ cd ../../../..
 
 echo "Building main project..."
 # CMAKE_BUILD_TYPE = Debug or Release
-cmake -B="./bin" -DCMAKE_BUILD_TYPE=Debug \
+cmake -B="./bin" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=./runtime \
 -DPUGIXML_HOME=./dep/pugixml-1.7 \
 .
 cd bin

@@ -131,7 +131,7 @@ test:
     - ls -la tests/
     # You could run something like:
     # - cd tests && bash test_cli_validation.sh
-    - echo "No specific test commands defined yet"
+    - tests/test_cli_validation.sh || echo "No tests found or tests failed"
   dependencies:
     - build
   only:

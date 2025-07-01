@@ -15,9 +15,9 @@ set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR};${CMAKE_SOURCE_D
 include ("init_validate")
 init_validate()
 
-# Clear default install directory (user should use
-# DESTDIR with make to set installation directory)
-set( CMAKE_INSTALL_PREFIX "./" )
+# Set install directory to ./runtime
+# (user can still override with DESTDIR with make to set installation directory)
+set( CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/runtime" )
 
 # Set default compilers (must come before project line)
 # For GCC build
@@ -153,6 +153,10 @@ add_custom_docs()
 # Enable testing
 enable_testing()
 #include(tests)
+
+# Install the lightcone.sh script to the runtime directory
+install(PROGRAMS scripts/lightcone.sh DESTINATION . 
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # Print status message
 message(STATUS "Finished initializing custom targets.")
