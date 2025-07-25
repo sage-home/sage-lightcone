@@ -158,6 +158,9 @@ enable_testing()
 install(PROGRAMS scripts/lightcone.sh DESTINATION . 
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
+# Install the h5_to_csv executable to runtime/bin
+#install(TARGETS h5_to_csv DESTINATION bin)
+
 # Print status message
 message(STATUS "Finished initializing custom targets.")
 message(STATUS "")
