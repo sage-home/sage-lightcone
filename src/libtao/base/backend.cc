@@ -58,7 +58,6 @@ namespace tao {
         bat.template set_scalar<real_type>("column_density");
         bat.template set_scalar<real_type>("ra");
         bat.template set_scalar<real_type>("dec");
-        // Even though this is pre-calculated in SQL for pencilbeams,
         // we need to keep it here for boxes / lightcones for now.
         bat.template set_scalar<real_type>("distance");
         bat.template set_scalar<real_type>("sfr");
