@@ -29,14 +29,12 @@ set(DATASUBDIR "" )
 # **********************************************************
 # ** The template places all directories here, but some/all
 # ** may need to be manually placed in the LIBDIRS list
-list(APPEND SRCDIRS "geometry" )
 list(APPEND SRCDIRS "kdtree_backend" )
 list(APPEND SRCDIRS "utils" )
 # **********************************************************
 
 # Add header files
 # eg. list(APPEND INCFILES "file" )
-list(APPEND INCFILES "age_line.hh" )
 list(APPEND INCFILES "backend.hh" )
 list(APPEND INCFILES "base.hh" )
 list(APPEND INCFILES "batch.hh" )
