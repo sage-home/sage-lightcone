@@ -211,6 +211,13 @@ namespace tao {
 
          std::vector<unsigned long long> const&
          cell_offs() const;
+         
+         // Debug methods for inspecting kdtree structure
+         bool is_kdtree_loaded() const;
+         unsigned get_kdtree_dims() const;
+         unsigned get_kdtree_branches() const;
+         unsigned get_kdtree_leafs() const;
+         std::string debug_kdtree_info() const;
 
       protected:
 
@@ -523,22 +530,22 @@ namespace tao {
                 {
                    _bat->field(field);
                    auto ds = _be->kdtree_file().dataset("data/"+field);
-                   switch (_bat->get_field_type(field)) {
-                      case tao::batch<double>::DOUBLE: {
+                   switch (static_cast<tao::batch<real_type>::field_value_type>(_bat->get_field_type(field))) {
+                      case tao::batch<real_type>::DOUBLE: {
                          ds.read(_bat->scalar<double>(field).data(), hpc::h5::datatype::native_double, count, off);
                          view<std::vector<double>> abc = _bat->scalar<double>(field);
                          double abcv = abc[0];
                          //std::cout << "["<<field<<"][0]="<<abcv<<std::endl;
                       }
                            break;
-                      case tao::batch<int>::INTEGER: {
+                      case tao::batch<real_type>::INTEGER: {
                          ds.read(_bat->scalar<int>(field).data(), hpc::h5::datatype::native_int, count, off);
                          view<std::vector<int>> abc = _bat->scalar<int>(field);
                          int abcv = abc[0];
                          //std::cout << "[" << field << "][0]=" << abcv << std::endl;
                       }
                            break;
-                      case tao::batch<int>::LONG_LONG: {
+                      case tao::batch<real_type>::LONG_LONG: {
                          ds.read(_bat->scalar<long long>(field).data(), hpc::h5::datatype::native_llong, count, off);
                          //view<std::vector<long long>> abc = _bat->scalar<long long>(field);
                          //long long abcv = abc[0];
@@ -607,10 +614,10 @@ namespace tao {
                  auto ra = _bat->template scalar<real_type>("ra");
                  auto dec = _bat->template scalar<real_type>("dec");
                  auto dist = _bat->template scalar<real_type>("distance");
-                 auto disk_sfr = _bat->template scalar<real_type>("sfrdisk");
-                 auto bulge_sfr = _bat->template scalar<real_type>("sfrbulge");
+                 auto disk_sfr = _bat->template scalar<real_type>("sfr_disk");
+                 auto bulge_sfr = _bat->template scalar<real_type>("sfr_bulge");
                  auto sfr = _bat->template scalar<real_type>("sfr");
-                 auto gid = _bat->template scalar<long long>("globalindex");
+                 auto gid = _bat->template scalar<long long>("global_index");
                  //auto galaxyindex = _bat->template scalar<long long>("galaxyindex");
 
                  int ix = _dom.rotation()[0];

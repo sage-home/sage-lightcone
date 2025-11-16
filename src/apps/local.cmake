@@ -61,6 +61,9 @@ list(APPEND SRCFILES "kdapplication.cc" )
 # Add executable source files (those with a main())
 # eg. list(APPEND EXEFILES "file" )
 list(APPEND EXEFILES "cli_lightcone.cc" )
+list(APPEND EXEFILES "sage2h5.cc" )
+list(APPEND EXEFILES "dstreeinit.cc" )
+list(APPEND EXEFILES "sageh5toxml.cc" )
 
 # Add data files
 # eg. list(APPEND DATAFILES "file" )

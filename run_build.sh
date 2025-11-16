@@ -21,3 +21,7 @@ cmake -B="./bin" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=./runtime \
 cd bin
 make clean
 make -j20
+
+echo "Build sage-model for testing..."
+cd ..
+./build_sage.sh

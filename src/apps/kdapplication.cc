@@ -29,7 +29,7 @@ namespace tao {
             ("zmax",hpc::po::value<double>(&_global_cli_dict._zmax)->default_value(1.0), "maximum redshift")
             ("unique",hpc::po::value<bool>(&_global_cli_dict._unique)->default_value(false), "unique lightcone if true, random lightcone if false")
             ("seed", hpc::po::value<int>(&_global_cli_dict._rng_seed)->default_value(0), "random number generator seed")
-            ("filterfield,f", hpc::po::value<std::string>(&_global_cli_dict._filter_field)->default_value("stellarmass"), "field to filter on")
+            ("filterfield,f", hpc::po::value<std::string>(&_global_cli_dict._filter_field)->default_value("stellar_mass"), "field to filter on")
             ("filtermin", hpc::po::value<std::string>(&_global_cli_dict._filter_min)->default_value("0"), "minimum value for filter field")
             ("filtermax", hpc::po::value<std::string>(&_global_cli_dict._filter_max)->default_value(""), "maximum value for filter field")
             ("outfile,o", hpc::po::value<std::string>(&_global_cli_dict._outfile)->default_value("output.hdf5"), "output file name")

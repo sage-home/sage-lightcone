@@ -2,7 +2,7 @@
 
 ## Description
 
-These are the science modules, designed to carry out the HPC operation of extracting light-cones from "KD TREE" indexed simulations.
+These are modules designed to carry out the workflow of converting sage binary output to a kd-tree indexed format suitable for input to the cli_lightcone executable to extract lightcones in a simple HDF5 format.
 
 ## Dependencies
 
@@ -12,6 +12,24 @@ These are the science modules, designed to carry out the HPC operation of extrac
     (Must be compiled with OpenMPI or compilation errors will be encountered)
  * GSL - The GNU Scientific Library.
  * PugiXML - A C++ XML parsing library.
+
+## Building
+
+On the HPC system at nt.swin.edu.au and on your own macOS M3 laptop the build should be done as follows:
+
+```bash
+./build_platform_aware.sh
+```
+
+after which the executables will be under the bin director.
+
+### Set up:
+* `git clone --recurse-submodules https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli.git`
+* `git submodule update --init --recursive`
+
+### To run the end to end test (From sage to kdindexing to extracting a lightcone)
+* cd tests/sage-model-tests
+* ./run_test.sh
  
 
 ## Building
@@ -120,6 +138,7 @@ mass:    ┌─────────────────┬────�
 ... (all other fields follow the same pattern)
 
          ALL arrays use the SAME KD-TREE ordering within each snapshot
+>>>>>>> main
 
 Snapshot Displacement Array (snapshot_displs):
 Index:  0    1    2    3   ...
@@ -144,12 +163,12 @@ For Snapshot N (e.g., 1000 galaxies from index 0-999):
 
 All Field Arrays (x_pos, y_pos, z_pos, mass, etc.) have IDENTICAL ordering:
 ┌─────────────────────────────────────────────────────────────┐
-│  Galaxies 0-499       │  Galaxies 500-999                  │
+│  Galaxies 0-499       │  Galaxies 500-999                   │
 │  (x < x_mid)          │  (x >= x_mid)                       │
-│ ┌───────┬───────┐     │ ┌───────┬───────┐                  │
-│ │ 0-249 │250-499│     │ │500-749│750-999│                  │
-│ │y<y_mid│y>=y_mid     │ │y<y_mid│y>=y_mid                  │
-│ └───────┴───────┘     │ └───────┴───────┘                  │
+│ ┌───────┬───────┐     │ ┌───────┬───────┐                   │
+│ │ 0-249 │250-499│     │ │500-749│750-999│                   │
+│ │y<y_mid│y>=y_mid     │ │y<y_mid│y>=y_mid                   │
+│ └───────┴───────┘     │ └───────┴───────┘                   │
 └─────────────────────────────────────────────────────────────┘
 
 ONE KD-TREE Index Set for Snapshot N (applies to ALL fields):

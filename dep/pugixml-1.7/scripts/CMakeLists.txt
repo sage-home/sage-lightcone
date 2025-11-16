@@ -1,6 +1,6 @@
-project(pugixml)
+cmake_minimum_required(VERSION 4.0)
 
-cmake_minimum_required(VERSION 3.0)
+project(pugixml)
 
 option(BUILD_SHARED_LIBS "Build shared instead of static library" OFF)
 option(BUILD_TESTS "Build tests" OFF)

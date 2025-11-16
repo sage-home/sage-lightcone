@@ -970,6 +970,9 @@ namespace tao {
                   return tao::batch<tao::real_type>::DOUBLE;
                }
                break;
+            default:
+               ASSERT(0);
+               break;
             }
             return tao::batch<tao::real_type>::DOUBLE;
          }

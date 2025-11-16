@@ -56,7 +56,7 @@ namespace hpc {
         template <class Other, typename boost::enable_if<boost::is_base_of<vector_type, Other>, int>::type = 0>
         const_view(Other const &vec, size_t size, size_t offs = 0) : _ptr((pointer)vec.data() + offs), _size(size) {
             ASSERT(size > 0);
-            ASSERT(offs > 0);
+            ASSERT(offs >= 0);
             ASSERT(offs + size <= vec.size());
         }
 

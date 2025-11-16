@@ -322,11 +322,36 @@ function(init_3rd_party_HDF5 lib_name required_in)
         link_libraries( ${HDF5_C_LIBRARIES} ${HDF5_C_HL_LIBRARIES} )
         add_definitions(${HDF5_DEFINITIONS})
 
-        #THIS IS A TEMPORARY HACK TO OVERCOME A BUG IN SOME VERSIONS OF CMAKE
-        if(NOT (${HDF5_C_HL_LIBRARIES} MATCHES "libhdf5_hl"))
+        #THIS IS A TEMPORARY HACK TO OVERCOME A BUG IN SOME VERSIONS OF CMAKE - DISABLED ON MACOS
+        if(NOT APPLE AND NOT (${HDF5_C_HL_LIBRARIES} MATCHES "libhdf5_hl"))
+            # Try to use the first HDF5 library path to determine library directory
             list(GET HDF5_C_LIBRARIES 0 HDF5_LIB)
-            get_filename_component(HDF5_LIBDIR ${HDF5_LIB} DIRECTORY)
-            link_libraries("${HDF5_LIBDIR}/libhdf5_hl.so")
+            # Check if we got a CMake target name instead of a path
+            if(HDF5_LIB MATCHES "hdf5")
+                # Use HDF5_ROOT if available, otherwise use homebrew path
+                if(DEFINED ENV{HDF5_ROOT})
+                    set(HDF5_LIBDIR "$ENV{HDF5_ROOT}/lib")
+                elseif(APPLE)
+                    set(HDF5_LIBDIR "/opt/homebrew/lib")
+                else()
+                    # Fallback for other systems
+                    find_library(HDF5_HL_LIB hdf5_hl)
+                    if(HDF5_HL_LIB)
+                        get_filename_component(HDF5_LIBDIR ${HDF5_HL_LIB} DIRECTORY)
+                    endif()
+                endif()
+            else()
+                get_filename_component(HDF5_LIBDIR ${HDF5_LIB} DIRECTORY)
+            endif()
+            
+            # Add the platform-specific library
+            if(HDF5_LIBDIR)
+                if(APPLE)
+                    link_libraries("${HDF5_LIBDIR}/libhdf5_hl.dylib")
+                else()
+                    link_libraries("${HDF5_LIBDIR}/libhdf5_hl.so")
+                endif()
+            endif()
         endif()
     else()
         skip_3rd_party_status(required_in)
