@@ -473,6 +473,8 @@ namespace tao {
                   break;
                case FIELD_VALUE_TERMINAL:
                   break;
+               default:
+                  ASSERT( 0 );
             }
             std::get<1>( field ) = (field_rank_type)SCALAR;
             std::get<2>( field ) = type;
@@ -612,6 +614,8 @@ namespace tao {
                break;
             case FIELD_VALUE_TERMINAL:
                break;
+            default:
+               break;
          };
       }
 
@@ -643,6 +647,8 @@ namespace tao {
                delete boost::any_cast<hpc::matrix<unsigned long long>*>( val );
                break;
             case FIELD_VALUE_TERMINAL:
+               break;
+            default:
                break;
          };
       }

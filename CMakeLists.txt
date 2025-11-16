@@ -1,12 +1,15 @@
 # This is the CMakeList.txt file used to build the project
 #    - We use this old version because it is the  -
 #    -   latest version availale on Travis CI     -
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 4.0)
 
 # Read the file with the macro definitions which specify
 # the behaviour specific to this project and then run
 # the initialization macro
 include(${CMAKE_SOURCE_DIR}/project.cmake)
+
+# Include platform-specific configuration
+include(${CMAKE_SOURCE_DIR}/platform_config.cmake)
 
 # Add the 'cmake' directory in the project directory to the module path
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR};${CMAKE_SOURCE_DIR}/.cmake")
@@ -29,7 +32,14 @@ set(CMAKE_CXX_COMPILER "g++")
 #set(CMAKE_CXX_COMPILER "clang++")
 
 # Compiler flags - separate C and C++ flags
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wextra -mtune=native -march=native")
+# Note: -march=native and -mtune=native can cause issues on Apple Silicon
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+    # Apple Silicon specific flags
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wextra")
+else()
+    # Intel/AMD specific flags
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wextra -mtune=native -march=native")
+endif()
 #set(CMAKE_CXX_FLAGS "-std=c++14 -Wextra -mtune=native -march=native")
 #set(CMAKE_CXX_FLAGS "-std=c++17 -Wextra -mtune=native -march=native")
 #set(CMAKE_CXX_STANDARD 17)
@@ -38,7 +48,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wextra -mtune=native -march=nati
 # Configure the cmake C++ compile features
 # To change the C++ standard at build time (to c++23, for example), run cmake like so:
 #    `cmake -DCMAKE_CXX_STANDARD=23 .."
-set(CXX_STANDARD_DEFAULT 20)
+set(CXX_STANDARD_DEFAULT 17)
 set(CMAKE_CXX_STANDARD ${CXX_STANDARD_DEFAULT} CACHE STRING "The default C++ standard used")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -149,6 +159,79 @@ add_custom_clang()
 
 # Add documentation build
 add_custom_docs()
+
+# ============= Add SAGE executable target =============
+# Build the SAGE executable from the sage-model submodule
+message(STATUS "Adding SAGE executable target...")
+
+# Check if sage-model directory exists
+if(EXISTS "${CMAKE_SOURCE_DIR}/sage-model")
+    # Check if sage-model submodule is properly initialized
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/sage-model/Makefile")
+        message(WARNING "sage-model directory exists but appears to be empty or incomplete!")
+        message(WARNING "This usually means the Git submodule wasn't properly initialized.")
+        message(WARNING "Please run: git submodule update --init --recursive")
+        message(WARNING "SAGE executable will not be built.")
+    else()
+        # Determine platform-specific make command and environment
+    if(${PLATFORM_MACOS})
+        # On macOS, we need to ensure HDF5 is found properly
+        set(SAGE_ENV_VARS 
+            "CC=${CMAKE_C_COMPILER}"
+            "HDF5_DIR=${HDF5_DIR}"
+        )
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            list(APPEND SAGE_ENV_VARS "CCFLAGS=-g -O0")
+        else()
+            list(APPEND SAGE_ENV_VARS "CCFLAGS=-O2")
+        endif()
+    else()
+        # For HPC environments, use mpicc if available
+        set(SAGE_ENV_VARS 
+            "CC=mpicc"
+        )
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            list(APPEND SAGE_ENV_VARS "CCFLAGS=-g -O0")
+        else()
+            list(APPEND SAGE_ENV_VARS "CCFLAGS=-O2 -march=native")
+        endif()
+    endif()
+
+    # Create the sage executable target
+    add_custom_target(sage_executable
+        COMMAND ${CMAKE_COMMAND} -E env ${SAGE_ENV_VARS} make all
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/sage-model
+        COMMENT "Building SAGE executable from sage-model submodule"
+        VERBATIM
+    )
+
+    # Make sage_executable part of the default build
+    add_dependencies(all_executables sage_executable)
+
+    # Create a custom target to install sage executable
+    add_custom_target(install_sage
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+                ${CMAKE_SOURCE_DIR}/sage-model/sage 
+                ${CMAKE_BINARY_DIR}/sage
+        DEPENDS sage_executable
+        COMMENT "Installing SAGE executable to build directory"
+        VERBATIM
+    )
+
+    # Clean target for sage
+    add_custom_target(clean_sage
+        COMMAND make clean
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/sage-model
+        COMMENT "Cleaning SAGE build files"
+        VERBATIM
+    )
+
+    message(STATUS "SAGE executable target added successfully.")
+    endif()  # End of Makefile check
+else()
+    message(WARNING "sage-model directory not found. SAGE executable will not be built.")
+    message(WARNING "To enable SAGE build, run: git submodule update --init --recursive")
+endif()
 
 # Enable testing
 enable_testing()

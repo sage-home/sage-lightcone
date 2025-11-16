@@ -33,7 +33,7 @@ namespace hpc {
         }
 
         long operator()(value_type const &x) {
-            long sum_left = std::count_if(start, finish, std::bind2nd(std::less_equal<value_type>(), x));
+            long sum_left = std::count_if(start, finish, [x](const value_type& val) { return val <= x; });
             sum_left      = comm.all_reduce(sum_left);
             return sum_left - position;
         }

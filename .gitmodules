@@ -1,0 +1,3 @@
+[submodule "sage-model"]
+	path = sage-model
+	url = https://github.com/sage-home/sage-model.git

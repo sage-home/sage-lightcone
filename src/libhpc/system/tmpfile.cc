@@ -42,8 +42,11 @@ namespace hpc {
     }
 
     fs::path const &tmpfile::_gen_path() {
-        char tmp[L_tmpnam + 1];
-        tmpnam(tmp);
+        char tmp[] = "/tmp/tmpfileXXXXXX";
+        int fd = mkstemp(tmp);
+        if (fd != -1) {
+            ::close(fd);
+        }
         _path = tmp;
         return _path;
     }

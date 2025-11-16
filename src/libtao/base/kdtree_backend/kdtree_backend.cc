@@ -1,4 +1,5 @@
 #include "kdtree_backend.hh"
+#include <sstream>
 
 namespace tao {
    namespace backends {
@@ -105,35 +106,20 @@ namespace tao {
 
                   // Before finishing, insert the known mapping conversions.
                   // TODO: Generalise.
-                  std::string box_type = "box";
-                  to_lower(box_type);
-                  if (box_type != "pencil-beam") {
-                      this->_field_map["pos_x"] = "posx";
-                      this->_field_map["pos_y"] = "posy";
-                      this->_field_map["pos_z"] = "posz";
-                      this->_field_map["vel_x"] = "velx";
-                      this->_field_map["vel_y"] = "vely";
-                      this->_field_map["vel_z"] = "velz";
-                      this->_field_map["snapshot"] = "snapnum";
-                      this->_field_map["global_index"] = "globalindex";
-                      this->_field_map["global_tree_id"] = "globaltreeid";
-                      this->_field_map["localgalaxyid"] = "localgalaxyid";
+                  this->_field_map["pos_x"] = "posx";
+                  this->_field_map["pos_y"] = "posy";
+                  this->_field_map["pos_z"] = "posz";
+                  this->_field_map["vel_x"] = "velx";
+                  this->_field_map["vel_y"] = "vely";
+                  this->_field_map["vel_z"] = "velz";
+                  this->_field_map["snapshot"] = "snapnum";
+                  this->_field_map["global_index"] = "global_index";
+                  this->_field_map["global_tree_id"] = "globaltreeid";
+                  this->_field_map["localgalaxyid"] = "localgalaxyid";
 
-                      // RS Maybe for SED?
+                  // RS Maybe for SED?
 
-                      this->_field_map["subtree_count"] = "subtree_count";
-                  } else {
-                      this->_field_map["pos_x"] = "posx";
-                      this->_field_map["pos_y"] = "posy";
-                      this->_field_map["pos_z"] = "posz";
-                      this->_field_map["snapshot"] = "snapshot";
-                      this->_field_map["smoothinglength"] = "smoothinglength";
-                      this->_field_map["distance_from_beam"] = "distance_from_beam";
-                      this->_field_map["distance"] = "distance";
-                      // Required to calculate column densities
-                      this->_field_map["mass"] = "mass";
-                      this->_field_map["density"] = "density";
-                  }
+                  this->_field_map["subtree_count"] = "subtree_count";
 
                   // Add calculated types.
                   this->_field_types.emplace("redshift_cosmological", batch<real_type>::DOUBLE);
@@ -265,10 +251,14 @@ namespace tao {
          for( size_t ii = 0; ii < redshifts.size(); ++ii ) {
             zs[ii] = redshifts[ii];
             char chredshift[1000];
-	    sprintf(chredshift,"%12.12f",zs[ii]);
-	    chround(chredshift,6);
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(12) << zs[ii];
+            std::string temp = oss.str();
+            strncpy(chredshift, temp.c_str(), 999);
+            chredshift[999] = '\0';
+            chround(chredshift, 6);
             //std::cout << "replace " << zs[ii] << " with " << chredshift << std::endl;
-	    zs[ii] = atof(chredshift);
+	         zs[ii] = atof(chredshift);
          }
 
          auto* sim = new tao::simulation(
@@ -298,6 +288,15 @@ namespace tao {
             grp.dataset( "cell_counts" ) >> _cell_cnts;
             grp.dataset( "cell_offs" ) >> _cell_offs;
             LOGILN( "Loading kdtree snapshot: ", name );
+            
+            // Debug: Print kdtree structure information
+            LOGILN( "Kdtree loaded - Dimensions: ", _kdt.n_dims() );
+            LOGILN( "Kdtree loaded - Branches: ", _kdt.n_branches() );
+            LOGILN( "Kdtree loaded - Leafs: ", _kdt.n_leafs() );
+            LOGILN( "Kdtree loaded - Total cells: ", _kdt.n_cells() );
+            LOGILN( "Kdtree loaded - Bounds size: ", _kdt.bounds().size() );
+            LOGILN( "Kdtree loaded - Splits size: ", _kdt.splits().size() );
+            
             _snap = snap;
          }
       }
@@ -384,6 +383,16 @@ namespace tao {
       hpc::kdtree<real_type> const&
       kdtree_backend::kdtree() const
       {
+         // Debug: Print kdtree status when accessed
+         // std::cout << "DEBUG: Accessing kdtree - bounds size: " << _kdt.bounds().size() 
+         //           << ", splits size: " << _kdt.splits().size() << std::endl;
+         // if (_kdt.bounds().size() > 0) {
+         //    std::cout << "DEBUG: kdtree dimensions: " << _kdt.n_dims() 
+         //              << ", branches: " << _kdt.n_branches() 
+         //              << ", leafs: " << _kdt.n_leafs() << std::endl;
+         // } else {
+         //    std::cout << "DEBUG: kdtree appears to be empty/uninitialized" << std::endl;
+         // }
          return _kdt;
       }
 
@@ -397,6 +406,48 @@ namespace tao {
       kdtree_backend::cell_offs() const
       {
          return _cell_offs;
+      }
+
+      // Debug methods for inspecting kdtree structure
+      bool
+      kdtree_backend::is_kdtree_loaded() const
+      {
+         return _kdt.bounds().size() > 0 || _kdt.splits().size() > 0;
+      }
+
+      unsigned
+      kdtree_backend::get_kdtree_dims() const
+      {
+         return _kdt.n_dims();
+      }
+
+      unsigned
+      kdtree_backend::get_kdtree_branches() const
+      {
+         return _kdt.n_branches();
+      }
+
+      unsigned
+      kdtree_backend::get_kdtree_leafs() const
+      {
+         return _kdt.n_leafs();
+      }
+
+      std::string
+      kdtree_backend::debug_kdtree_info() const
+      {
+         std::ostringstream oss;
+         oss << "Kdtree info: bounds=" << _kdt.bounds().size() 
+             << ", splits=" << _kdt.splits().size();
+         if (_kdt.bounds().size() > 0) {
+            oss << ", dims=" << _kdt.n_dims() 
+                << ", branches=" << _kdt.n_branches() 
+                << ", leafs=" << _kdt.n_leafs()
+                << ", cells=" << _kdt.n_cells();
+         } else {
+            oss << " [EMPTY/UNINITIALIZED]";
+         }
+         return oss.str();
       }
 
    }
