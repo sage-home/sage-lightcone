@@ -1,7 +1,7 @@
 # This is the CMakeList.txt file used to build the project
 #    - We use this old version because it is the  -
 #    -   latest version availale on Travis CI     -
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.10)
 
 # Read the file with the macro definitions which specify
 # the behaviour specific to this project and then run
