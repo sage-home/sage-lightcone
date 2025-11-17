@@ -10,6 +10,9 @@ variables:
   # You may need to customize this based on your specific requirements
   DOCKER_IMAGE: "ubuntu:22.04"
   
+  # Git submodule strategy - fetch submodules recursively
+  GIT_SUBMODULE_STRATEGY: recursive
+  
   # Build configuration
   CMAKE_BUILD_TYPE: "Debug"
   
