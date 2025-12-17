@@ -286,6 +286,8 @@ namespace sage {
     void
     make_hdf5_sidecar( std::string simulation_name, std::string inname,  const std::set<double>& redshifts, const double& hubble, const double& box_size );
     void
+    make_hdf5_sidecar_tree( std::string simulation_name, std::string inname,  const std::set<double>& redshifts, const double& hubble, const double& box_size );
+    void
     make_hdf5_types_tree( hpc::h5::datatype& mem_type,
                        hpc::h5::datatype& file_type );
 

@@ -18,7 +18,7 @@ class ManageTreeIndex:
     
     def __init__(self, Options):
         logging.info("Processing Tree Traversal")
-        self.FieldsList = [Options['TreeMapping_0'], Options['TreeMapping_1'], Options['TreeMapping_1']]
+        self.FieldsList = [Options['TreeMapping_0'], Options['TreeMapping_1'], Options['TreeMapping_2']]
         
     def BuildTree(self, TreeData):
         

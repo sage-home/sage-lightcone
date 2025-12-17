@@ -161,9 +161,11 @@ def plot_lightcone_3d(hdf5_file, color_field="stellar_mass"):
     cbar = plt.colorbar(scatter, ax=ax, shrink=0.5, aspect=20, label=color_label)
     
     # Use log scale for colorbar if the range is large
-    if color_label != 'Z Position' and np.max(color_data) / np.min(color_data[color_data > 0]) > 100:
-        import matplotlib.ticker as ticker
-        cbar.formatter = ticker.LogFormatterSciNotation()
+    if color_label != 'Z Position':
+        positive_data = color_data[color_data > 0]
+        if len(positive_data) > 0 and np.max(color_data) / np.min(positive_data) > 100:
+            import matplotlib.ticker as ticker
+            cbar.formatter = ticker.LogFormatterSciNotation()
     
     plt.tight_layout()
     
