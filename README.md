@@ -13,6 +13,13 @@ These are modules designed to carry out the workflow of converting sage binary o
  * GSL - The GNU Scientific Library.
  * PugiXML - A C++ XML parsing library.
 
+## Clnne repository with submodules
+
+```bash
+git clone --recurse-submodules https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli.git
+cd tao-lightcone-cli
+```
+
 ## Building
 
 On the HPC system at nt.swin.edu.au and on your own macOS M3 laptop the build should be done as follows:
