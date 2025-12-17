@@ -18,9 +18,11 @@ class SageH5Reader {
 private:
     hpc::h5::file _file;
     std::string _filename;
+    std::string _output_filename;
     
 public:
-    SageH5Reader(const std::string& filename) : _filename(filename) {
+    SageH5Reader(const std::string& filename, const std::string& output_filename) 
+        : _filename(filename), _output_filename(output_filename) {
         try {
             _file.open(filename, H5F_ACC_RDONLY, hpc::mpi::comm::self);
         } catch (const std::exception& e) {
@@ -203,19 +205,19 @@ private:
         }
     }
     
-    void readAttributeValue(hid_t attr_id, H5T_class_t type_class, size_t type_size) {
+    std::string readAttributeValue(hid_t attr_id, H5T_class_t type_class, size_t type_size) {
         try {
             switch (type_class) {
                 case H5T_INTEGER: {
                     if (type_size == sizeof(int)) {
                         int value;
                         if (H5Aread(attr_id, H5T_NATIVE_INT, &value) >= 0) {
-                            std::cout << value << " (int)";
+                            return std::to_string(value);
                         }
                     } else if (type_size == sizeof(long)) {
                         long value;
                         if (H5Aread(attr_id, H5T_NATIVE_LONG, &value) >= 0) {
-                            std::cout << value << " (long)";
+                            return std::to_string(value);
                         }
                     } else {
                         std::cout << "[integer, " << type_size << " bytes]";
@@ -226,15 +228,15 @@ private:
                     if (type_size == sizeof(float)) {
                         float value;
                         if (H5Aread(attr_id, H5T_NATIVE_FLOAT, &value) >= 0) {
-                            std::cout << value << " (float)";
+                            return std::to_string(value);
                         }
                     } else if (type_size == sizeof(double)) {
                         double value;
                         if (H5Aread(attr_id, H5T_NATIVE_DOUBLE, &value) >= 0) {
-                            std::cout << value << " (double)";
+                            return std::to_string(value);
                         }
                     } else {
-                        std::cout << "[float, " << type_size << " bytes]";
+                        return "[float, " + std::to_string(type_size);
                     }
                     break;
                 }
@@ -243,34 +245,41 @@ private:
                     if (H5Tis_variable_str(type_id)) {
                         char* str_data;
                         if (H5Aread(attr_id, type_id, &str_data) >= 0 && str_data != nullptr) {
-                            std::cout << "\"" << str_data << "\" (string)";
+                            std::string result = "\"" + std::string(str_data);
                             H5free_memory(str_data);
                         } else {
-                            std::cout << "[variable string]";
+                            return "[variable string]";
                         }
                     } else {
                         size_t str_size = H5Tget_size(type_id);
                         std::vector<char> str_data(str_size + 1);
                         if (H5Aread(attr_id, type_id, str_data.data()) >= 0) {
                             str_data[str_size] = '\0';
-                            std::cout << "\"" << str_data.data() << "\" (string)";
+                            return std::string(str_data.data());
                         } else {
-                            std::cout << "[fixed string, " << str_size << " chars]";
+                            return "[fixed string, " + std::to_string(str_size) + " chars]";
                         }
                     }
                     H5Tclose(type_id);
                     break;
                 }
                 default:
-                    std::cout << "[unknown type: " << type_class << "]";
+                    return "[unknown type: " + std::to_string(type_class) + "]";
+                    
                     break;
             }
         } catch (const std::exception& e) {
-            std::cout << "[error reading value: " << e.what() << "]";
+            return "[error reading value: " + std::string(e.what()) + "]";
         }
+        return "[unreadable value]";
     }
     
     void readDatasetAttributes(hpc::h5::group& group, const std::string& group_path) {
+        std::ofstream results_file(_output_filename, std::ios::out);
+            if (!results_file.is_open()) {
+                std::cerr << "Error: Could not open " << _output_filename << " for writing" << std::endl;
+                return;
+            }
         std::cout << "\n--- Dataset Attributes in " << group_path << " ---" << std::endl;
         
         try {
@@ -280,6 +289,7 @@ private:
             hsize_t num_objects = group.size();
             
             // Iterate through all objects in the group
+            int order = 1;
             for (hsize_t i = 0; i < num_objects; i++) {
                 // Get object name
                 ssize_t name_size = H5Lget_name_by_idx(group_id, ".", H5_INDEX_NAME, H5_ITER_INC, i, nullptr, 0, H5P_DEFAULT);
@@ -296,7 +306,8 @@ private:
                 H5O_info2_t obj_info;
                 if (H5Oget_info_by_name3(group_id, obj_name.c_str(), &obj_info, H5O_INFO_BASIC, H5P_DEFAULT) >= 0) {
                     if (obj_info.type == H5O_TYPE_DATASET) {
-                        readSingleDatasetAttributes(group_id, obj_name);
+                        readSingleDatasetAttributes(group_id, obj_name, results_file, order);
+                        order++;
                     }
                 }
             }
@@ -304,9 +315,10 @@ private:
         } catch (const std::exception& e) {
             std::cerr << "Error reading dataset attributes: " << e.what() << std::endl;
         }
+        results_file.close();
     }
     
-    void readSingleDatasetAttributes(hid_t group_id, const std::string& dataset_name) {
+    void readSingleDatasetAttributes(hid_t group_id, const std::string& dataset_name, std::ofstream& results_file, int order) {
         try {
             // Open the dataset
             hid_t dataset_id = H5Dopen2(group_id, dataset_name.c_str(), H5P_DEFAULT);
@@ -334,6 +346,9 @@ private:
                 H5Dclose(dataset_id);
                 return;
             }
+            results_file << "<Field type=\"" << datatype_info << "\"" << std::endl;
+            results_file << " label=\"" << dataset_name << "\"" << std::endl;
+            
             
             std::cout << "\nDataset '" << dataset_name << "':" << std::endl;
             std::cout << "  DATATYPE: " << datatype_info << std::endl;
@@ -345,11 +360,13 @@ private:
                 // Read all attributes of this dataset
                 for (int i = 0; i < num_attrs; i++) {
                     std::cout << "    ";
-                    readSingleDatasetAttribute(dataset_id, i);
+                    readSingleDatasetAttribute(dataset_id, i, results_file);
                 }
             } else {
                 std::cout << "  ATTRIBUTES: None" << std::endl;
             }
+            results_file << " order=\"" << order << "\"" << std::endl;
+            results_file << " group=\"" << "general\"" << ">" << dataset_name << "</Field>" << std::endl ;
             
             H5Tclose(dtype_id);
             H5Dclose(dataset_id);
@@ -381,9 +398,9 @@ private:
                 H5T_order_t order = H5Tget_order(dtype_id);
                 
                 if (type_size == 4) {
-                    result = "IEEE 754 Single Precision Float (32-bit)";
+                    result = "float";
                 } else if (type_size == 8) {
-                    result = "IEEE 754 Double Precision Float (64-bit)";
+                    result = "double";
                 } else {
                     result = "Float, " + std::to_string(type_size * 8) + "-bit";
                 }
@@ -423,7 +440,7 @@ private:
         return result;
     }
     
-    void readSingleDatasetAttribute(hid_t dataset_id, int attr_index) {
+    void readSingleDatasetAttribute(hid_t dataset_id, int attr_index, std::ofstream& results_file) {
         try {
             // Open attribute by index using the older, more reliable method
             hid_t attr_id = H5Aopen_idx(dataset_id, attr_index);
@@ -454,9 +471,10 @@ private:
                 std::cout << attr_name << ": ";
                 
                 // Read the attribute value based on its type
-                readAttributeValue(attr_id, type_class, type_size);
+                std::string attr_value = readAttributeValue(attr_id, type_class, type_size);
                 
                 std::cout << std::endl;
+                results_file << " " << attr_name << "=\"" << attr_value << "\"" << std::endl;
                 
                 H5Sclose(space_id);
                 H5Tclose(type_id);
@@ -489,6 +507,7 @@ int main(int argc, char* argv[]) {
         desc.add_options()
             ("help,h", "Show this help message")
             ("file,f", po::value<std::string>(), "HDF5 file to read")
+            ("output,o", po::value<std::string>()->default_value("results.xml"), "Output XML file")
             ("verbose,v", "Verbose output");
         
         po::positional_options_description pos_desc;
@@ -509,11 +528,13 @@ int main(int argc, char* argv[]) {
         }
         
         std::string filename = vm["file"].as<std::string>();
+        std::string output_filename = vm["output"].as<std::string>();
         bool verbose = vm.count("verbose") > 0;
         
         std::cout << "SAGE HDF5 to XML Utility" << std::endl;
         std::cout << "========================" << std::endl;
         std::cout << "Input file: " << filename << std::endl;
+        std::cout << "Output file: " << output_filename << std::endl;
         
         if (verbose) {
             std::cout << "Verbose mode enabled" << std::endl;
@@ -527,7 +548,7 @@ int main(int argc, char* argv[]) {
         }
         
         // Create reader and process file
-        SageH5Reader reader(filename);
+        SageH5Reader reader(filename, output_filename);
         
         // Read Header/Simulation group
         reader.readHeaderSimulation();

@@ -326,8 +326,11 @@ namespace tao {
             _geom = CONE;
 
             // Redshift ranges.
-            real_type snap_z_max = _sim->redshifts().begin()->second;
-            real_type snap_z_min = _sim->redshifts().end()->second;
+            auto const& redshifts = _sim->redshifts();
+            real_type z1 = redshifts.begin()->second;
+            real_type z2 = redshifts.rbegin()->second;
+            real_type snap_z_max = std::max(z1, z2);
+            real_type snap_z_min = std::min(z1, z2);
             real_type max_z;
             real_type min_z;
             max_z = std::min( global_cli_dict._zmax, snap_z_max );

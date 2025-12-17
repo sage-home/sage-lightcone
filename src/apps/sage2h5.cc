@@ -17,9 +17,6 @@ class application : public hpc::mpi::application {
             "param,p", hpc::po::value<hpc::fs::path>(&_param_fn)->required(), "SAGE parameter file")(
             "alist,a", hpc::po::value<hpc::fs::path>(&_alist_fn)->required(), "SAGE expansion list file")(
             "output,o", hpc::po::value<hpc::fs::path>(&_out_fn), "output file")(
-            "treeidx", hpc::po::value<unsigned>(&_treeidx), "")("lidx", hpc::po::value<unsigned>(&_lidx), "")(
-            "fileidx", hpc::po::value<unsigned>(&_fileidx), "")(
-            "filez", hpc::po::value<unsigned>(&_filez)->default_value(0), "")(
             "verbose,v", hpc::po::value<int>(&_verb)->default_value(0), "verbosity");
         positional_options().add("sage", 1);
         positional_options().add("param", 2);
@@ -51,16 +48,6 @@ class application : public hpc::mpi::application {
     void operator()() {
         if(_mode == "convert")
             convert();
-        else if(_mode == "check")
-            check();
-        else if(_mode == "find")
-            find();
-        else if(_mode == "show")
-            show();
-        else if(_mode == "count")
-            count();
-        else if(_mode == "mass")
-            mass();
     }
 
     void convert() {
@@ -354,143 +341,7 @@ class application : public hpc::mpi::application {
         }
     }
 
-    void find() {
-        if(_comm->rank() == 0) {
-            _load_param(_param_fn);
-            _load_redshifts(_alist_fn);
 
-            unsigned long long cur_tree = 0;
-            unsigned           idx      = _idx_rng[0];
-            int                n_idx_trees;
-            for(; idx < _idx_rng[1]; ++idx) {
-                std::ifstream file(_make_filename(idx, *_redshifts.rbegin()).native(), std::ios::binary);
-                EXCEPT(file.good());
-                file.read((char *)&n_idx_trees, sizeof(int));
-                cur_tree += n_idx_trees;
-                if(_treeidx < cur_tree) {
-                    cur_tree = _treeidx - (cur_tree - n_idx_trees);
-                    break;
-                }
-            }
-
-            std::vector<std::ifstream> files   = _open_files(idx);
-            unsigned                   cur_gal = 0;
-            unsigned                   z       = 0;
-            for(; z < files.size(); ++z) {
-                int n_idx_gals;
-                files[z].read((char *)&n_idx_trees, sizeof(int));
-                files[z].read((char *)&n_idx_gals, sizeof(int));
-                std::vector<unsigned> tree_sizes(n_idx_trees);
-                files[z].read((char *)tree_sizes.data(), tree_sizes.size() * sizeof(unsigned));
-                cur_gal += tree_sizes[cur_tree];
-                if(_lidx < cur_gal) {
-                    cur_gal = _lidx - (cur_gal - tree_sizes[cur_tree]);
-                    break;
-                }
-            }
-
-            std::cout << "File index:        " << idx << "\n";
-            std::cout << "File z index:      " << z << "\n";
-            std::cout << "File tree index:   " << cur_tree << "\n";
-            std::cout << "File galaxy index: " << cur_gal << "\n";
-        }
-    }
-
-    void show() {
-        if(_comm->rank() == 0) {
-            _load_param(_param_fn);
-            _load_redshifts(_alist_fn);
-
-            std::ifstream file;
-            {
-                auto it = _redshifts.rbegin();
-                for(unsigned ii = 0; ii < _filez; ++ii, ++it)
-                    ;
-                auto fn = _make_filename(_fileidx, *it);
-                std::cout << "Opening file: " << fn << "\n";
-                file.open(fn.native(), std::ios::binary);
-                EXCEPT(file.good());
-            }
-
-            int n_file_trees, n_file_gals;
-            file.read((char *)&n_file_trees, sizeof(int));
-            file.read((char *)&n_file_gals, sizeof(int));
-            std::vector<unsigned> tree_sizes(n_file_trees);
-            file.read((char *)tree_sizes.data(), n_file_trees * sizeof(int));
-            GALAXY_OUTPUT gal;
-
-            EXCEPT(_treeidx < n_file_trees, "Invalid tree index.");
-            EXCEPT(_lidx < tree_sizes[_treeidx], "Invalid file local galaxy index.");
-
-            for(unsigned ii = 0; ii < _treeidx; ++ii) {
-                for(unsigned jj = 0; jj < tree_sizes[ii]; ++jj)
-                    file.read((char *)&gal, sizeof(gal));
-            }
-            for(unsigned ii = 0; ii <= _lidx; ++ii)
-                file.read((char *)&gal, sizeof(gal));
-
-            std::cout << "Merge into ID:       " << gal.mergeIntoID << "\n";
-            std::cout << "Merge into snapshot: " << gal.mergeIntoSnapNum << "\n";
-            std::cout << "Spin:                (" << gal.Spin[0] << ", " << gal.Spin[1] << ", " << gal.Spin[2] << ")\n";
-        }
-    }
-
-    ///
-    /// Count objects at a particular snapshot.
-    ///
-    void count() {
-        _load_param(_param_fn);
-        _load_redshifts(_alist_fn);
-
-        hpc::array<size_t, 2> idx_rng = _sage_idx_rng();
-        LOGILN("Processing range: ", idx_rng);
-
-        unsigned long long tot_gals = 0;
-        for(size_t ii = idx_rng[0]; ii < idx_rng[1]; ++ii) {
-            std::vector<std::ifstream> files = _open_files(ii);
-            int                        n_gals, n_trees;
-            files[_filez].read((char *)&n_trees, sizeof(n_trees));
-            files[_filez].read((char *)&n_gals, sizeof(n_gals));
-            std::vector<int> n_tree_gals(n_trees);
-            files[_filez].read((char *)n_tree_gals.data(), n_trees * sizeof(int));
-            tot_gals += std::accumulate<std::vector<int>::const_iterator, unsigned long long>(
-                n_tree_gals.begin(), n_tree_gals.end(), 0);
-        }
-
-        // Reduce.
-        tot_gals = _comm->all_reduce(tot_gals);
-
-        if(_comm->rank() == 0)
-            std::cout << "Galaxies in snapshot " << _filez << ": " << tot_gals << "\n";
-    }
-
-    ///
-    /// Dump mass from particular snapshot.
-    ///
-    void mass() {
-        _load_param(_param_fn);
-        _load_redshifts(_alist_fn);
-
-        hpc::array<size_t, 2> idx_rng = _sage_idx_rng();
-        LOGILN("Processing range: ", idx_rng);
-
-        for(size_t ii = idx_rng[0]; ii < idx_rng[1]; ++ii) {
-            std::vector<std::ifstream> files = _open_files(ii);
-            int                        n_gals, n_trees;
-            files[_filez].read((char *)&n_trees, sizeof(n_trees));
-            files[_filez].read((char *)&n_gals, sizeof(n_gals));
-            std::vector<int> n_tree_gals(n_trees);
-            files[_filez].read((char *)n_tree_gals.data(), n_trees * sizeof(int));
-            unsigned long long tot_gals = std::accumulate<std::vector<int>::const_iterator, unsigned long long>(
-                n_tree_gals.begin(), n_tree_gals.end(), 0);
-            for(unsigned long long ii = 0; ii < tot_gals; ++ii) {
-                GALAXY_OUTPUT gal;
-                files[_filez].read((char *)&gal, sizeof(gal));
-                ASSERT(files[_filez].good(), "Failed to read galaxy.");
-                std::cout << gal.StellarMass * 1e10 << "\n";
-            }
-        }
-    }
 
     void check_tree(std::vector<sage::galaxy> const &gals, unsigned long long displ, unsigned tree_idx) {
         std::set<unsigned long long> gids;

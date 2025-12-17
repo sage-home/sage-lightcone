@@ -62,8 +62,12 @@ list(APPEND SRCFILES "kdapplication.cc" )
 # eg. list(APPEND EXEFILES "file" )
 list(APPEND EXEFILES "cli_lightcone.cc" )
 list(APPEND EXEFILES "sage2h5.cc" )
+list(APPEND EXEFILES "sage2kdtree.cc" )
 list(APPEND EXEFILES "dstreeinit.cc" )
+list(APPEND EXEFILES "sageh5tokdtree.cc" )
 list(APPEND EXEFILES "sageh5toxml.cc" )
+list(APPEND EXEFILES "sageh5toh5.cc" )
+list(APPEND EXEFILES "sageimport.cc" )
 
 # Add data files
 # eg. list(APPEND DATAFILES "file" )

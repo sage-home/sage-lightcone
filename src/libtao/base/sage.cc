@@ -271,7 +271,18 @@ namespace sage {
     outfile_settings << "    <GalaxyModel>" << "SAGE" << "</GalaxyModel>" << std::endl;
     outfile_settings << "    <hubble>" << hubble << "</hubble>" << std::endl;
     outfile_settings << "    <InputFile>" << inname << "</InputFile>" << std::endl;
-    outfile_settings << "    <OutputFile>" << "out_" << inname << "</OutputFile>" << std::endl;
+    // Split inname into directory and filename
+    size_t last_slash = inname.find_last_of("/\\");
+    std::string directory = "";
+    std::string filename = inname;
+    
+    if (last_slash != std::string::npos) {
+      directory = inname.substr(0, last_slash + 1);
+      filename = inname.substr(last_slash + 1);
+    }
+    
+    std::string output_file = directory + "out_" + filename;
+    outfile_settings << "    <OutputFile>" << output_file << "</OutputFile>" << std::endl;
     outfile_settings << "    <SimulationBoxX>" << box_size << "</SimulationBoxX>" << std::endl;
     outfile_settings << "    <SimulationBoxY>" << box_size << "</SimulationBoxY>" << std::endl;
     outfile_settings << "    <BSPCellSize>" << "10" << "</BSPCellSize>" << std::endl;
@@ -282,7 +293,7 @@ namespace sage {
     outfile_settings << "  <TreeTraversal>" << std::endl;
     outfile_settings << "    <item>" << "global_index" << "</item>" << std::endl;
     outfile_settings << "    <item>" << "descendant" << "</item>" << std::endl;
-    outfile_settings << "    <item>" << "snapshot" << "</item>" << std::endl;
+    outfile_settings << "    <item>" << "snapnum" << "</item>" << std::endl;
     outfile_settings << "  </TreeTraversal>" << std::endl;
     outfile_settings << "</settings>" << std::endl;
     outfile_settings.close();
@@ -400,7 +411,18 @@ namespace sage {
     outfile_settings << "    <GalaxyModel>" << "SAGE" << "</GalaxyModel>" << std::endl;
     outfile_settings << "    <hubble>" << hubble << "</hubble>" << std::endl;
     outfile_settings << "    <InputFile>" << inname << "</InputFile>" << std::endl;
-    outfile_settings << "    <OutputFile>" << "out_" << inname << "</OutputFile>" << std::endl;
+    // Split inname into directory and filename
+    size_t last_slash = inname.find_last_of("/\\");
+    std::string directory = "";
+    std::string filename = inname;
+    
+    if (last_slash != std::string::npos) {
+      directory = inname.substr(0, last_slash + 1);
+      filename = inname.substr(last_slash + 1);
+    }
+    
+    std::string output_file = directory + "out_" + filename;
+    outfile_settings << "    <OutputFile>" << output_file << "</OutputFile>" << std::endl;
     outfile_settings << "    <SimulationBoxX>" << box_size << "</SimulationBoxX>" << std::endl;
     outfile_settings << "    <SimulationBoxY>" << box_size << "</SimulationBoxY>" << std::endl;
     outfile_settings << "    <BSPCellSize>" << "10" << "</BSPCellSize>" << std::endl;

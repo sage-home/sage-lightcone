@@ -22,6 +22,9 @@ init_validate()
 # (user can still override with DESTDIR with make to set installation directory)
 set( CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/runtime" )
 
+# Set output directory for executables to the build directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # Set default compilers (must come before project line)
 # For GCC build
 set(CMAKE_C_COMPILER   "gcc")
