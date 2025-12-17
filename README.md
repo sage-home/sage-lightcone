@@ -13,7 +13,7 @@ These are modules designed to carry out the workflow of converting sage binary o
  * GSL - The GNU Scientific Library.
  * PugiXML - A C++ XML parsing library.
 
-## Clnne repository with submodules
+## Set up: Clone repository with submodules
 
 ```bash
 git clone --recurse-submodules https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli.git
@@ -22,30 +22,29 @@ cd tao-lightcone-cli
 
 ## Building
 
-On the HPC system at nt.swin.edu.au and on your own macOS M3 laptop the build should be done as follows:
+On the HPC system at nt.swin.edu.au the build should be done as follows:
 
 ```bash
+source setup.sh
+./build_platform_aware.sh
+```
+and on your own macOS M3 laptop the build should be done as follows:
+
+```
+On MacOS 
+source setup_mac.sh
 ./build_platform_aware.sh
 ```
 
 after which the executables will be under the bin director.
 
-### Set up:
-* `git clone --recurse-submodules https://gitlab.com/CAS-eResearch/external/tao-managed/tao-lightcone-cli.git`
-* `git submodule update --init --recursive`
 
 ### To run the end to end test (From sage to kdindexing to extracting a lightcone)
 * cd tests/sage-model-tests
-* ./run_test.sh
+* ./run_test_hdf5_one_step.sh
  
 
-## Building
-
-To build on Swinburne's nt.swin.edu.au after cloning from the repository just run
-```bash
-source ./setup.sh
-./run_build.sh
-```
+## Building on other environments
 
 To build in other environments refer to the .gitlab-ci.yml on how this is done within a CI/CDD framework. The science modules use cmake as a build system. As with any package
 that has numerous dependencies, we recommend installing as many of them
