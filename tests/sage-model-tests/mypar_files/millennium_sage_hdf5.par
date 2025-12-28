@@ -45,20 +45,27 @@ BoxSize         62.5 % Size of the simulation box in Mpc/h.
 %----- SAGE recipe options ----------------
 %------------------------------------------
 
-SFprescription        0   %0: original Croton et al. 2006;
+SFprescription        1   %0: original Croton et al. 2006; 1: BR06 H2 Stars; 2: Somerville et al. 2025 SFR; 3: Somerville et al. 2025 SFR + H2
 AGNrecipeOn           2   %0: switch off; 1: empirical model; 2: Bondi-Hoyle model; 3: cold cloud accretion model
 SupernovaRecipeOn     1   %0: switch off; 1: original Croton et al. 2016
 ReionizationOn        1   %0: switch off
 DiskInstabilityOn     1   %0: switch off; 1: bulge and BH growth through instabilities w. instability starbursts
+CGMrecipeOn           1   %0: switch off
+FIREmodeOn            1   %0: switch off
+FeedbackFreeModeOn    1   %0: switch off
+BulgeSizeOn           3   %0: switch off; 1: Shen eq. 33; 2: Shen eq. 32; 3: Tonini
 
 %------------------------------------------
 %----- SAGE model parameters --------------
 %------------------------------------------
 
-SfrEfficiency           0.05  %efficiency of SF (SFprescription=0)
+SfrEfficiency           0.03  %efficiency of SF (SFprescription=0)
+FFBMaxEfficiency        0.2   %0.2 fits observations best, 1.0 is theoretical maximum
 
-FeedbackReheatingEpsilon    3.0   %mass of cold gas reheated due to SF (see Martin 1999) (SupernovaRecipeOn=1)
-FeedbackEjectionEfficiency  0.3   %mixing efficiency of SN energy with hot gas to unbind and eject some (SupernovaRecipeOn=1)
+RedshiftPowerLawExponent    1.25   %alpha for (1+z)^alpha in mass loading calculation (FIREmodeOn=1)
+
+FeedbackReheatingEpsilon    2.9   %mass of cold gas reheated due to SF (see Martin 1999) (SupernovaRecipeOn=1)
+FeedbackEjectionEfficiency  0.5   %mixing efficiency of SN energy with hot gas to unbind and eject some (SupernovaRecipeOn=1)
 
 ReIncorporationFactor   0.15    %fraction of ejected mass reincorporated per dynamical time to hot
 

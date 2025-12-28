@@ -28,6 +28,26 @@ fi
 echo "Platform-specific setup complete"
 echo "CMAKE_EXTRA_FLAGS: $CMAKE_EXTRA_FLAGS"
 
+# Clone the selected SAGE repository in place in case it doesn't exist
+# That is, clone if doesn't exist, otherwise pull latest
+
+SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
+
+# Clone if doesn't exist, otherwise pull latest
+if [ ! -d "sage-model" ]; then
+    echo "Cloning SAGE from ${SAGE_REPO}..."
+    git clone ${SAGE_REPO} sage-model
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to clone SAGE repository"
+        exit 1
+    fi
+else
+    echo "Updating SAGE from ${SAGE_REPO}..."
+    cd sage-model
+    git pull
+    cd ..
+fi
+
 # Clean up any old CMake cache files
 echo "Cleaning old build artifacts..."
 find . -name CMakeCache.txt -exec rm -f {} \;
@@ -52,64 +72,58 @@ cd bin
 make clean
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
-# Build SAGE executable from submodule
+# Build SAGE executable from git repository
 echo ""
 echo "Building SAGE executable..."
 cd ..
+cd sage-model
 
-# Check if sage-model directory exists
-if [ -d "sage-model" ]; then
-    cd sage-model
-    
-    # Set environment based on platform detected earlier
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "Building SAGE for macOS..."
-        
-        # Find HDF5 directory (try multiple common locations)
-        if command -v brew >/dev/null 2>&1; then
-            HDF5_DIR=$(brew --prefix hdf5-mpi 2>/dev/null || brew --prefix hdf5 2>/dev/null || echo "")
-        fi
-        
-        if [ -z "$HDF5_DIR" ] && [ -d "/opt/homebrew/Cellar/hdf5-mpi" ]; then
-            HDF5_DIR="/opt/homebrew"
-        elif [ -z "$HDF5_DIR" ] && [ -d "/usr/local/Cellar/hdf5-mpi" ]; then
-            HDF5_DIR="/usr/local"
-        fi
-        
-        if [ -n "$HDF5_DIR" ]; then
-            export HDF5_DIR
-            echo "Using HDF5_DIR: $HDF5_DIR"
-        fi
-        
-        # Use system compiler on macOS
-        export CC=gcc
-    else
-        echo "Building SAGE for HPC/Linux environment..."
-        # Use MPI compiler for HPC environments
-        export CC=mpicc
+# Set environment based on platform detected earlier
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "Building SAGE for macOS..."
+
+    # Find HDF5 directory (try multiple common locations)
+    if command -v brew >/dev/null 2>&1; then
+        HDF5_DIR=$(brew --prefix hdf5-mpi 2>/dev/null || brew --prefix hdf5 2>/dev/null || echo "")
     fi
-    
-    # Build sage
-    echo "Running make all in sage-model directory..."
-    make all
-    
-    # Check if build was successful
-    if [ -f "sage" ]; then
-        echo "SAGE executable built successfully!"
-        echo "SAGE executable location: $(pwd)/sage"
-        
-        # Copy to parent bin directory for convenience
-        cp sage ../bin/sage
-        echo "Copied SAGE executable to bin directory"
-    else
-        echo "Warning: SAGE executable was not created!"
+
+    if [ -z "$HDF5_DIR" ] && [ -d "/opt/homebrew/Cellar/hdf5-mpi" ]; then
+        HDF5_DIR="/opt/homebrew"
+    elif [ -z "$HDF5_DIR" ] && [ -d "/usr/local/Cellar/hdf5-mpi" ]; then
+        HDF5_DIR="/usr/local"
     fi
-    
-    cd ..
+
+    if [ -n "$HDF5_DIR" ]; then
+        export HDF5_DIR
+        echo "Using HDF5_DIR: $HDF5_DIR"
+    fi
+
+    # Use system compiler on macOS
+    export CC=gcc
 else
-    echo "Warning: sage-model directory not found. Skipping SAGE build."
-    echo "To build SAGE, initialize the submodule with: git submodule update --init --recursive"
+    echo "Building SAGE for HPC/Linux environment..."
+    # Use MPI compiler for HPC environments
+    export CC=mpicc
 fi
+
+# Build sage
+echo "Running make in sage-model directory..."
+make
+
+# Check if build was successful
+if [ -f "sage" ]; then
+    echo "SAGE executable built successfully!"
+    echo "SAGE executable location: $(pwd)/sage"
+
+    # Copy to parent bin directory for convenience
+    cp sage ../bin/sage
+    echo "Copied SAGE executable to bin directory"
+else
+    echo "ERROR: SAGE executable was not created!"
+    exit 1
+fi
+
+cd ..
 
 echo ""
 echo "Build complete!"
