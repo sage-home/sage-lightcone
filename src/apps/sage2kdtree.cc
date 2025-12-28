@@ -188,6 +188,7 @@ private:
     //==========================================================================
     // Utility Methods
     //==========================================================================
+    void _validate_inputs();         // Validate all inputs before processing (Priority 1.1)
     void _setup_intermediate_paths();
     void _make_output_hdf5_types();  // Create HDF5 types for output (big-endian, correct precision)
 
@@ -288,12 +289,21 @@ sage2kdtree_application::sage2kdtree_application(int argc, char *argv[])
 
 void sage2kdtree_application::operator()() {
     try {
+        // Validate inputs before processing
+        if (_verb && _comm->rank() == 0) {
+            std::cout << "=== Validating Inputs ===" << std::endl;
+        }
+        _validate_inputs();
+        if (_verb && _comm->rank() == 0) {
+            std::cout << "  ✓ All inputs validated successfully\n" << std::endl;
+        }
+
         // Setup intermediate file paths
         _setup_intermediate_paths();
 
         // Phase 1: SAGE HDF5 → Depth-First Ordered
         if (_verb && _comm->rank() == 0) {
-            std::cout << "\n=== Phase 1: SAGE HDF5 → Depth-first ordered ===" << std::endl;
+            std::cout << "=== Phase 1: SAGE HDF5 → Depth-first ordered ===" << std::endl;
         }
         phase1_sageh5_to_depthfirst();
         _comm->barrier();
@@ -380,9 +390,257 @@ void sage2kdtree_application::_setup_intermediate_paths() {
 }
 
 //==============================================================================
+// Validate Inputs (Priority 1.1)
+// Comprehensive input validation with clear error messages
+//==============================================================================
+
+void sage2kdtree_application::_validate_inputs() {
+    // Only rank 0 performs validation to avoid redundant checks
+    if (_comm->rank() != 0) return;
+
+    std::vector<std::string> errors;
+    std::vector<std::string> warnings;
+
+    // 1. Check file existence
+    if (_verb >= 2) std::cout << "  → Checking input file existence..." << std::endl;
+
+    if (!hpc::fs::exists(_param_fn)) {
+        errors.push_back("Parameter file not found: " + _param_fn.string() +
+                        "\n      Suggestion: Check the path to your SAGE parameter file (.par)");
+    }
+
+    if (!hpc::fs::exists(_alist_fn)) {
+        errors.push_back("Expansion factor list not found: " + _alist_fn.string() +
+                        "\n      Suggestion: This file should contain scale factors (a_list) from your simulation");
+    }
+
+    if (!hpc::fs::exists(_sage_dir)) {
+        errors.push_back("SAGE output directory not found: " + _sage_dir.string() +
+                        "\n      Suggestion: Check the path to your SAGE HDF5 output directory");
+    } else if (!hpc::fs::is_directory(_sage_dir)) {
+        errors.push_back("SAGE output path is not a directory: " + _sage_dir.string());
+    }
+
+    // Early exit if files don't exist
+    if (!errors.empty()) {
+        std::string msg = "\n=== INPUT VALIDATION FAILED ===\n";
+        for (const auto& err : errors) {
+            msg += "  ✗ " + err + "\n";
+        }
+        throw PipelineException(0, msg);
+    }
+
+    // 2. Validate SAGE HDF5 directory has .hdf5 or .h5 files
+    if (_verb >= 2) std::cout << "  → Checking for SAGE HDF5 files..." << std::endl;
+
+    bool found_hdf5_files = false;
+    hpc::fs::directory_iterator end_iter;
+    for(hpc::fs::directory_iterator dir_itr(_sage_dir); dir_itr != end_iter; ++dir_itr) {
+        if(hpc::fs::is_regular_file(dir_itr->status())) {
+            std::string ext = dir_itr->path().extension().string();
+            if (ext == ".hdf5" || ext == ".h5") {
+                found_hdf5_files = true;
+                break;
+            }
+        }
+    }
+
+    if (!found_hdf5_files) {
+        errors.push_back("No HDF5 files found in SAGE directory: " + _sage_dir.string() +
+                        "\n      Suggestion: SAGE HDF5 output should have .hdf5 or .h5 extension");
+    }
+
+    // 3. Validate first SAGE HDF5 file structure
+    if (_verb >= 2) std::cout << "  → Validating SAGE HDF5 structure..." << std::endl;
+
+    // Find first substantial HDF5 file (skip small master files)
+    // SAGE typically creates model_0.hdf5, model_1.hdf5, etc. (data files)
+    // and model.hdf5 (small master file with just header)
+    hpc::fs::path first_hdf5;
+    const size_t min_file_size = 100000; // 100KB - data files are typically much larger
+
+    for(hpc::fs::directory_iterator dir_itr(_sage_dir); dir_itr != end_iter; ++dir_itr) {
+        if(hpc::fs::is_regular_file(dir_itr->status())) {
+            std::string ext = dir_itr->path().extension().string();
+            std::string stem = dir_itr->path().stem().string();
+
+            // Look for .hdf5 or .h5 files
+            if (ext == ".hdf5" || ext == ".h5") {
+                // Skip small files (likely master files without data)
+                size_t file_size = hpc::fs::file_size(dir_itr->path());
+                if (file_size < min_file_size) {
+                    if (_verb >= 2) {
+                        std::cout << "    Skipping small file (likely master): "
+                                  << dir_itr->path().filename() << " (" << file_size << " bytes)" << std::endl;
+                    }
+                    continue;
+                }
+
+                // Prefer files matching model_N.hdf5 pattern (actual data files)
+                if (stem.find("model_") == 0 && stem.length() > 6) {
+                    first_hdf5 = dir_itr->path();
+                    break;
+                }
+
+                // Otherwise accept any substantial file
+                if (first_hdf5.empty()) {
+                    first_hdf5 = dir_itr->path();
+                }
+            }
+        }
+    }
+
+    if (!first_hdf5.empty()) {
+        if (_verb >= 2) {
+            std::cout << "    Validating file: " << first_hdf5.filename() << std::endl;
+        }
+
+        try {
+            hpc::h5::file test_file(first_hdf5.string(), H5F_ACC_RDONLY);
+
+            // Check for Header/Simulation group
+            bool has_header_simulation = test_file.has_link("Header/Simulation");
+            if (!has_header_simulation) {
+                warnings.push_back("Header/Simulation group not found in " + first_hdf5.filename().string() +
+                                 "\n      Cosmology parameters may not be available");
+            } else {
+                // Validate cosmology attributes
+                auto sim_group = test_file.group("Header/Simulation");
+                std::vector<std::string> required_attrs = {"BoxSize", "Hubble_h", "Omega_m", "Omega_lambda"};
+                std::vector<std::string> missing_attrs;
+
+                for (const auto& attr : required_attrs) {
+                    if (H5Aexists(sim_group.id(), attr.c_str()) <= 0) {
+                        missing_attrs.push_back(attr);
+                    }
+                }
+
+                if (!missing_attrs.empty()) {
+                    std::string missing_list;
+                    for (const auto& attr : missing_attrs) {
+                        missing_list += attr + " ";
+                    }
+                    warnings.push_back("Missing cosmology attributes in Header/Simulation: " + missing_list +
+                                     "\n      These will be read from parameter file instead");
+                }
+            }
+
+            // Check for at least one Snap_N group
+            int snap_count = 0;
+            while (test_file.has_link("Snap_" + std::to_string(snap_count))) {
+                snap_count++;
+            }
+
+            if (snap_count == 0) {
+                errors.push_back("No Snap_N groups found in " + first_hdf5.filename().string() +
+                                "\n      Suggestion: SAGE HDF5 output should contain Snap_0, Snap_1, etc.");
+            } else {
+                if (_verb >= 2) std::cout << "    Found " << snap_count << " snapshots" << std::endl;
+
+                // Validate required fields in Snap_0
+                auto snap0 = test_file.group("Snap_0");
+                std::vector<std::string> required_fields = {"Posx", "Posy", "Posz", "SAGETreeIndex"};
+                std::vector<std::string> missing_fields;
+
+                for (const auto& field : required_fields) {
+                    if (!snap0.has_link(field)) {
+                        missing_fields.push_back(field);
+                    }
+                }
+
+                if (!missing_fields.empty()) {
+                    std::string missing_list;
+                    for (const auto& field : missing_fields) {
+                        missing_list += field + " ";
+                    }
+                    errors.push_back("Missing required fields in Snap_0: " + missing_list +
+                                    "\n      Suggestion: SAGE HDF5 output must contain position (Posx/y/z) and tree index fields");
+                }
+            }
+
+        } catch (std::exception& e) {
+            errors.push_back("Failed to open/validate SAGE HDF5 file " + first_hdf5.filename().string() +
+                            ": " + std::string(e.what()) +
+                            "\n      Suggestion: Ensure SAGE output is in HDF5 format (OutputFormat sage_hdf5)");
+        }
+    }
+
+    // 4. Validate parameter file has required keys
+    if (_verb >= 2) std::cout << "  → Validating parameter file..." << std::endl;
+
+    std::ifstream param_file(_param_fn.native());
+    if (param_file.good()) {
+        std::set<std::string> found_params;
+        std::string line;
+        while(std::getline(param_file, line)) {
+            if(line.empty() || line[0] == '%') continue;
+            std::stringstream ss(line);
+            std::string key;
+            ss >> key;
+            found_params.insert(key);
+        }
+
+        std::vector<std::string> required_params = {"BoxSize", "Hubble_h"};
+        std::vector<std::string> recommended_params = {"Omega_Lambda", "OmegaLambda", "Omega_m", "Omega"};
+
+        for (const auto& param : required_params) {
+            if (found_params.find(param) == found_params.end()) {
+                warnings.push_back("Parameter '" + param + "' not found in " + _param_fn.filename().string());
+            }
+        }
+
+        bool has_omega_lambda = (found_params.find("Omega_Lambda") != found_params.end() ||
+                                 found_params.find("OmegaLambda") != found_params.end());
+        bool has_omega_m = (found_params.find("Omega_m") != found_params.end() ||
+                           found_params.find("Omega") != found_params.end());
+
+        if (!has_omega_lambda || !has_omega_m) {
+            warnings.push_back("Cosmology parameters (Omega_Lambda, Omega_m) incomplete in parameter file");
+        }
+    }
+
+    // 5. Validate expansion factor list
+    if (_verb >= 2) std::cout << "  → Validating expansion factor list..." << std::endl;
+
+    std::ifstream alist_file(_alist_fn.native());
+    if (alist_file.good()) {
+        int line_count = 0;
+        std::string line;
+        while(std::getline(alist_file, line)) {
+            if(line.empty() || line[0] == '%') continue;
+            line_count++;
+        }
+
+        if (line_count == 0) {
+            errors.push_back("Expansion factor list is empty: " + _alist_fn.filename().string() +
+                            "\n      Suggestion: File should contain one scale factor per snapshot");
+        } else {
+            if (_verb >= 2) std::cout << "    Found " << line_count << " scale factors" << std::endl;
+        }
+    }
+
+    // Report results
+    if (!warnings.empty() && _verb >= 1) {
+        std::cout << "\n  Warnings:" << std::endl;
+        for (const auto& warn : warnings) {
+            std::cout << "  ⚠  " << warn << std::endl;
+        }
+        std::cout << std::endl;
+    }
+
+    if (!errors.empty()) {
+        std::string msg = "\n=== INPUT VALIDATION FAILED ===\n";
+        for (const auto& err : errors) {
+            msg += "  ✗ " + err + "\n";
+        }
+        throw PipelineException(0, msg);
+    }
+}
+
+//==============================================================================
 // Create HDF5 Types for Output
-// Uses big-endian byte order and correct precision (64-bit for long long)
-// to match baseline workflow output
+// Uses native endian for both memory and file (simpler, more efficient)
+// Changed from big-endian to native endian to avoid conversion overhead
 //==============================================================================
 
 void sage2kdtree_application::_make_output_hdf5_types() {
@@ -450,67 +708,68 @@ void sage2kdtree_application::_make_output_hdf5_types() {
     _mem_type.insert(datatype::native_float, "infall_vvir",           offsetof(sage::galaxy, infall_vvir));
     _mem_type.insert(datatype::native_float, "infall_vmax",           offsetof(sage::galaxy, infall_vmax));
 
-    // Create file type (big-endian byte order to match baseline)
-    _file_type.compound(256);  // Size calculated automatically
-    _file_type.insert(datatype::std_i32be,  "snapnum", 0);
-    _file_type.insert(datatype::std_i32be,  "type", 4);
-    _file_type.insert(datatype::std_i64be,  "galaxy_index", 8);           // 64-bit for long long
-    _file_type.insert(datatype::std_i64be,  "central_galaxy_index", 16);   // 64-bit for long long
-    _file_type.insert(datatype::std_i32be,  "sage_halo_index", 24);
-    _file_type.insert(datatype::std_i32be,  "sage_tree_index", 28);
-    _file_type.insert(datatype::std_i64be,  "simulation_halo_index", 32);  // 64-bit for long long (FIX!)
-    _file_type.insert(datatype::std_i32be,  "local_index", 40);
-    _file_type.insert(datatype::std_i64be,  "global_index", 44);           // 64-bit for long long
-    _file_type.insert(datatype::std_i32be,  "descendant", 52);
-    _file_type.insert(datatype::std_i64be,  "global_descendant", 56);      // 64-bit for long long
-    _file_type.insert(datatype::std_i32be,  "subsize", 64);
-    _file_type.insert(datatype::std_i32be,  "merge_type", 68);
-    _file_type.insert(datatype::std_i32be,  "merge_into_id", 72);
-    _file_type.insert(datatype::std_i32be,  "merge_into_snapshot", 76);
-    _file_type.insert(datatype::ieee_f32be, "dt", 80);
-    _file_type.insert(datatype::ieee_f32be, "posx", 84);
-    _file_type.insert(datatype::ieee_f32be, "posy", 88);
-    _file_type.insert(datatype::ieee_f32be, "posz", 92);
-    _file_type.insert(datatype::ieee_f32be, "velx", 96);
-    _file_type.insert(datatype::ieee_f32be, "vely", 100);
-    _file_type.insert(datatype::ieee_f32be, "velz", 104);
-    _file_type.insert(datatype::ieee_f32be, "spin_x", 108);
-    _file_type.insert(datatype::ieee_f32be, "spin_y", 112);
-    _file_type.insert(datatype::ieee_f32be, "spin_z", 116);
-    _file_type.insert(datatype::std_i32be,  "n_darkmatter_particles", 120);
-    _file_type.insert(datatype::ieee_f32be, "virial_mass", 124);
-    _file_type.insert(datatype::ieee_f32be, "central_galaxy_mvir", 128);
-    _file_type.insert(datatype::ieee_f32be, "virial_radius", 132);
-    _file_type.insert(datatype::ieee_f32be, "virial_velocity", 136);
-    _file_type.insert(datatype::ieee_f32be, "max_velocity", 140);
-    _file_type.insert(datatype::ieee_f32be, "velocity_dispersion", 144);
-    _file_type.insert(datatype::ieee_f32be, "cold_gas", 148);
-    _file_type.insert(datatype::ieee_f32be, "stellar_mass", 152);
-    _file_type.insert(datatype::ieee_f32be, "bulge_mass", 156);
-    _file_type.insert(datatype::ieee_f32be, "hot_gas", 160);
-    _file_type.insert(datatype::ieee_f32be, "ejected_mass", 164);
-    _file_type.insert(datatype::ieee_f32be, "blackhole_mass", 168);
-    _file_type.insert(datatype::ieee_f32be, "ics", 172);
-    _file_type.insert(datatype::ieee_f32be, "metals_cold_gas", 176);
-    _file_type.insert(datatype::ieee_f32be, "metals_stellar_mass", 180);
-    _file_type.insert(datatype::ieee_f32be, "metals_bulge_mass", 184);
-    _file_type.insert(datatype::ieee_f32be, "metals_hot_gas", 188);
-    _file_type.insert(datatype::ieee_f32be, "metals_ejected_mass", 192);
-    _file_type.insert(datatype::ieee_f32be, "metals_ics", 196);
-    _file_type.insert(datatype::ieee_f32be, "sfr_disk", 200);
-    _file_type.insert(datatype::ieee_f32be, "sfr_bulge", 204);
-    _file_type.insert(datatype::ieee_f32be, "sfr_disk_z", 208);
-    _file_type.insert(datatype::ieee_f32be, "sfr_bulge_z", 212);
-    _file_type.insert(datatype::ieee_f32be, "disk_scale_radius", 216);
-    _file_type.insert(datatype::ieee_f32be, "cooling", 220);
-    _file_type.insert(datatype::ieee_f32be, "heating", 224);
-    _file_type.insert(datatype::ieee_f32be, "quasar_mode_bh_accretion_mass", 228);
-    _file_type.insert(datatype::ieee_f32be, "time_of_last_major_merger", 232);
-    _file_type.insert(datatype::ieee_f32be, "time_of_last_minor_merger", 236);
-    _file_type.insert(datatype::ieee_f32be, "outflow_rate", 240);
-    _file_type.insert(datatype::ieee_f32be, "infall_mvir", 244);
-    _file_type.insert(datatype::ieee_f32be, "infall_vvir", 248);
-    _file_type.insert(datatype::ieee_f32be, "infall_vmax", 252);
+    // Create file type (native byte order - same as memory type)
+    // Simpler and more efficient than big-endian conversion
+    _file_type.compound(sizeof(sage::galaxy));
+    _file_type.insert(datatype::native_int,   "snapnum",              offsetof(sage::galaxy, snapshot));
+    _file_type.insert(datatype::native_int,   "type",                  offsetof(sage::galaxy, type));
+    _file_type.insert(datatype::native_llong, "galaxy_index",          offsetof(sage::galaxy, galaxy_idx));
+    _file_type.insert(datatype::native_llong, "central_galaxy_index",  offsetof(sage::galaxy, central_galaxy_idx));
+    _file_type.insert(datatype::native_int,   "sage_halo_index",       offsetof(sage::galaxy, sage_halo_idx));
+    _file_type.insert(datatype::native_int,   "sage_tree_index",       offsetof(sage::galaxy, sage_tree_idx));
+    _file_type.insert(datatype::native_llong, "simulation_halo_index", offsetof(sage::galaxy, simulation_halo_idx));
+    _file_type.insert(datatype::native_int,   "local_index",           offsetof(sage::galaxy, local_index));
+    _file_type.insert(datatype::native_llong, "global_index",          offsetof(sage::galaxy, global_index));
+    _file_type.insert(datatype::native_int,   "descendant",            offsetof(sage::galaxy, descendant));
+    _file_type.insert(datatype::native_llong, "global_descendant",     offsetof(sage::galaxy, global_descendant));
+    _file_type.insert(datatype::native_int,   "subsize",               offsetof(sage::galaxy, subsize));
+    _file_type.insert(datatype::native_int,   "merge_type",            offsetof(sage::galaxy, merge_type));
+    _file_type.insert(datatype::native_int,   "merge_into_id",         offsetof(sage::galaxy, merge_into_id));
+    _file_type.insert(datatype::native_int,   "merge_into_snapshot",   offsetof(sage::galaxy, merge_into_snapshot));
+    _file_type.insert(datatype::native_float, "dt",                    offsetof(sage::galaxy, dt));
+    _file_type.insert(datatype::native_float, "posx",                  offsetof(sage::galaxy, pos[0]));
+    _file_type.insert(datatype::native_float, "posy",                  offsetof(sage::galaxy, pos[1]));
+    _file_type.insert(datatype::native_float, "posz",                  offsetof(sage::galaxy, pos[2]));
+    _file_type.insert(datatype::native_float, "velx",                  offsetof(sage::galaxy, vel[0]));
+    _file_type.insert(datatype::native_float, "vely",                  offsetof(sage::galaxy, vel[1]));
+    _file_type.insert(datatype::native_float, "velz",                  offsetof(sage::galaxy, vel[2]));
+    _file_type.insert(datatype::native_float, "spin_x",                offsetof(sage::galaxy, spin[0]));
+    _file_type.insert(datatype::native_float, "spin_y",                offsetof(sage::galaxy, spin[1]));
+    _file_type.insert(datatype::native_float, "spin_z",                offsetof(sage::galaxy, spin[2]));
+    _file_type.insert(datatype::native_int,   "n_darkmatter_particles", offsetof(sage::galaxy, num_particles));
+    _file_type.insert(datatype::native_float, "virial_mass",           offsetof(sage::galaxy, mvir));
+    _file_type.insert(datatype::native_float, "central_galaxy_mvir",   offsetof(sage::galaxy, central_mvir));
+    _file_type.insert(datatype::native_float, "virial_radius",         offsetof(sage::galaxy, rvir));
+    _file_type.insert(datatype::native_float, "virial_velocity",       offsetof(sage::galaxy, vvir));
+    _file_type.insert(datatype::native_float, "max_velocity",          offsetof(sage::galaxy, vmax));
+    _file_type.insert(datatype::native_float, "velocity_dispersion",   offsetof(sage::galaxy, vel_disp));
+    _file_type.insert(datatype::native_float, "cold_gas",              offsetof(sage::galaxy, cold_gas));
+    _file_type.insert(datatype::native_float, "stellar_mass",          offsetof(sage::galaxy, stellar_mass));
+    _file_type.insert(datatype::native_float, "bulge_mass",            offsetof(sage::galaxy, bulge_mass));
+    _file_type.insert(datatype::native_float, "hot_gas",               offsetof(sage::galaxy, hot_gas));
+    _file_type.insert(datatype::native_float, "ejected_mass",          offsetof(sage::galaxy, ejected_mass));
+    _file_type.insert(datatype::native_float, "blackhole_mass",        offsetof(sage::galaxy, blackhole_mass));
+    _file_type.insert(datatype::native_float, "ics",                   offsetof(sage::galaxy, ics));
+    _file_type.insert(datatype::native_float, "metals_cold_gas",       offsetof(sage::galaxy, metals_cold_gas));
+    _file_type.insert(datatype::native_float, "metals_stellar_mass",   offsetof(sage::galaxy, metals_stellar_mass));
+    _file_type.insert(datatype::native_float, "metals_bulge_mass",     offsetof(sage::galaxy, metals_bulge_mass));
+    _file_type.insert(datatype::native_float, "metals_hot_gas",        offsetof(sage::galaxy, metals_hot_gas));
+    _file_type.insert(datatype::native_float, "metals_ejected_mass",   offsetof(sage::galaxy, metals_ejected_mass));
+    _file_type.insert(datatype::native_float, "metals_ics",            offsetof(sage::galaxy, metals_ics));
+    _file_type.insert(datatype::native_float, "sfr_disk",              offsetof(sage::galaxy, sfr_disk));
+    _file_type.insert(datatype::native_float, "sfr_bulge",             offsetof(sage::galaxy, sfr_bulge));
+    _file_type.insert(datatype::native_float, "sfr_disk_z",            offsetof(sage::galaxy, sfr_disk_z));
+    _file_type.insert(datatype::native_float, "sfr_bulge_z",           offsetof(sage::galaxy, sfr_bulge_z));
+    _file_type.insert(datatype::native_float, "disk_scale_radius",     offsetof(sage::galaxy, disk_scale_radius));
+    _file_type.insert(datatype::native_float, "cooling",               offsetof(sage::galaxy, cooling));
+    _file_type.insert(datatype::native_float, "heating",               offsetof(sage::galaxy, heating));
+    _file_type.insert(datatype::native_float, "quasar_mode_bh_accretion_mass", offsetof(sage::galaxy, quasar_mode_bh_accretion_mass));
+    _file_type.insert(datatype::native_float, "time_of_last_major_merger", offsetof(sage::galaxy, time_of_last_major_merger));
+    _file_type.insert(datatype::native_float, "time_of_last_minor_merger", offsetof(sage::galaxy, time_of_last_minor_merger));
+    _file_type.insert(datatype::native_float, "outflow_rate",          offsetof(sage::galaxy, outflow_rate));
+    _file_type.insert(datatype::native_float, "infall_mvir",           offsetof(sage::galaxy, infall_mvir));
+    _file_type.insert(datatype::native_float, "infall_vvir",           offsetof(sage::galaxy, infall_vvir));
+    _file_type.insert(datatype::native_float, "infall_vmax",           offsetof(sage::galaxy, infall_vmax));
 }
 
 //==============================================================================
@@ -555,13 +814,30 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
     }
 
     // 2. Scan Phase: Count trees and galaxies
+    if (_verb && _comm->rank() == 0) {
+        std::cout << "  → Scanning files to count trees and galaxies..." << std::endl;
+    }
+
     unsigned long long my_tot_trees = 0;
     unsigned long long my_tot_gals = 0;
     std::vector<unsigned long long> file_tree_counts;
     std::vector<unsigned long long> file_gal_counts;
 
-    for(const auto& fn : my_files) {
-        hpc::h5::file f(fn.native(), H5F_ACC_RDONLY);
+    for(size_t file_idx = 0; file_idx < my_files.size(); ++file_idx) {
+        const auto& fn = my_files[file_idx];
+
+        if (_verb >= 2 && _comm->rank() == 0) {
+            std::cout << "    Scanning file " << (file_idx + 1) << "/" << my_files.size()
+                      << ": " << fn.filename() << std::endl;
+        }
+
+        hpc::h5::file f;
+        try {
+            f.open(fn.native(), H5F_ACC_RDONLY);
+        } catch (std::exception& e) {
+            throw PipelineException(1, "Failed to open SAGE HDF5 file '" + fn.string() + "': " +
+                                    std::string(e.what()));
+        }
 
         // Determine number of trees from Snap_63/SAGETreeIndex
         size_t n_trees = 0;
@@ -621,6 +897,10 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
     unsigned long long total_trees = _comm->all_reduce(my_tot_trees);
     unsigned long long total_gals = _comm->all_reduce(my_tot_gals);
 
+    if (_verb && _comm->rank() == 0) {
+        std::cout << "  → Found " << total_trees << " trees with "
+                  << total_gals << " galaxies" << std::endl;
+    }
     LOGILN("Total Trees: ", total_trees);
     LOGILN("Total Galaxies: ", total_gals);
 
@@ -648,11 +928,21 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                         hpc::h5::buffer_default_size, global_tree_offset);
 
     // 4. Process Files
+    if (_verb && _comm->rank() == 0) {
+        std::cout << "  → Processing " << my_files.size() << " files and applying depth-first ordering..." << std::endl;
+    }
+
     unsigned long long current_gal_global_idx = global_gal_offset;
     unsigned long long current_tree_displ = global_gal_offset;
 
     for(size_t fidx = 0; fidx < my_files.size(); ++fidx) {
         hpc::fs::path fn = my_files[fidx];
+
+        if (_verb >= 2 && _comm->rank() == 0) {
+            std::cout << "    Processing file " << (fidx + 1) << "/" << my_files.size()
+                      << ": " << fn.filename() << " (" << file_tree_counts[fidx]
+                      << " trees, " << file_gal_counts[fidx] << " galaxies)" << std::endl;
+        }
         LOGILN("Processing file: ", fn);
 
         hpc::h5::file f(fn.native(), H5F_ACC_RDONLY);
@@ -865,11 +1155,20 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
 }
 
 void sage2kdtree_application::_load_param(hpc::fs::path const &fn) {
+    if (_verb >= 2 && _comm->rank() == 0) {
+        std::cout << "  → Loading parameters from " << fn.filename() << std::endl;
+    }
+
     std::ifstream file(fn.native());
-    EXCEPT(file.good(), "Could not open parameter file.");
+    if (!file.good()) {
+        throw PipelineException(1, "Failed to open parameter file: " + fn.string() +
+                                "\n      Check that the file exists and is readable");
+    }
 
     std::string line;
+    int line_num = 0;
     while(std::getline(file, line)) {
+        line_num++;
         if(line.empty() || line[0] == '%')
             continue;
 
@@ -887,21 +1186,65 @@ void sage2kdtree_application::_load_param(hpc::fs::path const &fn) {
         else if(key == "Omega_m" || key == "Omega")
             ss >> _omega_m;
     }
+
+    // Validate that we got the critical parameters
+    if (_box_size <= 0.0 || _hubble <= 0.0) {
+        throw PipelineException(1, "Invalid or missing cosmology parameters in " + fn.filename().string() +
+                                "\n      Required: BoxSize > 0, Hubble_h > 0" +
+                                "\n      Got: BoxSize=" + std::to_string(_box_size) +
+                                ", Hubble_h=" + std::to_string(_hubble/100.0));
+    }
+
+    if (_verb >= 2 && _comm->rank() == 0) {
+        std::cout << "    Loaded: BoxSize=" << _box_size
+                  << ", Hubble_h=" << _hubble/100.0
+                  << ", Omega_m=" << _omega_m
+                  << ", Omega_Lambda=" << _omega_l << std::endl;
+    }
 }
 
 void sage2kdtree_application::_load_redshifts(hpc::fs::path const &fn) {
+    if (_verb >= 2 && _comm->rank() == 0) {
+        std::cout << "  → Loading redshifts from " << fn.filename() << std::endl;
+    }
+
     std::ifstream file(fn.native());
-    EXCEPT(file.good(), "Could not open expansion list file.");
+    if (!file.good()) {
+        throw PipelineException(1, "Failed to open expansion factor list: " + fn.string() +
+                                "\n      Check that the file exists and is readable");
+    }
 
     std::string line;
+    int line_num = 0;
     while(std::getline(file, line)) {
+        line_num++;
         if(line.empty() || line[0] == '%')
             continue;
 
         std::stringstream ss(line);
         double            a;
         ss >> a;
+
+        if (a <= 0.0 || a > 1.0) {
+            throw PipelineException(1, "Invalid scale factor at line " + std::to_string(line_num) +
+                                    " in " + fn.filename().string() +
+                                    ": a=" + std::to_string(a) +
+                                    "\n      Scale factors must be in range (0, 1]");
+        }
+
         _redshifts.push_back(1.0 / a - 1.0);
+    }
+
+    if (_redshifts.empty()) {
+        throw PipelineException(1, "No valid scale factors found in " + fn.string() +
+                                "\n      File should contain one scale factor per line");
+    }
+
+    if (_verb >= 2 && _comm->rank() == 0) {
+        std::cout << "    Loaded " << _redshifts.size() << " redshifts "
+                  << "(z_min=" << *std::min_element(_redshifts.begin(), _redshifts.end())
+                  << ", z_max=" << *std::max_element(_redshifts.begin(), _redshifts.end())
+                  << ")" << std::endl;
     }
 }
 

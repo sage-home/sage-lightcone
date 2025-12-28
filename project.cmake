@@ -48,10 +48,10 @@ macro(project_options_and_dependencies)
     set_3rd_party_required("Threads")
 
     # Non-system libraries
+    # Note: boost_system is header-only in Boost 1.69+ so not listed as a component
     set(BOOST_COMPONENTS "")
     set(SOCI_COMPONENTS "")
     list(APPEND BOOST_COMPONENTS "program_options")
-    list(APPEND BOOST_COMPONENTS "system")
     list(APPEND BOOST_COMPONENTS "regex")
     list(APPEND BOOST_COMPONENTS "filesystem")
     list(APPEND BOOST_COMPONENTS "chrono")
