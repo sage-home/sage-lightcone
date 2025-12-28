@@ -148,8 +148,8 @@ ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_h
 # ${MY_ROOT}/bin/dstreeinit --mode kdtree --tree ${OUTPUTDIR}/out_$RAWNAME-depthfirstordered.h5 --sage ${OUTPUTDIR}/$RAWNAME-bysnap.h5 --output ${OUTPUTDIR}/$RAWNAME-kdtree.h5
 
 echo "Test by creating a lightcone and plotting snapnum..."
-#${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 10 --ramin 0 --ramax 30 --zmin 0 --zmax 0.5 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 0 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 10 --ramin 0 --ramax 30 --zmin 0 --zmax 0.5 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+#${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
 source ${MY_ROOT}/.venv/bin/activate
 python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 snapnum
 
