@@ -320,7 +320,7 @@ class application : public hpc::mpi::application {
                     g.merge_type = merge_type[i];
                     g.merge_into_id = merge_into_id[i];
                     g.merge_into_snapshot = merge_into_snap[i];
-                    g.dt = dt[i] / 1000.0; // Convert to Gyrs
+                    g.dt = dt[i]; // Preserve SAGE units (Myr)
                     
                     g.num_particles = len[i];
                     

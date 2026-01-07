@@ -24,6 +24,7 @@
 #include <iostream>
 #include <vector>
 #include <set>
+#include <map>
 #include <algorithm>
 #include <boost/range/algorithm/fill.hpp>
 #include <pugixml.hpp>
@@ -188,8 +189,10 @@ class myapplication : public hpc::mpi::application {
                 std::string       name = _mem_type.member_name(ii);
                 std::string       name_lowercase = name;
                 std::transform(name_lowercase.begin(), name_lowercase.end(), name_lowercase.begin(), ::tolower);
+                // Map to CamelCase field name for output compatibility
+                std::string       output_name = map_to_camelcase_field_name(name_lowercase);
                 hpc::h5::datatype dt   = _mem_type.member_type(ii);
-                hpc::h5::dataset  ds(out_file, "data/" + name_lowercase, dt, n_gals);
+                hpc::h5::dataset  ds(out_file, "data/" + output_name, dt, n_gals);
             }
 
             // Process each snapshot.
@@ -200,7 +203,8 @@ class myapplication : public hpc::mpi::application {
             }
 
             // Write the SED data.
-            write_sed_dataANY(out_file, tree_fn);
+            // DISABLED: SED data writing removed per user request
+            // write_sed_dataANY(out_file, tree_fn);
 
             // Add in cosmology stuff.
             hpc::h5::copy(file, "cosmology", out_file);
@@ -279,6 +283,126 @@ class myapplication : public hpc::mpi::application {
             // }
         }
 
+    // Map lowercase_with_underscores field names to match SAGE HDF5 CamelCase format
+    // SAGE fields: use exact CamelCase from SAGE output
+    // Computed fields: keep as lowercase_with_underscores
+    std::string map_to_camelcase_field_name(const std::string& lowercase_name) {
+        static std::map<std::string, std::string> field_map = {
+            // Spatial fields - SAGE CamelCase
+            {"posx", "Posx"},
+            {"posy", "Posy"},
+            {"posz", "Posz"},
+            {"velx", "Velx"},
+            {"vely", "Vely"},
+            {"velz", "Velz"},
+
+            // Mass fields - SAGE CamelCase
+            {"stellar_mass", "StellarMass"},
+            {"bulge_mass", "BulgeMass"},
+            {"cold_gas", "ColdGas"},
+            {"hot_gas", "HotGas"},
+            {"ejected_mass", "EjectedMass"},
+            {"blackhole_mass", "BlackHoleMass"},
+            {"virial_mass", "Mvir"},  // SAGE uses Mvir not VirialMass
+            {"central_galaxy_mvir", "CentralMvir"},
+
+            // Metal fields - SAGE CamelCase
+            {"metals_stellar_mass", "MetalsStellarMass"},
+            {"metals_bulge_mass", "MetalsBulgeMass"},
+            {"metals_cold_gas", "MetalsColdGas"},
+            {"metals_hot_gas", "MetalsHotGas"},
+            {"metals_ejected_mass", "MetalsEjectedMass"},
+            {"metals_ics", "MetalsIntraClusterStars"},  // sageh5toh5 abbreviates to 'metals_ics'
+            {"metals_cgm_gas", "MetalsCGMgas"},
+            {"metals_intracluster_stars", "MetalsIntraClusterStars"},  // Full name if present
+
+            // Star formation fields - SAGE CamelCase
+            {"sfr_disk", "SfrDisk"},
+            {"sfr_bulge", "SfrBulge"},
+            {"sfr_disk_z", "SfrDiskZ"},
+            {"sfr_bulge_z", "SfrBulgeZ"},
+
+            // Structural fields - SAGE CamelCase
+            {"disk_scale_radius", "DiskRadius"},  // SAGE uses DiskRadius
+            {"virial_radius", "Rvir"},  // SAGE uses Rvir
+            {"virial_velocity", "Vvir"},  // SAGE uses Vvir
+            {"max_velocity", "Vmax"},  // SAGE uses Vmax
+            {"velocity_dispersion", "VelDisp"},  // SAGE uses VelDisp
+
+            // Spin fields - SAGE CamelCase
+            {"spin_x", "Spinx"},
+            {"spin_y", "Spiny"},
+            {"spin_z", "Spinz"},
+
+            // Type and index fields - SAGE CamelCase
+            {"type", "Type"},
+            {"snapnum", "SnapNum"},
+            {"n_darkmatter_particles", "Len"},  // SAGE uses Len
+
+            // Infall fields - SAGE uses lowercase
+            {"infall_mvir", "infallMvir"},
+            {"infall_vmax", "infallVmax"},
+            {"infall_vvir", "infallVvir"},
+
+            // Additional SAGE fields - various naming patterns
+            {"bulge_radius", "BulgeRadius"},
+            {"cgm_gas", "CGMgas"},
+            {"h2_gas", "H2gas"},
+            {"ffb_regime", "FFBRegime"},
+            {"regime", "Regime"},
+            {"instability_bulge_mass", "InstabilityBulgeMass"},
+            {"instability_bulge_radius", "InstabilityBulgeRadius"},
+            {"intracluster_stars", "IntraClusterStars"},
+            {"mass_loading", "MassLoading"},
+            {"merger_bulge_mass", "MergerBulgeMass"},
+            {"merger_bulge_radius", "MergerBulgeRadius"},
+            {"rcool_to_rvir", "RcoolToRvir"},
+            {"tcool", "tcool"},  // Lowercase in SAGE
+            {"tcool_over_tff", "tcool_over_tff"},  // Lowercase with underscore in SAGE
+            {"tdeplete", "tdeplete"},  // Lowercase in SAGE
+            {"tff", "tff"},  // Lowercase in SAGE
+
+            // Other SAGE fields - exact SAGE names (mixed case)
+            {"ics", "IntraClusterStars"},  // sageh5toh5 abbreviates to 'ics'
+            {"dt", "dT"},  // SAGE uses lowercase 'd'
+            {"cooling", "Cooling"},
+            {"heating", "Heating"},
+            {"quasar_mode_bh_accretion_mass", "QuasarModeBHaccretionMass"},  // Mixed case in SAGE
+            {"time_of_last_major_merger", "TimeOfLastMajorMerger"},
+            {"time_of_last_minor_merger", "TimeOfLastMinorMerger"},
+            {"time_of_infall", "TimeOfInfall"},
+            {"outflow_rate", "OutflowRate"},
+
+            // Index fields that exist in SAGE - use SAGE names
+            {"galaxy_index", "GalaxyIndex"},
+            {"central_galaxy_index", "CentralGalaxyIndex"},
+            {"sage_halo_index", "SAGEHaloIndex"},
+            {"sage_tree_index", "SAGETreeIndex"},
+            {"simulation_halo_index", "SimulationHaloIndex"},
+            {"merge_type", "mergeType"},
+            {"merge_into_id", "mergeIntoID"},
+            {"merge_into_snapshot", "mergeIntoSnapNum"},
+
+            // Computed fields during conversion - keep lowercase_with_underscores unchanged
+            {"local_index", "local_index"},
+            {"global_index", "global_index"},
+            {"descendant", "descendant"},
+            {"global_descendant", "global_descendant"},
+            {"subsize", "subsize"},
+            {"globaltreeid", "globaltreeid"},
+            {"localgalaxyid", "localgalaxyid"},
+            {"breadthfirst_traversalorder", "breadthfirst_traversalorder"},
+            {"depthfirst_traversalorder", "depthfirst_traversalorder"},
+            {"subtree_count", "subtree_count"}
+        };
+
+        auto it = field_map.find(lowercase_name);
+        if (it != field_map.end()) {
+            return it->second;
+        }
+        // If not in map, keep original name unchanged
+        return lowercase_name;
+    }
 
     void write_attributesANY(hpc::h5::dataset &                     in_ds,
                               hpc::h5::file &                        out_file,
@@ -299,6 +423,8 @@ class myapplication : public hpc::mpi::application {
                 std::string       name    = _mem_type.member_name(ii);
                 std::string       name_lowercase = name;
                 std::transform(name_lowercase.begin(), name_lowercase.end(), name_lowercase.begin(), ::tolower);
+                // Map to CamelCase field name for output compatibility
+                std::string       output_name = map_to_camelcase_field_name(name_lowercase);
                 unsigned          dt_offs = _mem_type.member_offset(ii);
                 hpc::h5::datatype dt      = _mem_type.member_type(ii);
                 std::vector<char> tmp(todo * dt.size());
@@ -306,7 +432,7 @@ class myapplication : public hpc::mpi::application {
                     memcpy((char *)tmp.data() + dt.size() * jj,
                            (char *)buf.data() + _mem_type.size() * jj + dt_offs,
                            dt.size());
-                hpc::h5::dataset   out_ds(out_file, "data/" + name_lowercase);
+                hpc::h5::dataset   out_ds(out_file, "data/" + output_name);
                 hpc::h5::dataspace mem_space(todo);
                 hpc::h5::dataspace file_space(out_ds);
                 file_space.select_range(displ + offs, displ + offs + todo);

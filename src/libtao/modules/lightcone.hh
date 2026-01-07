@@ -95,8 +95,9 @@ namespace tao {
             {
                _my_be = true;
                _be = new backend_type;
-               _be->connect( global_cli_dict );
             }
+            // Always call connect() to ensure backend is properly initialized
+            _be->connect( global_cli_dict );
 
             // Read all my options.
             _read_options( global_cli_dict );
@@ -153,7 +154,7 @@ namespace tao {
                // First of all, fix up my filter. I need to postpone it until
                // here because the batch object is only full of all the possible
                // fields now.
-               if( !_filt.field_name().empty() )
+               if( !_filt.field_name().empty() && _bat.has_field( _filt.field_name() ) )
                   _filt.set_type( _bat.get_field_type( _filt.field_name() ) );
 
                // Restart the iterators.
@@ -375,14 +376,26 @@ namespace tao {
             }
 
             // Output field information.
-             // TODO: Is this the place to get the hdf5 meta data (We seem to be doing it multiple times)?
+             // Get all field names directly from HDF5 file /data/* datasets
              std::string input_hdf5_file = global_cli_dict._dataset;
-             tao::xml_dict sidecar_xml = tao::data_dict::getSidecar(input_hdf5_file, "/sageinput");
-             std::vector<tao::data_dict_field> allfields = tao::data_dict::getFieldsANY(sidecar_xml, "/sageinput/Field");
-            // Convert allfields._name to lowercase for case-insensitive comparison
-            for (auto& field : allfields) {
-               std::transform(field._name.begin(), field._name.end(), field._name.begin(), ::tolower);
-            }
+             std::vector<std::string> all_field_names;
+             {
+                hpc::h5::file input_file(input_hdf5_file, H5F_ACC_RDONLY);
+                hpc::h5::group data_group;
+                input_file.open_group("data", data_group);
+
+                H5G_info_t group_info;
+                H5Gget_info(data_group.id(), &group_info);
+
+                for (hsize_t i = 0; i < group_info.nlinks; i++) {
+                   char name_buf[256];
+                   H5Lget_name_by_idx(data_group.id(), ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name_buf, sizeof(name_buf), H5P_DEFAULT);
+                   std::string field_name(name_buf);
+                   // Convert to lowercase for case-insensitive comparison
+                   std::transform(field_name.begin(), field_name.end(), field_name.begin(), ::tolower);
+                   all_field_names.push_back(field_name);
+                }
+             }
 
                LOGILN( "Using output fields specified in the command line." );
                // Use the output fields specified in the command line.
@@ -390,14 +403,11 @@ namespace tao {
                {
                   LOGILN( "No output fields specified via CLI, using all fields from the input hdf5 file." );
                   // If no output fields specified, use all fields from the input hdf5 file.
-                  for( auto const& field : allfields )
+                  for( auto const& field_name : all_field_names )
                   {
-                     if (field._group == "VIS3D only" || field._group == "Internal") {
-                           LOGILN( "Skipping internal field name in input hdf5 file. " , field._name );
-                           continue;
-                     }
-                     _qry.add_output_field( field._name );
-                     LOGILN( "CLI.Adding field ", field._name, " with label ", field._label );
+                     // Note: Without XML, we can't filter by group. All fields from /data are used.
+                     _qry.add_output_field( field_name );
+                     LOGILN( "CLI.Adding field ", field_name );
                   }
                }
                else
@@ -405,11 +415,12 @@ namespace tao {
                   for( auto const& field : global_cli_dict._output_fields )
                   {
                      // Check if the field exists in the input hdf5 file.
-                     auto it = std::find_if( allfields.begin(), allfields.end(),
-                                             [&field](const tao::data_dict_field& f) {
-                                                return f._name == field || f._label == field;
-                                             } );
-                     if (it == allfields.end()) {
+                     // Convert requested field to lowercase for case-insensitive comparison
+                     std::string field_lower = field;
+                     std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+
+                     auto it = std::find(all_field_names.begin(), all_field_names.end(), field_lower);
+                     if (it == all_field_names.end()) {
                         LOGILN( "Field '", field, "' not found in input hdf5 file. stop." );
                         exit(-1);
                      }

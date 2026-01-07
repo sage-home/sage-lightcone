@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
 Plot 3D lightcone data from HDF5 file
-Reads posx, posy, posz fields and creates a 3D scatter plot
+Reads Posx, Posy, Posz fields and creates a 3D scatter plot
 
-Usage: 
+Usage:
     python plot_lightcone.py <hdf5_file> [color_field]
-    
+
 Arguments:
     hdf5_file   : Path to the HDF5 file
-    color_field : Field name to color by (default: stellar_mass)
-    
+    color_field : Field name to color by (default: StellarMass, case-insensitive)
+
 Note: For headless environments (HPC clusters), plots are automatically saved to PNG files.
-      To force non-interactive mode, uncomment the following lines:
-      # import matplotlib
-      # matplotlib.use('Agg')  # Use non-interactive backend
+      Field names are matched case-insensitively (e.g., 'StellarMass' = 'stellarmass' = 'stellar_mass').
 """
 
 import h5py
@@ -25,13 +23,54 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sys
 
-def plot_lightcone_3d(hdf5_file, color_field="stellar_mass"):
+def find_field_case_insensitive(h5_obj, field_name):
+    """
+    Find field using case-insensitive search.
+
+    Args:
+        h5_obj: HDF5 file, group, or dataset object
+        field_name: Field name to search for
+
+    Returns:
+        Actual field name as it appears in HDF5, or None if not found
+    """
+    # For compound datasets, check dtype.names
+    if hasattr(h5_obj, 'dtype') and h5_obj.dtype.names:
+        # Try exact match first
+        if field_name in h5_obj.dtype.names:
+            return field_name
+
+        # Try case-insensitive
+        field_lower = field_name.lower()
+        for key in h5_obj.dtype.names:
+            if key.lower() == field_lower:
+                return key
+
+    # For groups/files, check keys
+    elif hasattr(h5_obj, 'keys'):
+        # Try exact match first
+        if field_name in h5_obj:
+            return field_name
+
+        # Try case-insensitive
+        field_lower = field_name.lower()
+        for key in h5_obj.keys():
+            if key.lower() == field_lower:
+                return key
+
+    return None
+
+def plot_lightcone_3d(hdf5_file, color_field="StellarMass"):
     """
     Read lightcone data from HDF5 file and create a 3D scatter plot
-    
+
     Args:
         hdf5_file (str): Path to the HDF5 file
-        color_field (str): Field name to color the points by
+        color_field (str): Field name to color the points by (case-insensitive, default: StellarMass)
+
+    Note:
+        Field names are matched case-insensitively. For example, 'StellarMass',
+        'stellarmass', and 'stellar_mass' will all match the same field.
     """
     # File path is now passed as argument
     # hdf5_file is already set by the function parameter
@@ -57,24 +96,40 @@ def plot_lightcone_3d(hdf5_file, color_field="stellar_mass"):
                 try:
                     if dataset_name in f or dataset_name == '/':
                         if dataset_name == '/':
-                            # Check if fields are directly in root
-                            if 'posx' in f:
-                                posx = f['posx'][:]
-                                posy = f['posy'][:]
-                                posz = f['posz'][:]
-                                color_data = f[color_field][:] if color_field in f else None
+                            # Check if fields are directly in root (case-insensitive)
+                            posx_field = find_field_case_insensitive(f, 'posx')
+                            if posx_field:
+                                posy_field = find_field_case_insensitive(f, 'posy')
+                                posz_field = find_field_case_insensitive(f, 'posz')
+                                color_field_actual = find_field_case_insensitive(f, color_field)
+
+                                posx = f[posx_field][:]
+                                posy = f[posy_field][:]
+                                posz = f[posz_field][:]
+                                color_data = f[color_field_actual][:] if color_field_actual else None
+
                                 print(f"Found position data in root directory")
+                                if color_field_actual and color_field_actual != color_field:
+                                    print(f"Using field '{color_field_actual}' (requested: '{color_field}')")
                                 break
                         else:
-                            # Check if fields are in a dataset
+                            # Check if fields are in a dataset (case-insensitive)
                             ds = f[dataset_name]
-                            if hasattr(ds, 'dtype') and ds.dtype.names and 'posx' in ds.dtype.names:
+                            posx_field = find_field_case_insensitive(ds, 'posx')
+                            if hasattr(ds, 'dtype') and ds.dtype.names and posx_field:
                                 data = ds[:]
-                                posx = data['posx']
-                                posy = data['posy'] 
-                                posz = data['posz']
-                                color_data = data[color_field] if color_field in ds.dtype.names else None
+                                posy_field = find_field_case_insensitive(ds, 'posy')
+                                posz_field = find_field_case_insensitive(ds, 'posz')
+                                color_field_actual = find_field_case_insensitive(ds, color_field)
+
+                                posx = data[posx_field]
+                                posy = data[posy_field]
+                                posz = data[posz_field]
+                                color_data = data[color_field_actual] if color_field_actual else None
+
                                 print(f"Found position data in dataset: {dataset_name}")
+                                if color_field_actual and color_field_actual != color_field:
+                                    print(f"Using field '{color_field_actual}' (requested: '{color_field}')")
                                 break
                 except (KeyError, ValueError) as e:
                     continue
@@ -180,17 +235,19 @@ def plot_lightcone_3d(hdf5_file, color_field="stellar_mass"):
 def main():
     """Main function to handle command-line arguments."""
     import sys
-    
+
     # Check for correct number of arguments
     if len(sys.argv) < 2:
         print("Usage: python plot_lightcone.py <path_to_hdf5_file> [color_field]")
-        print("Example: python plot_lightcone.py output/mymillennium_lightcone.h5 stellar_mass")
-        print("Default color field is 'stellar_mass' if not specified")
+        print("Example: python plot_lightcone.py output/mymillennium_lightcone.h5 StellarMass")
+        print("         python plot_lightcone.py output/mymillennium_lightcone.h5 SnapNum")
+        print("Default color field is 'StellarMass' if not specified")
+        print("Note: Field names are case-insensitive")
         sys.exit(1)
-    
+
     # Parse command-line arguments
     hdf5_file = sys.argv[1]
-    color_field = sys.argv[2] if len(sys.argv) > 2 else "stellar_mass"
+    color_field = sys.argv[2] if len(sys.argv) > 2 else "StellarMass"
     
     # Check if file exists
     import os
