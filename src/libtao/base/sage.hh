@@ -1,6 +1,8 @@
 #ifndef tao_sage_hh
 #define tao_sage_hh
 
+#include <string>
+#include <vector>
 #include <libhpc/h5/datatype.hh>
 
 struct GALAXY_OUTPUT
@@ -70,6 +72,15 @@ struct GALAXY_OUTPUT
 };
 
 namespace sage {
+
+   // Field information for columnar storage
+   struct FieldInfo {
+      std::string name;           // HDF5 dataset name
+      hpc::h5::datatype type;     // HDF5 datatype
+      size_t offset;              // Offset in sage::galaxy struct
+      std::string description;    // Field description (from HDF5 attributes)
+      std::string units;          // Field units (from HDF5 attributes)
+   };
 
    struct galaxy
    {
@@ -282,6 +293,13 @@ namespace sage {
    void
    make_hdf5_types( hpc::h5::datatype& mem_type,
 		    hpc::h5::datatype& file_type );
+
+   // Get list of galaxy fields for columnar storage
+   // Subset version for proof of concept (posx, posy, posz, stellar_mass)
+   std::vector<FieldInfo> get_galaxy_field_list_subset();
+
+   // Full field list (all 60+ fields)
+   std::vector<FieldInfo> get_galaxy_field_list_full();
 
     void
     make_hdf5_sidecar( std::string simulation_name, std::string inname,  const std::set<double>& redshifts, const double& hubble, const double& box_size );

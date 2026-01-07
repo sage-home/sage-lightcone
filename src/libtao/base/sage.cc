@@ -74,6 +74,127 @@ namespace sage {
       der.add( h5::datatype::native_float, HOFFSET( galaxy, infall_vmax ),         h5::datatype::native_float, "infall_vmax" );
       der.commit( mem_type, file_type );
    }
+
+   // Get subset of galaxy fields for proof of concept
+   // Minimal set required for full pipeline: tree traversal + spatial indexing + validation
+   std::vector<FieldInfo> get_galaxy_field_list_subset() {
+      using namespace hpc::h5;
+
+      std::vector<FieldInfo> fields;
+
+      // Snapshot number (required for Phase 3 snapshot redistribution)
+      fields.push_back({"snapnum", datatype::native_int, offsetof(galaxy, snapshot)});
+
+      // Tree structure (required for Phase 2 traversal metadata)
+      fields.push_back({"descendant", datatype::native_int, offsetof(galaxy, descendant)});
+      fields.push_back({"local_index", datatype::native_int, offsetof(galaxy, local_index)});
+
+      // Spatial coordinates (required for KD-tree in Phase 4)
+      fields.push_back({"posx", datatype::native_float, offsetof(galaxy, pos[0])});
+      fields.push_back({"posy", datatype::native_float, offsetof(galaxy, pos[1])});
+      fields.push_back({"posz", datatype::native_float, offsetof(galaxy, pos[2])});
+
+      // Stellar mass (useful for validation)
+      fields.push_back({"stellar_mass", datatype::native_float, offsetof(galaxy, stellar_mass)});
+
+      return fields;
+   }
+
+   // Get full list of galaxy fields for columnar storage
+   std::vector<FieldInfo> get_galaxy_field_list_full() {
+      using namespace hpc::h5;
+
+      std::vector<FieldInfo> fields;
+
+      // SAGE fields use CamelCase (matching SAGE HDF5 output)
+      // Computed/pipeline fields use lowercase
+
+      // Basic identifiers - SAGE CamelCase
+      fields.push_back({"SnapNum", datatype::native_int, offsetof(galaxy, snapshot)});
+      fields.push_back({"Type", datatype::native_int, offsetof(galaxy, type)});
+      fields.push_back({"GalaxyIndex", datatype::native_llong, offsetof(galaxy, galaxy_idx)});
+      fields.push_back({"CentralGalaxyIndex", datatype::native_llong, offsetof(galaxy, central_galaxy_idx)});
+      fields.push_back({"SAGEHaloIndex", datatype::native_int, offsetof(galaxy, sage_halo_idx)});
+      fields.push_back({"SAGETreeIndex", datatype::native_int, offsetof(galaxy, sage_tree_idx)});
+      fields.push_back({"SimulationHaloIndex", datatype::native_llong, offsetof(galaxy, simulation_halo_idx)});
+
+      // Traversal metadata - computed fields (lowercase)
+      fields.push_back({"local_index", datatype::native_int, offsetof(galaxy, local_index)});
+      fields.push_back({"global_index", datatype::native_llong, offsetof(galaxy, global_index)});
+      fields.push_back({"descendant", datatype::native_int, offsetof(galaxy, descendant)});
+      fields.push_back({"global_descendant", datatype::native_llong, offsetof(galaxy, global_descendant)});
+      fields.push_back({"subsize", datatype::native_int, offsetof(galaxy, subsize)});
+
+      // Merger information - SAGE mixed case
+      fields.push_back({"mergeType", datatype::native_int, offsetof(galaxy, merge_type)});
+      fields.push_back({"mergeIntoID", datatype::native_int, offsetof(galaxy, merge_into_id)});
+      fields.push_back({"mergeIntoSnapNum", datatype::native_int, offsetof(galaxy, merge_into_snapshot)});
+      fields.push_back({"dT", datatype::native_float, offsetof(galaxy, dt)});
+
+      // Spatial coordinates - SAGE CamelCase
+      fields.push_back({"Posx", datatype::native_float, offsetof(galaxy, pos[0])});
+      fields.push_back({"Posy", datatype::native_float, offsetof(galaxy, pos[1])});
+      fields.push_back({"Posz", datatype::native_float, offsetof(galaxy, pos[2])});
+
+      // Velocities - SAGE CamelCase
+      fields.push_back({"Velx", datatype::native_float, offsetof(galaxy, vel[0])});
+      fields.push_back({"Vely", datatype::native_float, offsetof(galaxy, vel[1])});
+      fields.push_back({"Velz", datatype::native_float, offsetof(galaxy, vel[2])});
+
+      // Spin - SAGE CamelCase
+      fields.push_back({"Spinx", datatype::native_float, offsetof(galaxy, spin[0])});
+      fields.push_back({"Spiny", datatype::native_float, offsetof(galaxy, spin[1])});
+      fields.push_back({"Spinz", datatype::native_float, offsetof(galaxy, spin[2])});
+
+      // Halo properties - SAGE CamelCase
+      fields.push_back({"Len", datatype::native_int, offsetof(galaxy, num_particles)});
+      fields.push_back({"Mvir", datatype::native_float, offsetof(galaxy, mvir)});
+      fields.push_back({"CentralMvir", datatype::native_float, offsetof(galaxy, central_mvir)});
+      fields.push_back({"Rvir", datatype::native_float, offsetof(galaxy, rvir)});
+      fields.push_back({"Vvir", datatype::native_float, offsetof(galaxy, vvir)});
+      fields.push_back({"Vmax", datatype::native_float, offsetof(galaxy, vmax)});
+      fields.push_back({"VelDisp", datatype::native_float, offsetof(galaxy, vel_disp)});
+
+      // Baryonic reservoirs - SAGE CamelCase
+      fields.push_back({"ColdGas", datatype::native_float, offsetof(galaxy, cold_gas)});
+      fields.push_back({"StellarMass", datatype::native_float, offsetof(galaxy, stellar_mass)});
+      fields.push_back({"BulgeMass", datatype::native_float, offsetof(galaxy, bulge_mass)});
+      fields.push_back({"HotGas", datatype::native_float, offsetof(galaxy, hot_gas)});
+      fields.push_back({"EjectedMass", datatype::native_float, offsetof(galaxy, ejected_mass)});
+      fields.push_back({"BlackHoleMass", datatype::native_float, offsetof(galaxy, blackhole_mass)});
+      fields.push_back({"IntraClusterStars", datatype::native_float, offsetof(galaxy, ics)});
+
+      // Metals - SAGE CamelCase
+      fields.push_back({"MetalsColdGas", datatype::native_float, offsetof(galaxy, metals_cold_gas)});
+      fields.push_back({"MetalsStellarMass", datatype::native_float, offsetof(galaxy, metals_stellar_mass)});
+      fields.push_back({"MetalsBulgeMass", datatype::native_float, offsetof(galaxy, metals_bulge_mass)});
+      fields.push_back({"MetalsHotGas", datatype::native_float, offsetof(galaxy, metals_hot_gas)});
+      fields.push_back({"MetalsEjectedMass", datatype::native_float, offsetof(galaxy, metals_ejected_mass)});
+      fields.push_back({"MetalsIntraClusterStars", datatype::native_float, offsetof(galaxy, metals_ics)});
+
+      // Star formation rates - SAGE CamelCase
+      fields.push_back({"SfrDisk", datatype::native_float, offsetof(galaxy, sfr_disk)});
+      fields.push_back({"SfrBulge", datatype::native_float, offsetof(galaxy, sfr_bulge)});
+      fields.push_back({"SfrDiskZ", datatype::native_float, offsetof(galaxy, sfr_disk_z)});
+      fields.push_back({"SfrBulgeZ", datatype::native_float, offsetof(galaxy, sfr_bulge_z)});
+
+      // Miscellaneous - SAGE CamelCase
+      fields.push_back({"DiskRadius", datatype::native_float, offsetof(galaxy, disk_scale_radius)});
+      fields.push_back({"Cooling", datatype::native_float, offsetof(galaxy, cooling)});
+      fields.push_back({"Heating", datatype::native_float, offsetof(galaxy, heating)});
+      fields.push_back({"QuasarModeBHaccretionMass", datatype::native_float, offsetof(galaxy, quasar_mode_bh_accretion_mass)});
+      fields.push_back({"TimeOfLastMajorMerger", datatype::native_float, offsetof(galaxy, time_of_last_major_merger)});
+      fields.push_back({"TimeOfLastMinorMerger", datatype::native_float, offsetof(galaxy, time_of_last_minor_merger)});
+      fields.push_back({"OutflowRate", datatype::native_float, offsetof(galaxy, outflow_rate)});
+
+      // Infall properties - SAGE mixed case
+      fields.push_back({"infallMvir", datatype::native_float, offsetof(galaxy, infall_mvir)});
+      fields.push_back({"infallVvir", datatype::native_float, offsetof(galaxy, infall_vvir)});
+      fields.push_back({"infallVmax", datatype::native_float, offsetof(galaxy, infall_vmax)});
+
+      return fields;
+   }
+
    void addField(std::ofstream &outfile, h5::datatype &datatype, std::string name, int32_t order) {
     std::string type;
     

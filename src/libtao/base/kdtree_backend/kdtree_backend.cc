@@ -1,8 +1,33 @@
 #include "kdtree_backend.hh"
+#include "../mandatory_fields.hh"
 #include <sstream>
 
 namespace tao {
    namespace backends {
+
+      // Helper function to read string attribute from HDF5 dataset
+      static std::string read_dataset_attribute(hid_t loc_id, const std::string& dataset_path,
+                                                const std::string& attr_name) {
+          hid_t dset_id = H5Dopen2(loc_id, dataset_path.c_str(), H5P_DEFAULT);
+          if (dset_id < 0) return "";
+
+          std::string result;
+          if (H5Aexists(dset_id, attr_name.c_str()) > 0) {
+              hid_t attr_id = H5Aopen(dset_id, attr_name.c_str(), H5P_DEFAULT);
+              hid_t type_id = H5Aget_type(attr_id);
+              size_t size = H5Tget_size(type_id);
+
+              std::vector<char> buf(size + 1, 0);
+              H5Aread(attr_id, type_id, buf.data());
+
+              H5Tclose(type_id);
+              H5Aclose(attr_id);
+              result = std::string(buf.data());
+          }
+
+          H5Dclose(dset_id);
+          return result;
+      }
 
       kdtree_backend::kdtree_backend( hpc::mpi::comm const& comm )
          : _kdt( hpc::mpi::comm::self ),
@@ -44,55 +69,13 @@ namespace tao {
 
       void
       kdtree_backend::connect(const cli_dict&  global_cli_dict) {
+         std::cerr << "DEBUG: kdtree_backend::connect() called" << std::endl;
          std::string fn = global_cli_dict._dataset;
-         std::string xmlfile=fn;
-         xmlfile.erase(xmlfile.length()-3,3);
-         xmlfile.append(".xml");
-         xml_dict h5xml;
-         h5xml.read(xmlfile ,"/sageinput");
-         // Iterate over the module nodes.
-         xpath_node_set fields = h5xml.get_nodes("/sageinput/Field");
-         std::map<std::string, int> _field_order;
-
          _field_types.clear();
 
-         for (const xpath_node *it = fields.begin(); it != fields.end(); ++it) {
-               xml_node cur = it->node();
-
-               std::string element = cur.name();
-               std::string field_str = cur.text().as_string();
-               to_lower(field_str);
-               std::string label = cur.attribute("label").value();
-               std::string description = cur.attribute("description").value();
-               int order = cur.attribute("order").as_int();
-               std::string units = cur.attribute("units").value();
-               std::string group = cur.attribute("group").value();
-               std::string type_str = cur.attribute("Type").value();
-               //std::cout << "Field[" << field_str << "]=" << label << "," << type_str << std::endl;
-               typename batch<real_type>::field_value_type type;
-               if (type_str == "int" || type_str == "short")
-                  type = batch<real_type>::INTEGER;
-               else if (type_str == "long long")
-                  type = batch<real_type>::LONG_LONG;
-               else if (type_str == "float")
-                  type = batch<real_type>::DOUBLE;
-               else {
-                  EXCEPT(0, "Unknown field type for field '", field_str, "': ", type_str);
-               }
-               _field_types.emplace(field_str, type);
-               _field_map[field_str] = field_str;
-               _field_description[field_str] = description;
-               _field_units[field_str] = units;
-               _field_group[field_str] = group;
-               _field_order[field_str] = order;
-               //_field_order[field_str] = order;
-               //std::cout << "Add ["<<field_str<<"]="<<_field_description[field_str]<<std::endl;
-
-         }
-
-         // Get it via the meta-data
-
+         // Open HDF5 file and read field information
           this->open(fn);
+         std::cerr << "DEBUG: After open(), _field_types has " << _field_types.size() << " entries" << std::endl;
           hpc::h5::group data = kdtree_file().group("data");
           std::vector<std::string> Hfields;
           H5Lvisit(data.id(),H5_INDEX_CRT_ORDER,H5_ITER_NATIVE,getFields,&Hfields);
@@ -104,22 +87,36 @@ namespace tao {
          //      std::cout << field << " dt="<<ds.datatype()<<","<<ds.type_class()<<std::endl;
          //  }
 
-                  // Before finishing, insert the known mapping conversions.
-                  // TODO: Generalise.
-                  this->_field_map["pos_x"] = "posx";
-                  this->_field_map["pos_y"] = "posy";
-                  this->_field_map["pos_z"] = "posz";
-                  this->_field_map["vel_x"] = "velx";
-                  this->_field_map["vel_y"] = "vely";
-                  this->_field_map["vel_z"] = "velz";
-                  this->_field_map["snapshot"] = "snapnum";
-                  this->_field_map["global_index"] = "global_index";
-                  this->_field_map["global_tree_id"] = "globaltreeid";
-                  this->_field_map["localgalaxyid"] = "localgalaxyid";
+          // Read field metadata from HDF5 attributes (override XML if present)
+          hid_t file_id = kdtree_file().id();
+          for (const std::string& field : Hfields) {
+              std::string field_path = "data/" + field;
 
-                  // RS Maybe for SED?
+              // Read Description attribute
+              std::string desc = read_dataset_attribute(file_id, field_path, "Description");
+              if (!desc.empty()) {
+                  std::string field_lower = field;
+                  to_lower(field_lower);
+                  _field_description[field_lower] = desc;
+              }
 
-                  this->_field_map["subtree_count"] = "subtree_count";
+              // Read Units attribute
+              std::string units = read_dataset_attribute(file_id, field_path, "Units");
+              if (!units.empty()) {
+                  std::string field_lower = field;
+                  to_lower(field_lower);
+                  _field_units[field_lower] = units;
+              }
+          }
+
+                  // Field name aliases - kdtree files use SAGE CamelCase for SAGE fields
+                  // Computed fields remain lowercase_with_underscores
+
+                  // Aliases for backward compatibility with different naming conventions
+                  this->_field_map["diskscaleradius"] = "DiskRadius";
+                  this->_field_map["disk_scale_radius"] = "DiskRadius";
+                  this->_field_map["stellar_mass"] = "StellarMass";
+                  this->_field_map["snapnum"] = "SnapNum";
 
                   // Add calculated types.
                   this->_field_types.emplace("redshift_cosmological", batch<real_type>::DOUBLE);
@@ -132,10 +129,10 @@ namespace tao {
                   this->_field_types.emplace("sfr", batch<real_type>::DOUBLE);
 
 #ifndef NDEBUG
-                  // In debug mode we add some custom types.
-                  this->_field_map["original_x"] = "posx";
-                  this->_field_map["original_y"] = "posy";
-                  this->_field_map["original_z"] = "posz";
+                  // In debug mode we add some custom types (using SAGE CamelCase).
+                  this->_field_map["original_x"] = "Posx";
+                  this->_field_map["original_y"] = "Posy";
+                  this->_field_map["original_z"] = "Posz";
                   this->_field_types.emplace("original_x", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("original_y", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("original_z", batch<real_type>::DOUBLE);
@@ -148,6 +145,9 @@ namespace tao {
                   //        EXCEPT(hpc::has(this->_field_types, item.second), "Database is missing essential field: ",
                   //               item.second);
                   //}
+
+         std::cerr << "DEBUG: At end of connect(), _field_types has " << _field_types.size() << " entries" << std::endl;
+         std::cerr << "DEBUG: _field_map has " << _field_map.size() << " entries" << std::endl;
       }
 
       void
@@ -169,6 +169,78 @@ namespace tao {
          _lc_mem_type.insert( hpc::h5::datatype::native_double, "z", 2*sizeof(double) );
          _lc_mem_type.insert( hpc::h5::datatype::native_ullong, "global_index", HOFFSET( lightcone_data, gidx ) );
          _lc_mem_type.insert( hpc::h5::datatype::native_uint, "subsize", HOFFSET( lightcone_data, subsize ) );
+
+         // Populate field types from HDF5 /data group datasets
+         hpc::h5::group data_group;
+         _file.open_group("data", data_group);
+
+         H5G_info_t group_info;
+         H5Gget_info(data_group.id(), &group_info);
+
+         std::vector<std::string> available_fields;
+         for (hsize_t i = 0; i < group_info.nlinks; i++) {
+            char name_buf[256];
+            H5Lget_name_by_idx(data_group.id(), ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name_buf, sizeof(name_buf), H5P_DEFAULT);
+            std::string field_name(name_buf);
+            available_fields.push_back(field_name);
+
+            // Convert to lowercase for backward compatibility alias
+            std::string field_name_lower = field_name;
+            std::transform(field_name_lower.begin(), field_name_lower.end(), field_name_lower.begin(), ::tolower);
+
+            // Open dataset and get its type class
+            hpc::h5::dataset ds(data_group, field_name);
+            H5T_class_t type_class = ds.type_class();
+
+            // Map HDF5 type class to batch field_value_type
+            batch<real_type>::field_value_type ftype;
+            if (type_class == H5T_FLOAT) {
+               ftype = batch<real_type>::DOUBLE;
+            } else if (type_class == H5T_INTEGER) {
+               // For integers, just use LONG_LONG by default
+               // (could check size/signedness but this is simpler)
+               ftype = batch<real_type>::LONG_LONG;
+            } else {
+               // Default to DOUBLE for unknown types
+               ftype = batch<real_type>::DOUBLE;
+            }
+
+            // Store field type using actual field name (CamelCase from HDF5)
+            this->_field_types.emplace(field_name, ftype);
+
+            // Create lowercase alias for backward compatibility (if different from actual name)
+            if (field_name_lower != field_name) {
+               this->_field_map[field_name_lower] = field_name;
+            }
+         }
+
+         // Validate that KD-tree file has required spatial fields
+         auto required_fields = tao::get_kdtree_required_fields();
+         std::vector<std::string> missing_fields;
+
+         for (const auto& required : required_fields) {
+            bool found = false;
+            for (const auto& available : available_fields) {
+               if (tao::iequals(required, available)) {
+                  found = true;
+                  break;
+               }
+            }
+            if (!found) {
+               missing_fields.push_back(required);
+            }
+         }
+
+         if (!missing_fields.empty()) {
+            std::ostringstream error_msg;
+            error_msg << "KD-tree file is missing required fields:\n";
+            for (const auto& field : missing_fields) {
+               error_msg << "  - " << field << "\n";
+            }
+            error_msg << "This file may have been created with an older version of sage2kdtree.\n";
+            error_msg << "Please regenerate the KD-tree file from SAGE HDF5 input.";
+            throw std::runtime_error(error_msg.str());
+         }
       }
 
       void chround(char* a,int ndigits) {

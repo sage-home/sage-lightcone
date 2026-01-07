@@ -476,7 +476,7 @@ class application : public hpc::mpi::application {
         h5_gals[gal_idx].merge_type          = sage_gal.mergeType;
         h5_gals[gal_idx].merge_into_id       = sage_gal.mergeIntoID;
         h5_gals[gal_idx].merge_into_snapshot = sage_gal.mergeIntoSnapNum;
-        h5_gals[gal_idx].dt                  = sage_gal.dT / 1000.0; // Convert to Gyrs
+        h5_gals[gal_idx].dt                  = sage_gal.dT; // Preserve SAGE units (Myr)
 
         ASSERT(h5_gals[gal_idx].merge_into_id == -1 || h5_gals[gal_idx].merge_into_id < h5_gals.size(),
                "Invalid merged-into ID: ",

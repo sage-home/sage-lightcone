@@ -40,8 +40,19 @@ namespace tao {
         for (auto const &field : qry.output_fields()) {
             // Check that the field actually exists. Due to calculated fields
             // it may not actually be on the database.
-            if (this->_field_map.find(field) != this->_field_map.end())
-                bat.set_scalar(field, _field_types.at(this->_field_map.at(field)));
+            if (this->_field_map.find(field) != this->_field_map.end()) {
+                // Field is an alias - verify the target field exists before using it
+                const std::string& mapped_field = this->_field_map.at(field);
+                if (this->_field_types.find(mapped_field) != this->_field_types.end()) {
+                    bat.set_scalar(field, _field_types.at(mapped_field));
+                } else {
+                    std::cerr << "WARNING: Alias '" << field << "' maps to '" << mapped_field
+                              << "' but that field doesn't exist in _field_types" << std::endl;
+                }
+            } else if (this->_field_types.find(field) != this->_field_types.end()) {
+                // Field is a direct field name - use it directly to look up type
+                bat.set_scalar(field, _field_types.at(field));
+            }
         }
 
         // Add fields from the density object.

@@ -396,9 +396,9 @@ namespace tao {
          {
             _bat->set_size( _lc_data.size() );
 
-            auto x = _bat->set_scalar<real_type>( "posx" );
-            auto y = _bat->set_scalar<real_type>( "posy" );
-            auto z = _bat->set_scalar<real_type>( "posz" );
+            auto x = _bat->set_scalar<real_type>( "Posx" );  // SAGE CamelCase
+            auto y = _bat->set_scalar<real_type>( "Posy" );  // SAGE CamelCase
+            auto z = _bat->set_scalar<real_type>( "Posz" );  // SAGE CamelCase
             auto subsize = _bat->set_scalar<unsigned>( "subsize" );
             auto gidx = _bat->set_scalar<unsigned long long>( "global_index" );
 
@@ -526,27 +526,31 @@ namespace tao {
 
              for (std::string field : fields)
              {
-                if (_bat->has_field(field))
+                // Convert HDF5 field name (CamelCase) to lowercase for batch lookup
+                std::string field_lower = field;
+                std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+
+                if (_bat->has_field(field_lower))
                 {
-                   _bat->field(field);
+                   _bat->field(field_lower);
                    auto ds = _be->kdtree_file().dataset("data/"+field);
-                   switch (static_cast<tao::batch<real_type>::field_value_type>(_bat->get_field_type(field))) {
+                   switch (static_cast<tao::batch<real_type>::field_value_type>(_bat->get_field_type(field_lower))) {
                       case tao::batch<real_type>::DOUBLE: {
-                         ds.read(_bat->scalar<double>(field).data(), hpc::h5::datatype::native_double, count, off);
-                         view<std::vector<double>> abc = _bat->scalar<double>(field);
+                         ds.read(_bat->scalar<double>(field_lower).data(), hpc::h5::datatype::native_double, count, off);
+                         view<std::vector<double>> abc = _bat->scalar<double>(field_lower);
                          double abcv = abc[0];
                          //std::cout << "["<<field<<"][0]="<<abcv<<std::endl;
                       }
                            break;
                       case tao::batch<real_type>::INTEGER: {
-                         ds.read(_bat->scalar<int>(field).data(), hpc::h5::datatype::native_int, count, off);
-                         view<std::vector<int>> abc = _bat->scalar<int>(field);
+                         ds.read(_bat->scalar<int>(field_lower).data(), hpc::h5::datatype::native_int, count, off);
+                         view<std::vector<int>> abc = _bat->scalar<int>(field_lower);
                          int abcv = abc[0];
                          //std::cout << "[" << field << "][0]=" << abcv << std::endl;
                       }
                            break;
                       case tao::batch<real_type>::LONG_LONG: {
-                         ds.read(_bat->scalar<long long>(field).data(), hpc::h5::datatype::native_llong, count, off);
+                         ds.read(_bat->scalar<long long>(field_lower).data(), hpc::h5::datatype::native_llong, count, off);
                          //view<std::vector<long long>> abc = _bat->scalar<long long>(field);
                          //long long abcv = abc[0];
                          //std::cout << "[" << field << "][0]=" << abcv << std::endl;
@@ -560,9 +564,9 @@ namespace tao {
              }
 
 
-             auto posx_ds = _be->kdtree_file().dataset("data/posx");
-             auto posy_ds = _be->kdtree_file().dataset("data/posy");
-             auto posz_ds = _be->kdtree_file().dataset("data/posz");
+             auto posx_ds = _be->kdtree_file().dataset("data/Posx");  // SAGE CamelCase
+             auto posy_ds = _be->kdtree_file().dataset("data/Posy");  // SAGE CamelCase
+             auto posz_ds = _be->kdtree_file().dataset("data/Posz");  // SAGE CamelCase
              std::vector<double> posx(count);
              std::vector<double> posy(count);
              std::vector<double> posz(count);
@@ -614,8 +618,8 @@ namespace tao {
                  auto ra = _bat->template scalar<real_type>("ra");
                  auto dec = _bat->template scalar<real_type>("dec");
                  auto dist = _bat->template scalar<real_type>("distance");
-                 auto disk_sfr = _bat->template scalar<real_type>("sfr_disk");
-                 auto bulge_sfr = _bat->template scalar<real_type>("sfr_bulge");
+                 auto disk_sfr = _bat->template scalar<real_type>("sfrdisk");
+                 auto bulge_sfr = _bat->template scalar<real_type>("sfrbulge");
                  auto sfr = _bat->template scalar<real_type>("sfr");
                  auto gid = _bat->template scalar<long long>("global_index");
                  //auto galaxyindex = _bat->template scalar<long long>("galaxyindex");

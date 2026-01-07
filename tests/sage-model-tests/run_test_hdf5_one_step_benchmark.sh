@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Load utilities
+source $(dirname $0)/utils/benchmark_utils.sh
+
 # Parse command line arguments
 FORCE_REBUILD=0
 for arg in "$@"; do
@@ -89,7 +92,9 @@ if [ $NEED_REBUILD -eq 1 ]; then
 fi
 
 export RAWNAME=myhdf5millennium
-export OUTPUTDIR=output_sage_hdf5_one_step
+export OUTPUTDIR=output_sage_hdf5_one_step_benchmark
+export BENCHMARK_CSV=${OUTPUTDIR}/benchmark_timings.csv
+export DISK_IO_CSV=${OUTPUTDIR}/benchmark_disk_io.csv
 
 # Clean up previous test outputs, but preserve downloaded tree files
 rm -rf output
@@ -97,6 +102,13 @@ rm -rf ${OUTPUTDIR}
 rm -f *${RAWNAME}*
 # Only remove input/*.par files, preserve input/millennium/trees/
 rm -f input/*.par 2>/dev/null
+
+# Create output directory early for CSV files
+mkdir -p ${OUTPUTDIR}
+
+# Initialize CSV files
+echo "phase,duration_sec,peak_mem_mb" > $BENCHMARK_CSV
+echo "phase,disk_mb" > $DISK_IO_CSV
 
 # Check if tree files already exist - skip first_run.sh if so
 if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/millennium.a_list" ]; then
@@ -130,26 +142,59 @@ else
 
     echo "✓ Tree files and scale factor list verified."
 fi
+
 mkdir -p output/millennium/
 cp mypar_files/millennium.par input
 cp mypar_files/millennium_minus1.par input
 cp mypar_files/millennium_sage_hdf5.par input
 
-${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
-mv output ${OUTPUTDIR}
+# PHASE 1: Use shared SAGE output (run by benchmark_workflows.sh)
+# NOTE: SAGE is run once by benchmark_workflows.sh and shared between workflows
+# to ensure identical input data (see SAGE_REPRODUCIBILITY_ISSUE.md)
+echo "========== PHASE 1: Using shared SAGE output =========="
 
-echo "Create kdtree in one step"
+# Check if shared SAGE output exists (from benchmark_workflows.sh)
+if [ -d "../shared_sage_output" ]; then
+    echo "Using shared SAGE output from benchmark_workflows.sh"
+    cp -r ../shared_sage_output ${OUTPUTDIR}/millennium
+elif [ -d "shared_sage_output" ]; then
+    echo "Using shared SAGE output"
+    cp -r shared_sage_output ${OUTPUTDIR}/millennium
+else
+    # Fallback: run SAGE if not run by benchmark_workflows.sh (for standalone testing)
+    echo "No shared SAGE output found - running SAGE standalone"
+    run_with_profiling "sage" "$BENCHMARK_CSV" \
+        ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
+    mv output/millennium ${OUTPUTDIR}/
+    mv output/log ${OUTPUTDIR}/ 2>/dev/null || true
+fi
 
-${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
+measure_disk_usage "${OUTPUTDIR}/millennium" "sage_output" "$DISK_IO_CSV"
 
-# echo "Creating kdtree indexed HDF5..."
-# ${MY_ROOT}/bin/sageh5toh5 -m convert -v 2 -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-depthfirstordered.h5
-# ${MY_ROOT}/bin/sageimport --settings ${OUTPUTDIR}/${RAWNAME}-depthfirstordered_import_settings.xml
-# ${MY_ROOT}/bin/dstreeinit --mode kdtree --tree ${OUTPUTDIR}/out_$RAWNAME-depthfirstordered.h5 --sage ${OUTPUTDIR}/$RAWNAME-bysnap.h5 --output ${OUTPUTDIR}/$RAWNAME-kdtree.h5
+# PHASE 2: sage2kdtree (replaces sageh5toh5 + sageimport + dstreeinit)
+echo "========== PHASE 2: Running sage2kdtree =========="
+run_with_profiling "sage2kdtree" "$BENCHMARK_CSV" \
+    ${MY_ROOT}/bin/sage2kdtree \
+    -s ${OUTPUTDIR}/millennium \
+    -p input/millennium_sage_hdf5.par \
+    -a input/millennium/trees/millennium.a_list \
+    -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
+    --ppc 1000 -v 2
 
-echo "Test by creating a lightcone and plotting SnapNum..."
-#${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 10 --ramin 0 --ramax 30 --zmin 0 --zmax 0.5 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+measure_disk_usage "${OUTPUTDIR}" "after_sage2kdtree" "$DISK_IO_CSV"
+
+# PHASE 3: cli_lightcone
+echo "========== PHASE 3: Running cli_lightcone =========="
+run_with_profiling "cli_lightcone" "$BENCHMARK_CSV" \
+    ${MY_ROOT}/bin/cli_lightcone \
+    --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
+    --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
+    --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+
+measure_disk_usage "${OUTPUTDIR}" "final" "$DISK_IO_CSV"
+
+# PHASE 4: Plot (not benchmarked - visualization only)
+echo "========== PHASE 4: Plotting =========="
 source ${MY_ROOT}/.venv/bin/activate
 # Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
 python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum
@@ -157,3 +202,11 @@ python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 Snap
 # Clean up
 rm -f log.00000
 rm -rf log
+
+echo ""
+echo "=========================================="
+echo "NEW workflow benchmark complete."
+echo "Results:"
+echo "  Timings: ${BENCHMARK_CSV}"
+echo "  Disk I/O: ${DISK_IO_CSV}"
+echo "=========================================="

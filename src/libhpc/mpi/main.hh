@@ -25,6 +25,7 @@
 #include <libhpc/debug/assertions.hh>
 #include <libhpc/mpi/init.hh>
 #include <libhpc/mpi/comm.hh>
+#include <libhpc/logging/globals.hh>
 
 namespace hpc {
 
@@ -47,6 +48,9 @@ int main(int argc, char *argv[]) {
             hpc::mpi::comm::world.abort();
         }
 #endif
+        // Clean up logging stack before MPI finalization to prevent
+        // loggers from accessing MPI after MPI_Finalize is called
+        hpc::log::clear();
         hpc::mpi::finalise();
     }
     return EXIT_SUCCESS;

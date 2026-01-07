@@ -8,6 +8,25 @@
 
 constexpr hsize_t DEFAULT_CHUNK_SIZE = 100000;
 
+// Helper function to write string attribute to HDF5 dataset
+static void write_dataset_string_attribute(hid_t dset_id, const std::string& attr_name, const std::string& value) {
+    if (value.empty()) return;
+
+    hid_t str_type = H5Tcopy(H5T_C_S1);
+    H5Tset_size(str_type, value.length() + 1);
+    H5Tset_strpad(str_type, H5T_STR_NULLTERM);
+
+    hid_t space_id = H5Screate(H5S_SCALAR);
+    hid_t attr_id = H5Acreate2(dset_id, attr_name.c_str(), str_type,
+                               space_id, H5P_DEFAULT, H5P_DEFAULT);
+
+    H5Awrite(attr_id, str_type, value.c_str());
+
+    H5Aclose(attr_id);
+    H5Sclose(space_id);
+    H5Tclose(str_type);
+}
+
 namespace tao {
    namespace modules {
 
@@ -62,17 +81,31 @@ namespace tao {
                 file1 = global_cli_dict._outdir + "/" + _construct_filename_static(global_cli_dict._outfile, rank);
             }
             if (!result_files.empty()) {
-                // hpc::h5::file first_h5file(result_files[0], H5F_ACC_RDONLY);
-                // if (!first_h5file.is_open()) {
-                //     std::cerr << "Error: Could not open file for gathering results." << std::endl;
-                //     throw silent_terminate();
-                // }
-                tao::xml_dict sidecar_xml = tao::data_dict::getSidecar(result_files[0], "/sageinput");
-                std::vector<tao::data_dict_field> fields = tao::data_dict::getFieldsANY(sidecar_xml, "/sageinput/Field");
-                tao::data_dict::saveSidecar(file0, fields, false);
+                // Get field list from first rank file by reading dataset names
+                std::vector<std::string> field_names;
+                {
+                    hpc::h5::file first_h5file(result_files[0], H5F_ACC_RDONLY);
+                    if (!first_h5file.is_open()) {
+                        std::cerr << "Error: Could not open file for gathering results." << std::endl;
+                        throw silent_terminate();
+                    }
+
+                    // Iterate through all datasets in the file
+                    H5G_info_t group_info;
+                    H5Gget_info(first_h5file.id(), &group_info);
+
+                    for (hsize_t i = 0; i < group_info.nlinks; i++) {
+                        char name_buf[256];
+                        H5Lget_name_by_idx(first_h5file.id(), ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name_buf, sizeof(name_buf), H5P_DEFAULT);
+                        std::string name(name_buf);
+
+                        // Assume all links are datasets (we're iterating at the file root level)
+                        field_names.push_back(name);
+                    }
+                }
 
                 int file_index=0;
-                for (const auto& field : fields) {
+                for (const auto& field_name : field_names) {
                     bool first_file = true;
                     for (const auto& file : result_files) {
                         hpc::h5::file h5file(file, H5F_ACC_RDONLY);
@@ -80,7 +113,7 @@ namespace tao {
                             std::cerr << "Error: Could not open file for gathering results." << std::endl;
                             throw silent_terminate();
                         }
-                        std::string dataset_name = field._name;
+                        std::string dataset_name = field_name;
                         //to_lower(dataset_name);
                         // Open source dataset
                         hpc::h5::dataset src_dset(h5file, dataset_name);
@@ -110,7 +143,41 @@ namespace tao {
                             // Create dataset
                             hpc::h5::dataset dst_dset(_file0, dataset_name, dtype, dspace, props);
                             dst_dset.set_extent(size);
-                            
+
+                            // Copy HDF5 attributes from source to destination
+                            hid_t src_id = H5Dopen2(h5file.id(), dataset_name.c_str(), H5P_DEFAULT);
+                            hid_t dst_id = H5Dopen2(_file0.id(), dataset_name.c_str(), H5P_DEFAULT);
+                            if (src_id >= 0 && dst_id >= 0) {
+                                // Copy Description attribute
+                                if (H5Aexists(src_id, "Description") > 0) {
+                                    hid_t attr_id = H5Aopen(src_id, "Description", H5P_DEFAULT);
+                                    hid_t type_id = H5Aget_type(attr_id);
+                                    size_t attr_size = H5Tget_size(type_id);
+                                    std::vector<char> attr_buf(attr_size + 1, 0);
+                                    H5Aread(attr_id, type_id, attr_buf.data());
+                                    H5Aclose(attr_id);
+
+                                    write_dataset_string_attribute(dst_id, "Description", std::string(attr_buf.data()));
+                                    H5Tclose(type_id);
+                                }
+
+                                // Copy Units attribute
+                                if (H5Aexists(src_id, "Units") > 0) {
+                                    hid_t attr_id = H5Aopen(src_id, "Units", H5P_DEFAULT);
+                                    hid_t type_id = H5Aget_type(attr_id);
+                                    size_t attr_size = H5Tget_size(type_id);
+                                    std::vector<char> attr_buf(attr_size + 1, 0);
+                                    H5Aread(attr_id, type_id, attr_buf.data());
+                                    H5Aclose(attr_id);
+
+                                    write_dataset_string_attribute(dst_id, "Units", std::string(attr_buf.data()));
+                                    H5Tclose(type_id);
+                                }
+
+                                H5Dclose(src_id);
+                                H5Dclose(dst_id);
+                            }
+
                             // Write data using chunking
                             write_chunked_dataset(dst_dset, buffer.data(), size, dtype);
                             
@@ -135,15 +202,6 @@ namespace tao {
                 }
                 for (const auto& file : result_files) {
                     boost::filesystem::remove(file);
-                    // Replace the file extension with ".xml" before removing
-                    std::string xml_file = file;
-                    size_t last_dot = xml_file.find_last_of('.');
-                    if (last_dot != std::string::npos) {
-                        xml_file = xml_file.substr(0, last_dot) + ".xml";
-                    } else {
-                        xml_file += ".xml";
-                    }
-                    boost::filesystem::remove(xml_file);
                 }
             }
             _file0.close();
@@ -189,36 +247,42 @@ namespace tao {
             std::list<boost::optional<std::string>> field_labels;
             std::string filename=global_cli_dict._outfile;
             _fn = global_cli_dict._outdir + "/" + _construct_filename( filename );
-        
-            
+
+            // Store input kdtree file path for attribute reading
+            _input_kdtree_file = global_cli_dict._dataset;
+
             auto const &input_hdf5_file = global_cli_dict._dataset;
-            tao::xml_dict sidecar_xml = tao::data_dict::getSidecar(input_hdf5_file, "/sageinput");
-            std::vector<tao::data_dict_field> fields = tao::data_dict::getFieldsANY(sidecar_xml, "/sageinput/Field");
-            size_t nfields=fields.size();
-            // simple bubble sort to order the fields by order
-            for (size_t i = 0; i < nfields; i++) {
-                for (size_t j = 0; j < nfields - i - 1; j++) {
-                    int order_j = std::stoi(fields[j]._order);
-                    int order_j1 = std::stoi(fields[j + 1]._order);
-                    if (order_j > order_j1) {
-                        std::swap(fields[j], fields[j + 1]);
-                    }
+
+            // Get field list directly from HDF5 file /data/* datasets
+            std::vector<std::string> available_fields;
+            {
+                hpc::h5::file input_file(input_hdf5_file, H5F_ACC_RDONLY);
+                hpc::h5::group data_group;
+                input_file.open_group("data", data_group);
+
+                // Iterate through datasets in /data group
+                H5G_info_t group_info;
+                H5Gget_info(data_group.id(), &group_info);
+
+                for (hsize_t i = 0; i < group_info.nlinks; i++) {
+                    char name_buf[256];
+                    H5Lget_name_by_idx(data_group.id(), ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name_buf, sizeof(name_buf), H5P_DEFAULT);
+                    available_fields.push_back(std::string(name_buf));
                 }
             }
-            LOGILN( "Initialising HDF5 module. META DATA?, nfields according to sidecar ", nfields, setindent( 2 ) );
-            if (global_cli_dict._output_fields.size() == 0) 
+
+            size_t nfields = available_fields.size();
+            LOGILN( "Initialising HDF5 module. nfields from input HDF5 file: ", nfields, setindent( 2 ) );
+
+            if (global_cli_dict._output_fields.size() == 0)
             {
                 LOGILN( "No output fields specified via CLI, using all fields from the input hdf5 file." );
-                for( auto const& field : fields )
+                for( auto const& field_name : available_fields )
                 {
-                    if (field._group == "VIS3D only" || field._group == "Internal") {
-                        LOGILN( "Skipping internal field name in input hdf5 file. " , field._name );
-                        continue;
-                    }
-                    _fields.push_back( field._name );
-                    _labels.push_back( field._label );
-                    field_labels.push_back( field._label );
-                    LOGILN( "CLI.Adding field ", field._name, " with label ", field._label );
+                    _fields.push_back( field_name );
+                    _labels.push_back( field_name );  // Use field name as label
+                    field_labels.push_back( field_name );
+                    LOGILN( "CLI.Adding field ", field_name, " with label ", field_name );
                 }
             }
             else
@@ -232,165 +296,15 @@ namespace tao {
                 }
             }
 
-             
-             // conditionally add aliasX, aliasY, aliasZ
-             std::string aliasX = "X" ;
-             std::string aliasY = "Y" ;
-             std::string aliasZ = "Z" ;
-             std::string aliasCOLOUR = "COLOUR" ;
-             int32_t aliasX_index = tao::data_dict::findLabel(fields, aliasX);
-             int32_t aliasY_index = tao::data_dict::findLabel(fields, aliasY);
-             int32_t aliasZ_index = tao::data_dict::findLabel(fields, aliasZ);
-             int32_t aliasCOLOUR_index = tao::data_dict::findLabel(fields, aliasCOLOUR);
-             std::string laliasX = "X" ;
-             std::string laliasY = "Y" ;
-             std::string laliasZ = "Z" ;
-             std::string laliasCOLOUR = "COLOUR" ;
-
-             std::string faliasX;
-             std::string faliasY;
-             std::string faliasZ;
-             std::string faliasCOLOUR;
-             if (aliasX_index!=-1) {
-                 faliasX = fields[aliasX_index]._name;
-                 to_lower(faliasX);
-             }
-             if (aliasY_index!=-1) {
-                 faliasY = fields[aliasY_index]._name;
-                 to_lower(faliasY);
-             }
-             if (aliasZ_index!=-1) {
-                 faliasZ = fields[aliasZ_index]._name;
-                 to_lower(faliasZ);
-             }
-             if (aliasCOLOUR_index!=-1) {
-                 faliasCOLOUR = fields[aliasCOLOUR_index]._name;
-                 to_lower(faliasCOLOUR);
-             }
-
-             to_lower(laliasX);
-             to_lower(laliasY);
-             to_lower(laliasZ);
-             to_lower(laliasCOLOUR);
-             bool has_alias_X = false;
-             bool has_alias_Y = false;
-             bool has_alias_Z = false;
-             bool has_alias_COLOUR = false;
-             auto label_iterator = field_labels.cbegin();
-             // _fields is our list of output field names - build a matching list of labels
-             // Note that at the end of the day its actually the labels that are encoded and used as output field names
-             for( auto& str : _fields ) {
-
-                 std::string field_name = _encode( str );
-                 //std::cout << " ENCODED "<<field_name<<" from "<<str<<std::endl;
-                 hpc::to_lower( (std::string&)field_name );
-                 if(!*label_iterator)
-                     _labels.push_back(str);
-                 else
-                     _labels.push_back(**label_iterator);
-
-                 if (aliasX_index!=-1 && field_name.compare(faliasX)==0) has_alias_X = true;
-                 if (aliasY_index!=-1 && field_name.compare(faliasY)==0) has_alias_Y = true;
-                 if (aliasZ_index!=-1 && field_name.compare(faliasZ)==0) has_alias_Z = true;
-                 if (aliasCOLOUR_index!=-1 && field_name.compare(faliasCOLOUR)==0) has_alias_COLOUR = true;
-                 label_iterator++;
-             }
-             if (!has_alias_X && aliasX_index!=-1) {
-                 _fields.push_back(fields[aliasX_index]._name);
-                 _labels.push_back(fields[aliasX_index]._label);
-             }
-             if (!has_alias_Y && aliasY_index!=-1) {
-                 _fields.push_back(fields[aliasY_index]._name);
-                 _labels.push_back(fields[aliasY_index]._label);
-             }
-             if (!has_alias_Z && aliasZ_index!=-1) {
-                 _fields.push_back(fields[aliasZ_index]._name);
-                 _labels.push_back(fields[aliasZ_index]._label);
-             }
-             if (!has_alias_COLOUR && aliasCOLOUR_index!=-1) {
-                 _fields.push_back(fields[aliasCOLOUR_index]._name);
-                 _labels.push_back(fields[aliasCOLOUR_index]._label);
-             }
-             
-            // prepare the meta data for the output hdf5 file
-             std::vector<tao::data_dict_field> outfields;
-             int outpos=1;
-             for( auto& str : _fields ) {
-               int index=tao::data_dict::findField(fields, str); // find this field in the originating meta data 
-	            if (index!=-1)
-                  outfields.push_back(fields[index]);
-	            else {
-                  // Derived fields have no originating meta data.  Create a meta data entry by using the desired field name to 
-                  // encode into a hdf5 compatible field name
-                  std::string field_name = _encode( str );
-	               hpc::to_lower( (std::string&)field_name );
-	               tao::data_dict_field newfield;
-	               newfield._name = field_name;
-                  newfield._type = tao::batch<real_type>::DOUBLE;
-                  newfield._datatype = "float";
-                  outfields.push_back(newfield);
-               }
-	            outfields[outfields.size()-1]._order = std::to_string(outpos);
-	            outpos++;
-            }
+             // Note: Alias handling (X, Y, Z, COLOUR) has been removed with XML sidecar removal
+             // Note: XML sidecar metadata creation has been removed - using HDF5 attributes instead
 
             // Open the file. Truncate if we are not reloading.
             _file.open( _fn, H5F_ACC_TRUNC );
             _records = 0;
             _ready = false;
-            
-            {
-               // Determine the X,Y,Z aliases to use in VIS3D
-               {
-                  auto lbl_it = _labels.cbegin();
-                  auto outfields_it = outfields.begin();
-                  for( const auto& field : _fields )
-                  {
-                     std::string original_label = *lbl_it;
-                     std::string original_name = outfields_it->_name;
-                     to_lower(original_label);
-                     to_lower(original_name);
-                     if (original_name.compare(laliasX)==0 || original_label.compare(laliasX)==0) {
-                        outfields_it->_alias = aliasX;
-                        if (!has_alias_X) outfields_it->_group = "VIS3D only";
-                     } else if (original_name.compare(laliasY)==0 || original_label.compare(laliasY)==0) {
-                        outfields_it->_alias = aliasY;
-                        if (!has_alias_Y) outfields_it->_group = "VIS3D only";
-                     } else if (original_name.compare(laliasZ)==0 || original_label.compare(laliasZ)==0) {
-                        outfields_it->_alias = aliasZ;
-                        if (!has_alias_Z) outfields_it->_group = "VIS3D only";
-                     } else if (original_name.compare(laliasCOLOUR)==0 || original_label.compare(laliasCOLOUR)==0) {
-                        outfields_it->_alias = "C1";
-                        if (!has_alias_COLOUR) outfields_it->_group = "VIS3D only";
-                     }
-                     ++lbl_it;
-                     ++outfields_it;
-                  }
-               }
-            }
-            {
-               // Rename fields to be more like labels (but still legal hdf5 field names)
-               auto lbl_it = _labels.cbegin();
-               auto outfields_it = outfields.begin();
-               for( const auto& field : _fields )
-               {
-                   std::string field_name = _encode( *lbl_it );
-                   std::string original_label = *lbl_it;
-                   if (original_label.empty()) {
-                       field_name     = outfields_it->_name;
-                       original_label = field_name;
-                   }
-                   std::string original_name = outfields_it->_name;
-                   outfields_it->_name = field_name;   // rename
-                   outfields_it->_label = original_label;
-                   //std::cout << " RENAMED "<<outfields_it->_name<<" lbl now "<<outfields_it->_label<<std::endl;
-                   ++lbl_it;
-                   ++outfields_it;
-               }
-               tao::data_dict::saveSidecar(_fn, outfields, false);
-            }
 
-            // Get the filter from the lightcone module./
+            // Get the filter from the lightcone module
             _filt = this->template attribute<tao::filter const*>( "filter" );
 
             LOGILN( "Done.", setindent( -2 ) );
@@ -525,6 +439,47 @@ namespace tao {
                    h5::dataset* dset = new hpc::h5::dataset( _file, field_name, dtype, dspace, props );
                    dset->set_extent(thistime);
                    _dsets.push_back( std::unique_ptr<hpc::h5::dataset>( dset ) );
+
+                   // Copy HDF5 attributes from input kdtree file
+                   if (!_input_kdtree_file.empty()) {
+                       hid_t input_file_id = H5Fopen(_input_kdtree_file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+                       if (input_file_id >= 0) {
+                           std::string input_dataset_path = "data/" + field;
+                           hid_t input_dset_id = H5Dopen2(input_file_id, input_dataset_path.c_str(), H5P_DEFAULT);
+                           hid_t output_dset_id = H5Dopen2(_file.id(), field_name.c_str(), H5P_DEFAULT);
+
+                           if (input_dset_id >= 0 && output_dset_id >= 0) {
+                               // Copy Description attribute
+                               if (H5Aexists(input_dset_id, "Description") > 0) {
+                                   hid_t attr_id = H5Aopen(input_dset_id, "Description", H5P_DEFAULT);
+                                   hid_t type_id = H5Aget_type(attr_id);
+                                   size_t attr_size = H5Tget_size(type_id);
+                                   std::vector<char> attr_buf(attr_size + 1, 0);
+                                   H5Aread(attr_id, type_id, attr_buf.data());
+                                   H5Aclose(attr_id);
+                                   write_dataset_string_attribute(output_dset_id, "Description", std::string(attr_buf.data()));
+                                   H5Tclose(type_id);
+                               }
+
+                               // Copy Units attribute
+                               if (H5Aexists(input_dset_id, "Units") > 0) {
+                                   hid_t attr_id = H5Aopen(input_dset_id, "Units", H5P_DEFAULT);
+                                   hid_t type_id = H5Aget_type(attr_id);
+                                   size_t attr_size = H5Tget_size(type_id);
+                                   std::vector<char> attr_buf(attr_size + 1, 0);
+                                   H5Aread(attr_id, type_id, attr_buf.data());
+                                   H5Aclose(attr_id);
+                                   write_dataset_string_attribute(output_dset_id, "Units", std::string(attr_buf.data()));
+                                   H5Tclose(type_id);
+                               }
+
+                               if (input_dset_id >= 0) H5Dclose(input_dset_id);
+                               if (output_dset_id >= 0) H5Dclose(output_dset_id);
+                           }
+
+                           H5Fclose(input_file_id);
+                       }
+                   }
 
                    // Dump first chunk.
                     auto val = bat.field( field );
@@ -733,18 +688,7 @@ namespace tao {
         static bool _has_dataset(hpc::h5::file& file, const std::string& dataset_name) {
             // Use H5Lexists to check if the link exists
             htri_t link_exists = H5Lexists(file.id(), dataset_name.c_str(), H5P_DEFAULT);
-            if (link_exists <= 0) {
-                return false;
-            }
-            
-            // Verify it's actually a dataset
-            H5O_info2_t obj_info;
-            if (H5Oget_info_by_name3(file.id(), dataset_name.c_str(), &obj_info, 
-                                    H5O_INFO_BASIC, H5P_DEFAULT) < 0) {
-                return false;
-            }
-            
-            return (obj_info.type == H5O_TYPE_DATASET);
+            return (link_exists > 0);
         }
 
         static void write_chunked_dataset(hpc::h5::dataset& dst_dset, 
@@ -981,6 +925,7 @@ namespace tao {
 
          h5::file _file;
          std::string _fn;
+         std::string _input_kdtree_file;  // Path to input kdtree file for attribute reading
          std::list<std::string> _fields;
          unsigned long long _records;
          std::list<std::string> _labels;

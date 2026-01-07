@@ -165,6 +165,23 @@ Custom C++ library under `src/libhpc/` providing:
 - **logging/**: Debug logging with conditional compilation
 - **debug/**: Assertions, stack traces, instrumentation
 
+## Field Naming Conventions
+
+The pipeline preserves SAGE's original field names throughout the conversion process:
+
+- **SAGE fields** use **CamelCase**: `StellarMass`, `Posx`, `Velx`, `SnapNum`, `ColdGas`, etc.
+- **Computed fields** use **lowercase**: `globaltreeid`, `snapnum`, `breadthfirst_traversalorder`, etc.
+- **Case-insensitive matching** in user-facing tools (e.g., `plot_lightcone.py`)
+- **Mandatory field validation** at pipeline entry points (`sage2kdtree`, `kdtree_backend`)
+
+See **[FIELD_NAMING.md](FIELD_NAMING.md)** for the complete list of:
+- Mandatory SAGE fields required for the pipeline
+- Computed fields created by `sage2kdtree`
+- Field naming conventions and best practices
+- Validation implementation references
+
+**Important**: Field names are preserved exactly as they appear in SAGE HDF5 output. Do not normalize or convert field names - the pipeline handles both CamelCase (SAGE) and lowercase (computed) fields natively.
+
 ## Common Development Commands
 
 ### Run a single test
