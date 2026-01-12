@@ -4,11 +4,14 @@
 source $(dirname $0)/utils/benchmark_utils.sh
 
 # What's my code's root directory
-export MY_SCRIPT=${BASH_SOURCE:-$0}
-export MY_SCRIPTS_DIRECTORY=$(dirname $MY_SCRIPT)
-export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY}/../.. && pwd)
-export MY_SCRIPT=
-export MY_SCRIPTS_DIRECTORY=
+SCRIPT="${BASH_SOURCE[0]}"
+[ -z "$SCRIPT" ] && SCRIPT="$0"
+export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$SCRIPT")" && pwd)
+export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
+
+# Store MY_SCRIPTS_DIRECTORY to restore it after sourcing setup scripts
+# (setup_mac.sh overwrites it based on its own location)
+ORIGINAL_SCRIPTS_DIRECTORY=$MY_SCRIPTS_DIRECTORY
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macOS detected - using Homebrew setup"
@@ -20,6 +23,9 @@ else
     echo "Unknown platform - falling back to basic setup"
     source ${MY_ROOT}/setup.sh
 fi
+
+# Restore the correct scripts directory for this script
+export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
 
 export RAWNAME=myhdf5millennium
 export OUTPUTDIR=output_sage_hdf5_benchmark
@@ -44,9 +50,9 @@ echo "phase,disk_mb" > $DISK_IO_CSV
 echo ==== Have finished with first_run.sh ====
 
 mkdir -p output/millennium/
-cp mypar_files/millennium.par input
-cp mypar_files/millennium_minus1.par input
-cp mypar_files/millennium_sage_hdf5.par input
+cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium.par
+cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_kdtreeindex_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_minus1.par
+cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_hdf5_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_sage_hdf5.par
 
 # PHASE 1: Use shared SAGE output (run by benchmark_workflows.sh)
 # NOTE: SAGE is run once by benchmark_workflows.sh and shared between workflows

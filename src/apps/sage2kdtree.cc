@@ -1050,7 +1050,7 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
     field_list.push_back({"global_index", hpc::h5::datatype::native_llong, 0, "Global index across all galaxies", ""});
     field_list.push_back({"descendant", hpc::h5::datatype::native_int, 0, "Local index of descendant", ""});
     field_list.push_back({"global_descendant", hpc::h5::datatype::native_llong, 0, "Global index of descendant", ""});
-    field_list.push_back({"subsize", hpc::h5::datatype::native_int, 0, "Subtree size", ""});
+    // NOTE: "subsize" removed - Phase 1 doesn't write it. Phase 2 creates "subtree_count" instead.
 
     if (_verb >= 2 && _comm->rank() == 0) {
         std::cout << "  → Using columnar storage with " << field_list.size() << " fields" << std::endl;
@@ -1273,12 +1273,12 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                     hpc::h5::dataset dset = g.dataset(field_name);
                     hpc::h5::datatype dtype = field_types[field_name];
 
-                    if (dtype == hpc::h5::datatype::native_int ||
-                        dtype == hpc::h5::datatype::native_uint) {
+                    if (H5Tequal(dtype.id(), hpc::h5::datatype::native_int.id()) > 0 ||
+                        H5Tequal(dtype.id(), hpc::h5::datatype::native_uint.id()) > 0) {
                         snap_int_fields[field_name].resize(n_gals_snap);
                         dset.read(snap_int_fields[field_name]);
-                    } else if (dtype == hpc::h5::datatype::native_llong ||
-                            dtype == hpc::h5::datatype::native_ullong) {
+                    } else if (H5Tequal(dtype.id(), hpc::h5::datatype::native_llong.id()) > 0 ||
+                            H5Tequal(dtype.id(), hpc::h5::datatype::native_ullong.id()) > 0) {
                         snap_llong_fields[field_name].resize(n_gals_snap);
                         dset.read(snap_llong_fields[field_name]);
                     } else {
@@ -1344,16 +1344,19 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                 std::string key = field.name;
                 std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 
-                if (field.type == hpc::h5::datatype::native_int ||
-                    field.type == hpc::h5::datatype::native_uint) {
+                if (H5Tequal(field.type.id(), hpc::h5::datatype::native_int.id()) > 0 ||
+                    H5Tequal(field.type.id(), hpc::h5::datatype::native_uint.id()) > 0) {
                     batch_int_fields[key].reserve(batch.total_gals);
-                } else if (field.type == hpc::h5::datatype::native_llong ||
-                        field.type == hpc::h5::datatype::native_ullong) {
+                } else if (H5Tequal(field.type.id(), hpc::h5::datatype::native_llong.id()) > 0 ||
+                        H5Tequal(field.type.id(), hpc::h5::datatype::native_ullong.id()) > 0) {
                     batch_llong_fields[key].reserve(batch.total_gals);
                 } else {
                     batch_float_fields[key].reserve(batch.total_gals);
                 }
             }
+
+            // Track actual number of galaxies processed (may differ from batch.total_gals if trees are empty)
+            size_t actual_batch_gals = 0;
 
             // Process trees in batch
             for(size_t t=0; t<batch_n_trees; ++t) {
@@ -1427,7 +1430,13 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                     batch_llong_fields["global_descendant"].push_back(g.global_descendant);
 
                     // Add ALL SAGE fields from stored data (in reordered sequence)
+                    // Skip computed field names to avoid overwriting them
                     const GalaxyFields& gf = trees_all_fields[t][orig_idx];
+
+                    // List of computed field names that should NOT be overwritten
+                    static const std::set<std::string> computed_fields = {
+                        "snapnum", "descendant", "local_index", "global_index", "global_descendant"
+                    };
 
                     for (const auto& entry : gf.float_fields) {
                         std::string key = entry.first;
@@ -1438,13 +1447,17 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                     for (const auto& entry : gf.int_fields) {
                         std::string key = entry.first;
                         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-                        batch_int_fields[key].push_back(entry.second);
+                        if (computed_fields.count(key) == 0) {  // Skip if it's a computed field
+                            batch_int_fields[key].push_back(entry.second);
+                        }
                     }
 
                     for (const auto& entry : gf.llong_fields) {
                         std::string key = entry.first;
                         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-                        batch_llong_fields[key].push_back(entry.second);
+                        if (computed_fields.count(key) == 0) {  // Skip if it's a computed field
+                            batch_llong_fields[key].push_back(entry.second);
+                        }
                     }
                 }
 
@@ -1454,15 +1467,22 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
 
                 current_gal_global_idx += tree_gals.size();
                 current_tree_displ += tree_gals.size();
+                actual_batch_gals += tree_gals.size();  // Track actual galaxies written
             }
 
             // Write batch to HDF5
             if (_verb >= 2 && _comm->rank() == 0) {
-                std::cout << "      Writing batch " << (b_idx+1) << " (" << batch.total_gals << " galaxies)..." << std::endl;
+                std::cout << "      Writing batch " << (b_idx+1) << " (" << actual_batch_gals << " galaxies)..." << std::endl;
+            }
+
+            // Diagnostic: Check if we're skipping empty trees
+            if (actual_batch_gals != batch.total_gals && _comm->rank() == 0) {
+                std::cout << "      ⚠ WARNING: actual_batch_gals (" << actual_batch_gals
+                          << ") != batch.total_gals (" << batch.total_gals << ")" << std::endl;
             }
 
             // Use hyperslab selection to write this batch
-            hpc::h5::dataspace mem_space(batch.total_gals);
+            hpc::h5::dataspace mem_space(actual_batch_gals);
 
             // Write ALL int fields
             for (const auto& entry : batch_int_fields) {
@@ -1472,7 +1492,7 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                 auto it = field_datasets.find(field_key);
                 if (it != field_datasets.end() && it->second) {
                     hpc::h5::dataspace file_space = it->second->dataspace();
-                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)batch.total_gals, (hsize_t)current_gal_write_offset);
+                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)actual_batch_gals, (hsize_t)current_gal_write_offset);
                     it->second->write(data.data(), hpc::h5::datatype::native_int, mem_space, file_space);
                 }
             }
@@ -1485,7 +1505,7 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                 auto it = field_datasets.find(field_key);
                 if (it != field_datasets.end() && it->second) {
                     hpc::h5::dataspace file_space = it->second->dataspace();
-                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)batch.total_gals, (hsize_t)current_gal_write_offset);
+                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)actual_batch_gals, (hsize_t)current_gal_write_offset);
                     it->second->write(data.data(), hpc::h5::datatype::native_llong, mem_space, file_space);
                 }
             }
@@ -1498,13 +1518,13 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
                 auto it = field_datasets.find(field_key);
                 if (it != field_datasets.end() && it->second) {
                     hpc::h5::dataspace file_space = it->second->dataspace();
-                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)batch.total_gals, (hsize_t)current_gal_write_offset);
+                    file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)actual_batch_gals, (hsize_t)current_gal_write_offset);
                     it->second->write(data.data(), hpc::h5::datatype::native_float, mem_space, file_space);
                 }
             }
 
-            current_gal_write_offset += batch.total_gals;
-            
+            current_gal_write_offset += actual_batch_gals;
+
             if (_verb >= 2 && _comm->rank() == 0) {
                 log_mem("End Batch " + std::to_string(b_idx+1));
             }
