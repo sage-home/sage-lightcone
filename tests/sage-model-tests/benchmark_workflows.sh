@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # What's my code's root directory
-export MY_SCRIPT=${BASH_SOURCE:-$0}
-export MY_SCRIPTS_DIRECTORY=$(dirname $MY_SCRIPT)
-export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY}/../.. && pwd)
+SCRIPT="${BASH_SOURCE[0]}"
+[ -z "$SCRIPT" ] && SCRIPT="$0"
+export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$SCRIPT")" && pwd)
+export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
 
 echo "=========================================="
 echo "  Workflow Benchmarking Suite"
@@ -63,9 +64,9 @@ if [ $RUN_OLD -eq 1 ] || [ $RUN_NEW -eq 1 ]; then
 
     # Copy parameter files
     mkdir -p ${MY_SCRIPTS_DIRECTORY}/input
-    cp ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium.par ${MY_SCRIPTS_DIRECTORY}/input/
-    cp ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_minus1.par ${MY_SCRIPTS_DIRECTORY}/input/
-    cp ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_hdf5.par ${MY_SCRIPTS_DIRECTORY}/input/
+    cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium.par
+    cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_kdtreeindex_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_minus1.par
+    cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_hdf5_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_sage_hdf5.par
 
     # Run SAGE once
     mkdir -p ${MY_SCRIPTS_DIRECTORY}/output/millennium
@@ -116,6 +117,15 @@ fi
 # Validate outputs if both ran
 if [ $RUN_OLD -eq 1 ] && [ $RUN_NEW -eq 1 ]; then
     echo "Validating workflow outputs..."
+    
+    # Activate virtual environment if available
+    if [ -f "${MY_ROOT}/.venv/bin/activate" ]; then
+        source "${MY_ROOT}/.venv/bin/activate"
+    elif [ -f "${MY_ROOT}/setup_mac.sh" ] && [[ "$OSTYPE" == "darwin"* ]]; then
+        # Try to source setup script which activates venv
+        source "${MY_ROOT}/setup_mac.sh" > /dev/null 2>&1
+    fi
+
     python3 ${MY_SCRIPTS_DIRECTORY}/utils/validate_outputs.py \
         --old-kdtree ${MY_SCRIPTS_DIRECTORY}/output_sage_hdf5_benchmark/myhdf5millennium-kdtree.h5 \
         --new-kdtree ${MY_SCRIPTS_DIRECTORY}/output_sage_hdf5_one_step_benchmark/myhdf5millennium-kdtree-onestep.h5 \

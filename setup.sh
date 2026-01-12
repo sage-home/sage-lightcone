@@ -4,7 +4,6 @@ export MY_SCRIPT=${BASH_SOURCE:-$0}
 export MY_SCRIPTS_DIRECTORY=$(dirname $MY_SCRIPT)
 export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY} && pwd)
 export MY_SCRIPT=
-export MY_SCRIPTS_DIRECTORY=
 
 if [ "$SYS_ARCH" = "milan" ];then
    module purge &> /dev/null
