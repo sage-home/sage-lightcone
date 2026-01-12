@@ -59,6 +59,7 @@ if [ $RUN_OLD -eq 1 ] || [ $RUN_NEW -eq 1 ]; then
 
     # Get tree files
     pushd ${MY_SCRIPTS_DIRECTORY} > /dev/null
+    python3 utils/extract_settings.py
     ./first_run.sh
     popd > /dev/null
 
