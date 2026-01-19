@@ -294,13 +294,6 @@ namespace sage {
    make_hdf5_types( hpc::h5::datatype& mem_type,
 		    hpc::h5::datatype& file_type );
 
-   // Get list of galaxy fields for columnar storage
-   // Subset version for proof of concept (posx, posy, posz, stellar_mass)
-   std::vector<FieldInfo> get_galaxy_field_list_subset();
-
-   // Full field list (all 60+ fields)
-   std::vector<FieldInfo> get_galaxy_field_list_full();
-
     void
     make_hdf5_sidecar( std::string simulation_name, std::string inname,  const std::set<double>& redshifts, const double& hubble, const double& box_size );
     void

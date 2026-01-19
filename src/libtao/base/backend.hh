@@ -62,7 +62,7 @@ namespace tao {
       load_checkpoint( boost::property_tree::ptree const& pt );
 
       // For some backends there are different fields expected.
-      // For example, the kdtree requires a field subtree_count
+      // Override in derived classes if additional fields are needed.
       virtual
       void
       add_conditional_fields(query<real_type> &qry);

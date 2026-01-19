@@ -27,6 +27,24 @@ static void write_dataset_string_attribute(hid_t dset_id, const std::string& att
     H5Tclose(str_type);
 }
 
+// Structure to hold metadata for calculated fields
+struct FieldMetadata {
+    std::string description;
+    std::string units;
+};
+
+// Map of calculated field names to their metadata
+static const std::map<std::string, FieldMetadata> calculated_fields_metadata = {
+    {"redshift_cosmological", {"Cosmological redshift calculated from distance", "dimensionless"}},
+    {"cosmological_redshift", {"Cosmological redshift calculated from distance", "dimensionless"}},
+    {"redshift_observed", {"Observed redshift including peculiar velocity", "dimensionless"}},
+    {"observed_redshift", {"Observed redshift including peculiar velocity", "dimensionless"}},
+    {"ra", {"Right Ascension", "degrees"}},
+    {"dec", {"Declination", "degrees"}},
+    {"distance", {"Comoving distance from observer", "Mpc/h"}},
+    {"sfr", {"Total Star Formation Rate (disk + bulge)", "Msun/yr"}}
+};
+
 namespace tao {
    namespace modules {
 
@@ -267,7 +285,12 @@ namespace tao {
                 for (hsize_t i = 0; i < group_info.nlinks; i++) {
                     char name_buf[256];
                     H5Lget_name_by_idx(data_group.id(), ".", H5_INDEX_NAME, H5_ITER_NATIVE, i, name_buf, sizeof(name_buf), H5P_DEFAULT);
-                    available_fields.push_back(std::string(name_buf));
+                    std::string actual_name = std::string(name_buf);
+                    available_fields.push_back(actual_name);
+                    
+                    std::string lower_name = actual_name;
+                    std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+                    _dataset_name_map[lower_name] = actual_name;
                 }
             }
 
@@ -444,7 +467,19 @@ namespace tao {
                    if (!_input_kdtree_file.empty()) {
                        hid_t input_file_id = H5Fopen(_input_kdtree_file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
                        if (input_file_id >= 0) {
-                           std::string input_dataset_path = "data/" + field;
+                           // Resolve the actual dataset name using our map (handles case insensitivity)
+                           std::string field_lower = field;
+                           std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+                           
+                           std::string input_dataset_name;
+                           if (_dataset_name_map.count(field_lower)) {
+                               input_dataset_name = _dataset_name_map[field_lower];
+                           } else {
+                               // Fallback to original name if not found in map (e.g. calculated fields)
+                               input_dataset_name = field;
+                           }
+
+                           std::string input_dataset_path = "data/" + input_dataset_name;
                            hid_t input_dset_id = H5Dopen2(input_file_id, input_dataset_path.c_str(), H5P_DEFAULT);
                            hid_t output_dset_id = H5Dopen2(_file.id(), field_name.c_str(), H5P_DEFAULT);
 
@@ -478,6 +513,27 @@ namespace tao {
                            }
 
                            H5Fclose(input_file_id);
+                       }
+                   }
+                   
+                   // Add metadata for calculated fields if they exist
+                   // If attributes were already copied from input file, they will be overwritten if we write them again,
+                   // but usually calculated fields won't exist in the input file.
+                   std::string field_lower = field_name;
+                   std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+                   
+                   if (calculated_fields_metadata.count(field_lower)) {
+                       const auto& meta = calculated_fields_metadata.at(field_lower);
+                       hid_t output_dset_id = H5Dopen2(_file.id(), field_name.c_str(), H5P_DEFAULT);
+                       if (output_dset_id >= 0) {
+                           // Only write if not already present (prefer input file metadata)
+                           if (H5Aexists(output_dset_id, "Description") <= 0) {
+                               write_dataset_string_attribute(output_dset_id, "Description", meta.description);
+                           }
+                           if (H5Aexists(output_dset_id, "Units") <= 0) {
+                               write_dataset_string_attribute(output_dset_id, "Units", meta.units);
+                           }
+                           H5Dclose(output_dset_id);
                        }
                    }
 
@@ -926,6 +982,7 @@ namespace tao {
          h5::file _file;
          std::string _fn;
          std::string _input_kdtree_file;  // Path to input kdtree file for attribute reading
+         std::map<std::string, std::string> _dataset_name_map; // Map lowercase field name to actual HDF5 dataset name
          std::list<std::string> _fields;
          unsigned long long _records;
          std::list<std::string> _labels;

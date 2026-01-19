@@ -263,10 +263,6 @@ private:
     // Phase 3: Tree → Snapshot (from dstreeinit.cc tree2sage)
     //==========================================================================
     void phase3_tree_to_snapshot();
-    std::vector<unsigned long long> _count_galaxies_by_snapshot(hpc::h5::file &file,
-                                                                 int nfields,
-                                                                 int snapnum_index,
-                                                                 std::vector<tao::data_dict_field> const &fields);
 
     //==========================================================================
     // Phase 4: Build KD-Tree Index (from dstreeinit.cc init)
@@ -939,9 +935,6 @@ void sage2kdtree_application::phase1_sageh5_to_depthfirst() {
         // All ranks read metadata from first file
         hpc::h5::file first_file;
         first_file.open(input_files[0].native(), H5F_ACC_RDONLY);
-
-        // Get temporary field list to know what fields to look for
-        auto temp_field_list = sage::get_galaxy_field_list_full();
 
         // Find first non-empty snapshot
         for (int snap = 0; snap < 64; ++snap) {
@@ -2413,61 +2406,6 @@ void sage2kdtree_application::phase3_tree_to_snapshot() {
     }
 }
 
-std::vector<unsigned long long> sage2kdtree_application::_count_galaxies_by_snapshot(
-    hpc::h5::file &file,
-    int nfields,
-    int snapnum_index,
-    std::vector<tao::data_dict_field> const &fields) {
-
-    std::vector<unsigned long long> counts(64, 0);
-
-    hpc::h5::dataset galaxies_ds(file, "galaxies");
-    hpc::h5::dataspace file_space = galaxies_ds.dataspace();
-    std::vector<hsize_t> dims_vec(1);
-    file_space.simple_extent_dims<std::vector<hsize_t>>(dims_vec);
-    unsigned long long n_gals = dims_vec[0];
-
-    // Distribute galaxies across ranks
-    unsigned long long n_loc = n_gals / _comm->size();
-    unsigned long long offs = _comm->rank() * n_loc;
-    if (_comm->rank() == _comm->size() - 1) {
-        n_loc = n_gals - offs;
-    }
-
-    const unsigned long long chunk_size = 100000;
-    std::vector<unsigned long long> local_counts(64, 0);
-
-    // Create a compound type with just the snapnum field
-    std::string snapnum_field_name = fields[snapnum_index]._name;
-    hpc::h5::datatype snapnum_type = hpc::h5::datatype::native_int;
-    hpc::h5::datatype read_type(H5Tcreate(H5T_COMPOUND, sizeof(int)));
-    read_type.insert(snapnum_type, snapnum_field_name, 0);
-
-    for (unsigned long long chunk_offs = offs; chunk_offs < offs + n_loc; chunk_offs += chunk_size) {
-        unsigned long long chunk_n = std::min(chunk_size, offs + n_loc - chunk_offs);
-
-        std::vector<int> snapnums(chunk_n);
-        hpc::h5::dataspace mem_space(chunk_n);
-
-        file_space.select_hyperslab(H5S_SELECT_SET, (hsize_t)chunk_n, (hsize_t)chunk_offs);
-
-        galaxies_ds.read(snapnums.data(), read_type, mem_space, file_space);
-
-        for (unsigned long long ii = 0; ii < chunk_n; ++ii) {
-            if (snapnums[ii] >= 0 && snapnums[ii] < 64) {
-                local_counts[snapnums[ii]]++;
-            }
-        }
-    }
-
-    // Reduce across all ranks
-    counts = local_counts;
-    // _comm->all_reduce(counts, MPI_SUM);
-    MPI_Allreduce(MPI_IN_PLACE, counts.data(), counts.size(), MPI_UNSIGNED_LONG_LONG, MPI_SUM, _comm->mpi_comm());
-
-    return counts;
-}
-
 //==============================================================================
 // Phase 4: Build KD-Tree Index
 // Adapted from dstreeinit.cc initANY (lines 127-208)
@@ -2605,10 +2543,28 @@ void sage2kdtree_application::phase4_build_kdtree_index() {
                 hsize_t num_objs = 0;
                 H5Gget_num_objs(snap_group.id(), &num_objs);
 
+                // Computed fields to exclude from data/* output
+                static const std::set<std::string> computed_fields = {
+                    "breadthfirst_traversalorder", "depthfirst_traversalorder",
+                    "descendant", "global_descendant", "global_index",
+                    "globaltreeid", "local_index", "localgalaxyid", "subtree_count"
+                };
+
                 for (hsize_t ii = 0; ii < num_objs; ++ii) {
                     char name_buf[256];
                     H5Gget_objname_by_idx(snap_group.id(), ii, name_buf, sizeof(name_buf));
                     std::string field_name(name_buf);
+
+                    // Skip computed fields - they should not appear in final output
+                    std::string field_name_lower = field_name;
+                    std::transform(field_name_lower.begin(), field_name_lower.end(), field_name_lower.begin(), ::tolower);
+                    if (computed_fields.count(field_name_lower) > 0) {
+                        if (_verb >= 2) {
+                            std::cout << "      Skipping computed field: " << field_name << std::endl;
+                        }
+                        continue;
+                    }
+
                     std::string field_path = ss.str() + "/" + field_name;
 
                     // Open the field dataset to get its type
@@ -2865,10 +2821,25 @@ void sage2kdtree_application::_write_attributes(
     hsize_t num_objs = 0;
     H5Gget_num_objs(snap_group.id(), &num_objs);
 
+    // Computed fields to exclude from data/* output
+    static const std::set<std::string> computed_fields = {
+        "breadthfirst_traversalorder", "depthfirst_traversalorder",
+        "descendant", "global_descendant", "global_index",
+        "globaltreeid", "local_index", "localgalaxyid", "subtree_count"
+    };
+
     for (hsize_t ii = 0; ii < num_objs; ++ii) {
         char name_buf[256];
         H5Gget_objname_by_idx(snap_group.id(), ii, name_buf, sizeof(name_buf));
         std::string field_name(name_buf);
+
+        // Skip computed fields - they should not appear in final output
+        std::string field_name_lower = field_name;
+        std::transform(field_name_lower.begin(), field_name_lower.end(), field_name_lower.begin(), ::tolower);
+        if (computed_fields.count(field_name_lower) > 0) {
+            continue;
+        }
+
         std::string field_path = snap_name + "/" + field_name;
 
         // Open the field dataset

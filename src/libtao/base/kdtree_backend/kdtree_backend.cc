@@ -46,10 +46,11 @@ namespace tao {
       }
 
       // For some backends there are different fields expected.
-      // For example, the kdtree requires a field subtree_count
+      // Note: subsize is read directly from lightcone/data compound dataset,
+      // so subtree_count is not needed as a separate field in data/
       void
       kdtree_backend::add_conditional_fields(query<real_type> &qry) {
-         qry.add_output_field("subtree_count");
+         // No additional fields needed - subsize comes from lightcone/data compound
       }
 
       hpc::mpi::comm const&
@@ -120,12 +121,10 @@ namespace tao {
 
                   // Add calculated types.
                   this->_field_types.emplace("redshift_cosmological", batch<real_type>::DOUBLE);
-                  this->_field_types.emplace("column_density", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("redshift_observed", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("ra", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("dec", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("distance", batch<real_type>::DOUBLE);
-                  this->_field_types.emplace("distance_from_beam", batch<real_type>::DOUBLE);
                   this->_field_types.emplace("sfr", batch<real_type>::DOUBLE);
 
 #ifndef NDEBUG

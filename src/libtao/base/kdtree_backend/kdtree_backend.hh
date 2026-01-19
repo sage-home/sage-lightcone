@@ -614,14 +614,18 @@ namespace tao {
                  auto vel_y = _bat->template scalar<real_type>("vely");
                  auto vel_z = _bat->template scalar<real_type>("velz");
                  auto z_cos = _bat->template scalar<real_type>("redshift_cosmological");
+                 auto z_cos_alias = _bat->template scalar<real_type>("cosmological_redshift");
                  auto z_obs = _bat->template scalar<real_type>("redshift_observed");
+                 auto z_obs_alias = _bat->template scalar<real_type>("observed_redshift");
                  auto ra = _bat->template scalar<real_type>("ra");
                  auto dec = _bat->template scalar<real_type>("dec");
                  auto dist = _bat->template scalar<real_type>("distance");
                  auto disk_sfr = _bat->template scalar<real_type>("sfrdisk");
                  auto bulge_sfr = _bat->template scalar<real_type>("sfrbulge");
                  auto sfr = _bat->template scalar<real_type>("sfr");
-                 auto gid = _bat->template scalar<long long>("global_index");
+                 // Note: global_index is only used in commented-out debug code
+                 // It may not be in data/ group if computed fields are filtered out
+                 //auto gid = _bat->template scalar<long long>("global_index");
                  //auto galaxyindex = _bat->template scalar<long long>("galaxyindex");
 
                  int ix = _dom.rotation()[0];
@@ -702,6 +706,7 @@ namespace tao {
 
                        // Compute cosmological redshift.
                        z_cos[ii] = _lc->distance_to_redshift(dist[ii]);
+                       z_cos_alias[ii] = z_cos[ii];
 
                        // Compute RA and DEC.
                        hpc::num::cartesian_to_ecs(pos_x[ii], pos_y[ii], pos_z[ii], ra[ii], dec[ii]);
@@ -743,6 +748,7 @@ namespace tao {
                                {vel_x[ii], vel_y[ii], vel_z[ii]},
                                _lc->simulation()->hubble()
                        );
+                       z_obs_alias[ii] = z_obs[ii];
                        // z_obs[ii] = approx_observed_redshift(
                        //    *_lc,
                        //    { pos_x[ii], pos_y[ii], pos_z[ii] },
