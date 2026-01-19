@@ -41,8 +41,6 @@ namespace tao {
          _of_set.clear();
          _out_fields.clear();
 
-         _den_set.clear();
-         _den_fields.clear();
       }
 
       /// Add the set of base output fields known to be required. The fields
@@ -55,16 +53,16 @@ namespace tao {
       ///   - vely
       ///   - velz
       ///   - snapnum
-      ///   - globaltreeid
-      ///   - localgalaxyid
-      ///   - globalindex
       ///   - sfrdisk
       ///   - sfrbulge
       ///   - sfrdiskz
       ///   - sfrbulgez
-      ///   - diskscaleradius
+      ///   - diskradius
       ///   - coldgas
       ///   - metalscoldgas
+      ///
+      /// Note: globaltreeid, localgalaxyid, globalindex are computed fields
+      /// that are not stored in data/ group - they come from lightcone/data compound.
       ///
       void
       add_base_output_fields()
@@ -76,20 +74,18 @@ namespace tao {
          add_output_field( "vely" );
          add_output_field( "velz" );
          add_output_field( "snapnum" );
-         add_output_field( "globaltreeid" );
-         add_output_field( "localgalaxyid" );
-	 add_output_field( "globalindex" );
+         // Note: globaltreeid, localgalaxyid, globalindex removed - computed fields not in data/
 	 add_output_field( "sfrdisk" );
 	 add_output_field( "sfrbulge" );
 	 add_output_field( "sfrdiskz" );
 	 add_output_field( "sfrbulgez" );
-	 add_output_field( "diskscaleradius" );
+	 add_output_field( "diskradius" );  // Note: SAGE produces DiskRadius, not DiskScaleRadius
 	 add_output_field( "coldgas" );
 	 add_output_field( "metalscoldgas" );
          add_output_field( "distance" );
       }
 
-      /// Add the set of base output fields known to be required. The fields
+      /// Add the set of base output fields for particle-based data. The fields
       /// that are added are:
       ///
       ///   - posx
@@ -98,17 +94,8 @@ namespace tao {
       ///   - velx
       ///   - vely
       ///   - velz
-      ///   - snapnum
-      ///   - globaltreeid
-      ///   - localgalaxyid
-      ///   - globalindex
-      ///   - sfrdisk
-      ///   - sfrbulge
-      ///   - sfrdiskz
-      ///   - sfrbulgez
-      ///   - diskscaleradius
-      ///   - coldgas
-      ///   - metalscoldgas
+      ///   - snapshot
+      ///   - distance
       ///
       void
       add_base_output_fields_pb()
@@ -120,11 +107,7 @@ namespace tao {
         add_output_field( "vely" );
         add_output_field( "velz" );
         add_output_field( "snapshot" );
-        add_output_field( "smoothinglength" );
         add_output_field( "distance" );
-        // Required for calculating column densities
-        add_output_field( "density" );
-        add_output_field( "mass" );
       }
 
       /// Add an output field to the query.
@@ -138,15 +121,6 @@ namespace tao {
          _of_set.insert( hpc::to_lower_copy( field ) );
       }
 
-      void
-      add_density_field( std::string const& field )
-      {
-        // Must add to output fields as we need to query the original field
-        this->add_output_field(field);
-        _den_fields.clear();
-        _den_set.insert( hpc::to_lower_copy( field ) );
-      }
-
       const hpc::view<std::vector<std::string>>
       output_fields()
       {
@@ -158,25 +132,10 @@ namespace tao {
          return _out_fields;
       }
 
-      const hpc::view<std::vector<std::string>>
-      density_fields()
-      {
-         if ( _den_fields.empty() )
-         {
-            _den_fields.resize( _den_set.size() );
-            std::copy( _den_set.begin(), _den_set.end(), _den_fields.begin() );
-         }
-         return _den_fields;
-      }
-
    protected:
 
       std::set<std::string> _of_set;
       std::vector<std::string> _out_fields;
-
-      std::set<std::string> _den_set;
-      std::vector<std::string> _den_fields;
-
 
    };
 

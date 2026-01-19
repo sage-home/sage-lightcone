@@ -316,6 +316,8 @@ namespace tao {
       void
       set_size( unsigned size )
       {
+         if( size == 0 && _max_size == 0 ) _max_size = 1000;
+         if( size > _max_size ) _max_size = size;
          _size = size;
          _mask.resize( _size );
          boost::fill( _mask, false );

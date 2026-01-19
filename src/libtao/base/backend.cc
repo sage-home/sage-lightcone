@@ -21,7 +21,7 @@ namespace tao {
     }
 
     // For some backends there are different fields expected.
-    // For example, the kdtree requires a field subtree_count
+    // Override in derived classes if additional fields are needed.
     void
     backend::add_conditional_fields(query<real_type> &qry) {
     }
@@ -55,27 +55,17 @@ namespace tao {
             }
         }
 
-        // Add fields from the density object.
-        for (auto const &field : qry.density_fields()) {
-            // All column density base fields are already added as output fields
-            // So here, only add the column density itself, which is calculated
-            auto density_field = field + "_column_density";
-            bat.template set_scalar<real_type>(density_field);
-        }
-
         // Add fields that will need to be calculated.
         bat.template set_scalar<real_type>("redshift_cosmological");
+        bat.template set_scalar<real_type>("cosmological_redshift");
         bat.template set_scalar<real_type>("redshift_observed");
-        bat.template set_scalar<real_type>("column_density");
+        bat.template set_scalar<real_type>("observed_redshift");
         bat.template set_scalar<real_type>("ra");
         bat.template set_scalar<real_type>("dec");
         // we need to keep it here for boxes / lightcones for now.
         bat.template set_scalar<real_type>("distance");
         bat.template set_scalar<real_type>("sfr");
-        bat.template set_scalar<real_type>("distance_from_beam");
-        // Both required for column density calculations
-        bat.template set_scalar<real_type>("mass");
-        bat.template set_scalar<real_type>("density");
+
     }
 
 }

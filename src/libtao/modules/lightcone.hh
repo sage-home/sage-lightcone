@@ -1,6 +1,7 @@
 #ifndef tao_modules_lightcone_hh
 #define tao_modules_lightcone_hh
 
+#include <set>
 #include <boost/property_tree/json_parser.hpp>
 #include <libhpc/system/math.hh>
 #include <boost/optional.hpp>
@@ -412,21 +413,46 @@ namespace tao {
                }
                else
                {
-                  for( auto const& field : global_cli_dict._output_fields )
-                  {
-                     // Check if the field exists in the input hdf5 file.
+                  // Known calculated fields that are computed during lightcone extraction
+                  // (not present in input HDF5 file)
+                  static const std::set<std::string> calculated_fields = {
+                     "ra", "dec", "distance",
+                     "redshift_cosmological", "cosmological_redshift",
+                     "redshift_observed", "observed_redshift",
+                     "sfr"
+                  };
+
+                  // Helper to process a single field
+                  auto process_field = [&](const std::string& field) {
                      // Convert requested field to lowercase for case-insensitive comparison
                      std::string field_lower = field;
                      std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+
+                     // Allow known calculated fields even if not in input file
+                     if (calculated_fields.count(field_lower) > 0) {
+                        _qry.add_output_field( field );
+                        LOGILN( "CLI.Adding calculated field ", field );
+                        return;
+                     }
 
                      auto it = std::find(all_field_names.begin(), all_field_names.end(), field_lower);
                      if (it == all_field_names.end()) {
                         LOGILN( "Field '", field, "' not found in input hdf5 file. stop." );
                         exit(-1);
                      }
-                     // If it does not exist, log a warning.
                      _qry.add_output_field( field );
                      LOGILN( "CLI.Adding field ", field );
+                  };
+
+                  for( auto const& field_arg : global_cli_dict._output_fields )
+                  {
+                     // Handle space-separated fields in a single argument
+                     // (e.g., --outfields "ra dec sfr")
+                     std::istringstream iss(field_arg);
+                     std::string field;
+                     while (iss >> field) {
+                        process_field(field);
+                     }
                   }
                }
 
