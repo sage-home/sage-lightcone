@@ -23,20 +23,20 @@
 #include "libhpc/debug/instrumentation.hh"
 
 namespace hpc {
-    namespace logging {
+namespace logging {
 
-        ///
-        /// Interface for instrumentation.
-        ///
-        class instrument : public debug::instrument {
-          public:
-            instrument();
+///
+/// Interface for instrumentation.
+///
+class instrument : public debug::instrument {
+public:
+  instrument();
 
-            virtual void enter(const char *file_name, const char *func_name);
+  virtual void enter(const char *file_name, const char *func_name);
 
-            virtual void exit(const char *file_name, const char *func_name);
-        };
-    } // namespace logging
+  virtual void exit(const char *file_name, const char *func_name);
+};
+} // namespace logging
 } // namespace hpc
 
 #endif

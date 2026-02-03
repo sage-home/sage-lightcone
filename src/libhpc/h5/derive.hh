@@ -18,42 +18,41 @@
 #ifndef hpc_h5_derive_hh
 #define hpc_h5_derive_hh
 
-#include <boost/tuple/tuple.hpp>
 #include "datatype.hh"
+#include <boost/tuple/tuple.hpp>
 
 namespace hpc {
-    namespace h5 {
+namespace h5 {
 
-        class derive {
-          public:
-            typedef boost::tuple<h5::datatype const *, hsize_t, h5::datatype const *, std::string> entry_type;
+class derive {
+public:
+  typedef boost::tuple<h5::datatype const *, hsize_t, h5::datatype const *,
+                       std::string>
+      entry_type;
 
-          public:
-            derive(size_t mem_size = 0);
+public:
+  derive(size_t mem_size = 0);
 
-            void add(const h5::datatype &mem_type,
-                     hsize_t             mem_offs,
-                     const h5::datatype &file_type,
-                     const std::string & desc = "");
+  void add(const h5::datatype &mem_type, hsize_t mem_offs,
+           const h5::datatype &file_type, const std::string &desc = "");
 
-            void add2(h5::datatype const &mem_type,
-                      hsize_t             mem_offs,
-                      std::string const & desc      = "",
-                      h5::datatype const &file_type = h5::datatype::invalid);
+  void add2(h5::datatype const &mem_type, hsize_t mem_offs,
+            std::string const &desc = "",
+            h5::datatype const &file_type = h5::datatype::invalid);
 
-            void commit(h5::datatype &mem_type, h5::datatype &file_type);
+  void commit(h5::datatype &mem_type, h5::datatype &file_type);
 
-          protected:
-            hsize_t _calc_mem_size();
+protected:
+  hsize_t _calc_mem_size();
 
-            hsize_t _calc_file_size();
+  hsize_t _calc_file_size();
 
-          protected:
-            size_t                _mem_size;
-            std::list<entry_type> _cache;
-        };
+protected:
+  size_t _mem_size;
+  std::list<entry_type> _cache;
+};
 
-    } // namespace h5
+} // namespace h5
 } // namespace hpc
 
 #endif

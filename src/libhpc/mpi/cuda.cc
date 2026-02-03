@@ -17,43 +17,47 @@
 
 #ifdef USE_CUDA
 
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <libhpc/debug/insist.hh>
-#include <libhpc/debug/except.hh>
-#include <libhpc/logging.hh>
 #include "cuda.hh"
 #include "host.hh"
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+#include <libhpc/debug/except.hh>
+#include <libhpc/debug/insist.hh>
+#include <libhpc/logging.hh>
 
 namespace hpc {
-    namespace cuda {
+namespace cuda {
 
-        void select_device(mpi::comm const &comm) {
-            int n_devs;
-            INSIST(cudaGetDeviceCount(&n_devs), == cudaSuccess);
-            EXCEPT(n_devs > 0, "No GPU capability on host: ", mpi::get_host());
-            LOGILN(n_devs, " GPU(s) available on: ", mpi::get_host());
-            if(n_devs == 1) {
-                LOGILN("Rank ", comm.rank(), " on host ", mpi::get_host(), " using CUDA device: 0");
-                cudaError_t res = cudaSetDevice(0);
-                EXCEPT(res == cudaSuccess, "Failed to set device.");
-            } else if(n_devs > 1) {
-                std::set<int> ranks = mpi::make_host_ranks(comm);
-                LOGILN("Ranks shared on host: ", ranks);
-                EXCEPT(ranks.size() <= n_devs, "Number of nodes on a host exceeds available GPUs.");
-                unsigned dev = 0;
-                for(std::set<int>::const_iterator it = ranks.begin(); it != ranks.end(); ++it) {
-                    if(comm.rank() == *it) {
-                        LOGILN("Rank ", *it, " on host ", mpi::get_host(), " using CUDA device: ", dev);
-                        cudaError_t res = cudaSetDevice(dev);
-                        EXCEPT(res == cudaSuccess, "Failed to set device.");
-                    }
-                    ++dev;
-                }
-            }
-        }
+void select_device(mpi::comm const &comm) {
+  int n_devs;
+  INSIST(cudaGetDeviceCount(&n_devs), == cudaSuccess);
+  EXCEPT(n_devs > 0, "No GPU capability on host: ", mpi::get_host());
+  LOGILN(n_devs, " GPU(s) available on: ", mpi::get_host());
+  if (n_devs == 1) {
+    LOGILN("Rank ", comm.rank(), " on host ", mpi::get_host(),
+           " using CUDA device: 0");
+    cudaError_t res = cudaSetDevice(0);
+    EXCEPT(res == cudaSuccess, "Failed to set device.");
+  } else if (n_devs > 1) {
+    std::set<int> ranks = mpi::make_host_ranks(comm);
+    LOGILN("Ranks shared on host: ", ranks);
+    EXCEPT(ranks.size() <= n_devs,
+           "Number of nodes on a host exceeds available GPUs.");
+    unsigned dev = 0;
+    for (std::set<int>::const_iterator it = ranks.begin(); it != ranks.end();
+         ++it) {
+      if (comm.rank() == *it) {
+        LOGILN("Rank ", *it, " on host ", mpi::get_host(),
+               " using CUDA device: ", dev);
+        cudaError_t res = cudaSetDevice(dev);
+        EXCEPT(res == cudaSuccess, "Failed to set device.");
+      }
+      ++dev;
+    }
+  }
+}
 
-    } // namespace cuda
+} // namespace cuda
 } // namespace hpc
 
 #endif

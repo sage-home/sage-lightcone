@@ -20,24 +20,24 @@
 
 #ifndef NLOG
 
-#include "logger.hh"
 #include "levels.hh"
+#include "logger.hh"
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        ///
-        ///
-        ///
-        class stdout : public logger {
-          public:
-            stdout(unsigned min_level = 0, const std::string &tag = std::string());
+///
+///
+///
+class stdout : public logger {
+public:
+  stdout(unsigned min_level = 0, const std::string &tag = std::string());
 
-            virtual ~stdout();
+  virtual ~stdout();
 
-            virtual void write();
-        };
-    } // namespace log
+  virtual void write();
+};
+} // namespace log
 } // namespace hpc
 
 #endif

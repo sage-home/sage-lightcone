@@ -15,14 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with libhpc.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "id.hh"
 #include <sys/types.h>
 #include <unistd.h>
-#include "id.hh"
 
 namespace hpc {
 
-    long get_process_id() {
-        return getpid();
-    }
+long get_process_id() { return getpid(); }
 
 } // namespace hpc

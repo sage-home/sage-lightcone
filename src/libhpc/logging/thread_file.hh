@@ -20,45 +20,45 @@
 
 #if !defined(NLOG) && !defined(NTHREAD)
 
-#include <typeinfo>
+#include <boost/thread.hpp>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <set>
-#include <boost/thread.hpp>
+#include <sstream>
+#include <typeinfo>
 // #include <mutex>
 #include "libhpc/logging/file.hh"
 
 namespace hpc {
-    namespace log {
-        namespace thread {
+namespace log {
+namespace thread {
 
-            ///
-            ///
-            ///
-            class file : public log::file {
-              public:
-                file(std::string const &filename, unsigned min_level = 0);
+///
+///
+///
+class file : public log::file {
+public:
+  file(std::string const &filename, unsigned min_level = 0);
 
-                virtual ~file();
+  virtual ~file();
 
-                virtual void open();
+  virtual void open();
 
-                virtual void write();
+  virtual void write();
 
-              protected:
-                void _open_file();
+protected:
+  void _open_file();
 
-                void _close_file();
+  void _close_file();
 
-              protected:
-                boost::mutex                _write;
-                std::set<boost::thread::id> _tids;
-                std::string                 _base;
-            };
+protected:
+  boost::mutex _write;
+  std::set<boost::thread::id> _tids;
+  std::string _base;
+};
 
-        } // namespace thread
-    }     // namespace log
+} // namespace thread
+} // namespace log
 } // namespace hpc
 
 #endif

@@ -20,11 +20,11 @@
 
 namespace hpc {
 
-    template <class Iter> Iter split(Iter start, Iter const &finish) {
-        while(start != finish && *start != ',')
-            ++start;
-        return start;
-    }
+template <class Iter> Iter split(Iter start, Iter const &finish) {
+  while (start != finish && *start != ',')
+    ++start;
+  return start;
+}
 
 } // namespace hpc
 

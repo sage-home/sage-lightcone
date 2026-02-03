@@ -21,10 +21,10 @@
 #if !defined(NINSTRUMENT) || !defined(NSTACKTRACE)
 
 namespace hpc {
-    namespace debug {
+namespace debug {
 
-        void func_details(void *func_addr, const char **file_name, char **func_name);
-    }
+void func_details(void *func_addr, const char **file_name, char **func_name);
+}
 } // namespace hpc
 
 #endif

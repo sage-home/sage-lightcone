@@ -20,30 +20,30 @@
 
 #ifdef USE_EIGEN
 
-#include <Eigen/Eigen>
 #include "eigen_vector.hh"
+#include <Eigen/Eigen>
 
 namespace hpc {
-    namespace numerics {
-        namespace impl {
-            namespace eigen {
+namespace numerics {
+namespace impl {
+namespace eigen {
 
-                template <class T, int Rows, int Cols> class matrix : public Eigen::Matrix<T, Rows, Cols> {
-                  public:
-                    typedef Eigen::Matrix<T, Rows, Cols> super_type;
+template <class T, int Rows, int Cols>
+class matrix : public Eigen::Matrix<T, Rows, Cols> {
+public:
+  typedef Eigen::Matrix<T, Rows, Cols> super_type;
 
-                  public:
-                    matrix() : super_type() {
-                    }
+public:
+  matrix() : super_type() {}
 
-                    void solve(const vector<T, Rows> &rhs, vector<T, Rows> &sol) {
-                        // Need to cast the vector.
-                        ((Eigen::Matrix<T, Rows, 1> &)sol) = this->colPivHouseholderQr().solve(rhs);
-                    }
-                };
-            } // namespace eigen
-        }     // namespace impl
-    }         // namespace numerics
+  void solve(const vector<T, Rows> &rhs, vector<T, Rows> &sol) {
+    // Need to cast the vector.
+    ((Eigen::Matrix<T, Rows, 1> &)sol) = this->colPivHouseholderQr().solve(rhs);
+  }
+};
+} // namespace eigen
+} // namespace impl
+} // namespace numerics
 } // namespace hpc
 
 #endif

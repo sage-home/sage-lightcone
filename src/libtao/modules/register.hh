@@ -6,14 +6,11 @@
 
 namespace tao {
 
-   template< class Backend >
-   void
-   register_modules( tao::factory<Backend>& fact )
-   {
-      fact.register_module( "light-cone", tao::modules::lightcone<Backend>::factory );
-      fact.register_module( "hdf5", modules::hdf5<Backend>::factory );
-   }
-
+template <class Backend> void register_modules(tao::factory<Backend> &fact) {
+  fact.register_module("light-cone", tao::modules::lightcone<Backend>::factory);
+  fact.register_module("hdf5", modules::hdf5<Backend>::factory);
 }
+
+} // namespace tao
 
 #endif

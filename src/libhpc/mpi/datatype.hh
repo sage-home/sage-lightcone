@@ -18,93 +18,94 @@
 #ifndef hpc_mpi_datatype_hh
 #define hpc_mpi_datatype_hh
 
-#include <vector>
-#include "libhpc/debug/assert.hh"
 #include "init.hh"
+#include "libhpc/debug/assert.hh"
+#include <vector>
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        class datatype {
-          public:
-            static mpi::datatype null;
-            static mpi::datatype boolean;
-            static mpi::datatype byte;
-            static mpi::datatype character;
-            static mpi::datatype integer;
-            static mpi::datatype unsigned_integer;
-            static mpi::datatype long_integer;
-            static mpi::datatype unsigned_long;
-            static mpi::datatype long_long;
-            static mpi::datatype unsigned_long_long;
-            static mpi::datatype floating;
-            static mpi::datatype double_floating;
+class datatype {
+public:
+  static mpi::datatype null;
+  static mpi::datatype boolean;
+  static mpi::datatype byte;
+  static mpi::datatype character;
+  static mpi::datatype integer;
+  static mpi::datatype unsigned_integer;
+  static mpi::datatype long_integer;
+  static mpi::datatype unsigned_long;
+  static mpi::datatype long_long;
+  static mpi::datatype unsigned_long_long;
+  static mpi::datatype floating;
+  static mpi::datatype double_floating;
 
-            datatype(MPI_Datatype type = MPI_DATATYPE_NULL);
+  datatype(MPI_Datatype type = MPI_DATATYPE_NULL);
 
-            datatype(datatype &&src);
+  datatype(datatype &&src);
 
-            ~datatype();
+  ~datatype();
 
-            datatype &operator=(datatype &&other);
+  datatype &operator=(datatype &&other);
 
-            void clear();
+  void clear();
 
-            bool is_primitive() const;
+  bool is_primitive() const;
 
-            void mpi_datatype(MPI_Datatype type);
+  void mpi_datatype(MPI_Datatype type);
 
-            const MPI_Datatype &mpi_datatype() const;
+  const MPI_Datatype &mpi_datatype() const;
 
-            void contiguous(size_t size, const datatype &base, size_t block_size = 1, size_t offs = 0);
+  void contiguous(size_t size, const datatype &base, size_t block_size = 1,
+                  size_t offs = 0);
 
-            template <class IndexVec> mpi::datatype indexed(IndexVec const &idxs) const {
-                MPI_Datatype new_type;
-                MPI_Type_create_indexed_block(idxs.size(), 1, (int *)idxs.data(), _type, &new_type);
-                MPI_Type_commit(&new_type);
-                return mpi::datatype(new_type);
-            }
+  template <class IndexVec> mpi::datatype indexed(IndexVec const &idxs) const {
+    MPI_Datatype new_type;
+    MPI_Type_create_indexed_block(idxs.size(), 1, (int *)idxs.data(), _type,
+                                  &new_type);
+    MPI_Type_commit(&new_type);
+    return mpi::datatype(new_type);
+  }
 
-            template <class DisplVec, class IndexVec>
-            void indexed_csr(DisplVec const &displs,
-                             IndexVec const &idxs,
-                             datatype const &base,
-                             unsigned        block_size = 1) {
-                typedef typename IndexVec::value_type index_type;
+  template <class DisplVec, class IndexVec>
+  void indexed_csr(DisplVec const &displs, IndexVec const &idxs,
+                   datatype const &base, unsigned block_size = 1) {
+    typedef typename IndexVec::value_type index_type;
 
-                ASSERT(block_size >= 0, "Invalid block size.");
-                clear();
+    ASSERT(block_size >= 0, "Invalid block size.");
+    clear();
 
-                std::vector<int> block_displs(idxs.size());
-                std::vector<int> block_cnts(idxs.size());
+    std::vector<int> block_displs(idxs.size());
+    std::vector<int> block_cnts(idxs.size());
 
-                for(size_t ii = 0; ii < idxs.size(); ++ii) {
-                    index_type idx   = idxs[ii];
-                    block_displs[ii] = block_size * displs[idx];
-                    block_cnts[ii]   = block_size * displs[idx + 1] - block_displs[ii];
-                }
+    for (size_t ii = 0; ii < idxs.size(); ++ii) {
+      index_type idx = idxs[ii];
+      block_displs[ii] = block_size * displs[idx];
+      block_cnts[ii] = block_size * displs[idx + 1] - block_displs[ii];
+    }
 
-                MPI_Type_indexed(idxs.size(), block_cnts.data(), block_displs.data(), base._type, &_type);
-                MPI_Type_commit(&_type);
-            }
+    MPI_Type_indexed(idxs.size(), block_cnts.data(), block_displs.data(),
+                     base._type, &_type);
+    MPI_Type_commit(&_type);
+  }
 
-            size_t size() const;
+  size_t size() const;
 
-            bool operator==(const datatype &op) const;
+  bool operator==(const datatype &op) const;
 
-            bool operator==(const MPI_Datatype &op) const;
+  bool operator==(const MPI_Datatype &op) const;
 
-            bool operator!=(const datatype &op) const;
+  bool operator!=(const datatype &op) const;
 
-            bool operator!=(const MPI_Datatype &op) const;
+  bool operator!=(const MPI_Datatype &op) const;
 
-            friend std::ostream &operator<<(std::ostream &strm, const datatype &obj);
+  friend std::ostream &operator<<(std::ostream &strm, const datatype &obj);
 
-          protected:
-            MPI_Datatype _type;
-        };
+protected:
+  MPI_Datatype _type;
+};
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc
 
 #endif

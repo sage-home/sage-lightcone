@@ -15,75 +15,64 @@
 // You should have received a copy of the GNU General Public License
 // along with libhpc.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <boost/range/algorithm/fill.hpp>
 #include "requests.hh"
 #include "insist.hh"
+#include <boost/range/algorithm/fill.hpp>
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        requests::requests(size_type size) : _reqs(size) {
-            boost::fill(_reqs, MPI_REQUEST_NULL);
-        }
+requests::requests(size_type size) : _reqs(size) {
+  boost::fill(_reqs, MPI_REQUEST_NULL);
+}
 
-        requests::~requests() {
-            wait_all();
-        }
+requests::~requests() { wait_all(); }
 
-        void requests::clear() {
-            _reqs.clear();
-        }
+void requests::clear() { _reqs.clear(); }
 
-        bool requests::empty() const {
-            return _reqs.empty();
-        }
+bool requests::empty() const { return _reqs.empty(); }
 
-        void requests::reserve(size_type size) {
-            _reqs.reserve(size);
-        }
+void requests::reserve(size_type size) { _reqs.reserve(size); }
 
-        void requests::resize(size_type size) {
-            _reqs.resize(size);
-        }
+void requests::resize(size_type size) { _reqs.resize(size); }
 
-        requests::size_type requests::size() const {
-            return _reqs.size();
-        }
+requests::size_type requests::size() const { return _reqs.size(); }
 
-        request &requests::append() {
-            _reqs.resize(_reqs.size() + 1);
-            return _reqs.back();
-        }
+request &requests::append() {
+  _reqs.resize(_reqs.size() + 1);
+  return _reqs.back();
+}
 
-        void requests::wait_all() {
-            if(_reqs.size())
-                MPI_INSIST(MPI_Waitall(_reqs.size(), (MPI_Request *)_reqs.data(), MPI_STATUSES_IGNORE));
-        }
+void requests::wait_all() {
+  if (_reqs.size())
+    MPI_INSIST(MPI_Waitall(_reqs.size(), (MPI_Request *)_reqs.data(),
+                           MPI_STATUSES_IGNORE));
+}
 
-        bool requests::test_all() {
-            if(_reqs.size()) {
-                int flag;
-                MPI_INSIST(MPI_Testall(_reqs.size(), (MPI_Request *)_reqs.data(), &flag, MPI_STATUSES_IGNORE));
-                return flag;
-            }
-            return true;
+bool requests::test_all() {
+  if (_reqs.size()) {
+    int flag;
+    MPI_INSIST(MPI_Testall(_reqs.size(), (MPI_Request *)_reqs.data(), &flag,
+                           MPI_STATUSES_IGNORE));
+    return flag;
+  }
+  return true;
 
-            // for(int ii = 0; ii < _reqs.size(); ++ii) {
-            //    int flag;
+  // for(int ii = 0; ii < _reqs.size(); ++ii) {
+  //    int flag;
 
-            //    // Note that we cannot use mod_mpi_request here, because it requires that
-            //    // the communication be complete.
-            //    MPI_INSIST(MPI_Test(&_reqs[ii]._req, &flag, MPI_STATUS_IGNORE));
-            //    if(flag) {
-            //       _reqs.erase(_reqs.begin() + ii);
-            //       --ii;
-            //    }
-            // }
-        }
+  //    // Note that we cannot use mod_mpi_request here, because it requires
+  //    that
+  //    // the communication be complete.
+  //    MPI_INSIST(MPI_Test(&_reqs[ii]._req, &flag, MPI_STATUS_IGNORE));
+  //    if(flag) {
+  //       _reqs.erase(_reqs.begin() + ii);
+  //       --ii;
+  //    }
+  // }
+}
 
-        request &requests::operator[](size_type idx) {
-            return _reqs[idx];
-        }
+request &requests::operator[](size_type idx) { return _reqs[idx]; }
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc

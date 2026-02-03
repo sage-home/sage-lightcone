@@ -18,54 +18,54 @@
 #ifndef libhpc_numerics_interp_hh
 #define libhpc_numerics_interp_hh
 
-#include <vector>
 #include "libhpc/debug/assert.hh"
 #include "libhpc/system/assign.hh"
+#include <vector>
 
 namespace hpc {
-    namespace num {
+namespace num {
 
-        ///
-        ///
-        ///
-        template <class T> class interp {
-          public:
-            typedef T value_type;
+///
+///
+///
+template <class T> class interp {
+public:
+  typedef T value_type;
 
-          public:
-            template <class Seq> void set_abscissa(Seq &&abs) {
-                hpc::assign(_abs, std::forward<Seq>(abs));
-            }
+public:
+  template <class Seq> void set_abscissa(Seq &&abs) {
+    hpc::assign(_abs, std::forward<Seq>(abs));
+  }
 
-            template <class Seq> void set_values(Seq &&vals) {
-                hpc::assign(_vals, std::forward<Seq>(vals));
-            }
+  template <class Seq> void set_values(Seq &&vals) {
+    hpc::assign(_vals, std::forward<Seq>(vals));
+  }
 
-            value_type operator[](const value_type &x) const {
-                ASSERT(_abs.size() == _vals.size(), "Incompatible abscissa and values.");
+  value_type operator[](const value_type &x) const {
+    ASSERT(_abs.size() == _vals.size(), "Incompatible abscissa and values.");
 
-                auto     it  = std::lower_bound(_abs.begin(), _abs.end(), x);
-                unsigned low = std::distance(_abs.begin(), it);
-                unsigned upp;
-                if(low == 0)
-                    upp = low + 1;
-                else if(low >= _abs.size()) {
-                    low = _abs.size() - 2;
-                    upp = low + 1;
-                } else {
-                    upp = low;
-                    low -= 1;
-                }
-                value_type fac = (x - _abs[low]) / (_abs[upp] - _abs[low]);
-                return _vals[low] + (_vals[upp] - _vals[low]) * fac;
-            }
+    auto it = std::lower_bound(_abs.begin(), _abs.end(), x);
+    unsigned low = std::distance(_abs.begin(), it);
+    unsigned upp;
+    if (low == 0)
+      upp = low + 1;
+    else if (low >= _abs.size()) {
+      low = _abs.size() - 2;
+      upp = low + 1;
+    } else {
+      upp = low;
+      low -= 1;
+    }
+    value_type fac = (x - _abs[low]) / (_abs[upp] - _abs[low]);
+    return _vals[low] + (_vals[upp] - _vals[low]) * fac;
+  }
 
-          protected:
-            std::vector<value_type> _abs;
-            std::vector<value_type> _vals;
-        };
+protected:
+  std::vector<value_type> _abs;
+  std::vector<value_type> _vals;
+};
 
-    } // namespace num
+} // namespace num
 } // namespace hpc
 
 #endif

@@ -16,27 +16,23 @@
 // along with libhpc.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "application.hh"
-#include "init.hh"
 #include "comm.hh"
+#include "init.hh"
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        application::application(int argc, char *argv[], std::string const &info) : hpc::application(argc, argv, info) {
-            _rank = mpi::comm::world.rank();
-            _size = mpi::comm::world.size();
-        }
+application::application(int argc, char *argv[], std::string const &info)
+    : hpc::application(argc, argv, info) {
+  _rank = mpi::comm::world.rank();
+  _size = mpi::comm::world.size();
+}
 
-        application::~application() {
-        }
+application::~application() {}
 
-        int application::rank() const {
-            return _rank;
-        }
+int application::rank() const { return _rank; }
 
-        int application::size() const {
-            return _size;
-        }
+int application::size() const { return _size; }
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc

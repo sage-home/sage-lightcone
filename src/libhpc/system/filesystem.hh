@@ -22,9 +22,9 @@
 
 namespace hpc {
 
-    namespace fs = boost::filesystem;
+namespace fs = boost::filesystem;
 
-    fs::path executable_path();
+fs::path executable_path();
 
 } // namespace hpc
 

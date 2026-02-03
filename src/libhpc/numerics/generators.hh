@@ -18,41 +18,46 @@
 #ifndef hpc_numerics_generators_hh
 #define hpc_numerics_generators_hh
 
+#include "libhpc/debug/assert.hh"
 #include <math.h>
 #include <numeric>
-#include "libhpc/debug/assert.hh"
 
 namespace hpc {
-    namespace num {
+namespace num {
 
-        template <class Iter> void gaussian(Iter start, unsigned num_points, typename Iter::value_type amp = 1) {
-            typedef typename Iter::value_type value_type;
-            for(unsigned ii = 0; ii < num_points; ++ii) {
-                value_type x = ((value_type)ii / (value_type)(num_points - 1)) * (value_type)2 - (value_type)1;
-                *start++     = amp * exp(-(x * x));
-            }
-        }
+template <class Iter>
+void gaussian(Iter start, unsigned num_points,
+              typename Iter::value_type amp = 1) {
+  typedef typename Iter::value_type value_type;
+  for (unsigned ii = 0; ii < num_points; ++ii) {
+    value_type x =
+        ((value_type)ii / (value_type)(num_points - 1)) * (value_type)2 -
+        (value_type)1;
+    *start++ = amp * exp(-(x * x));
+  }
+}
 
-        template <class Iter>
-        void linear(Iter start, unsigned size, typename Iter::value_type min = 0, typename Iter::value_type max = 1) {
-            if(size) {
-                typename Iter::value_type step = (max - min) / (size - 1);
-                for(unsigned ii = 0; ii < size; ++start, ++ii)
-                    *start = min + ii * step;
-            }
-        }
+template <class Iter>
+void linear(Iter start, unsigned size, typename Iter::value_type min = 0,
+            typename Iter::value_type max = 1) {
+  if (size) {
+    typename Iter::value_type step = (max - min) / (size - 1);
+    for (unsigned ii = 0; ii < size; ++start, ++ii)
+      *start = min + ii * step;
+  }
+}
 
-    } // namespace num
+} // namespace num
 
-    namespace gen {
+namespace gen {
 
-        template <class T, class SeqT = std::vector<T>> SeqT iota(T size, T init = 0) {
-            SeqT seq(size);
-            std::iota(seq.begin(), seq.end(), init);
-            return seq;
-        }
+template <class T, class SeqT = std::vector<T>> SeqT iota(T size, T init = 0) {
+  SeqT seq(size);
+  std::iota(seq.begin(), seq.end(), init);
+  return seq;
+}
 
-    } // namespace gen
+} // namespace gen
 } // namespace hpc
 
 #endif

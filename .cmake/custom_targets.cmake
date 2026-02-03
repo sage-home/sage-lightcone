@@ -30,6 +30,12 @@ macro(add_custom_clang)
         )
         message(STATUS "   -> clang-format-fix   ; apply the project style standards using clang-format")
 
+        add_custom_target(
+            clang-format
+            DEPENDS clang-format-fix
+        )
+        message(STATUS "   -> clang-format       ; alias for clang-format-fix")
+
         # Clang-tidy
         add_custom_target(
             clang-tidy-check
@@ -58,6 +64,12 @@ macro(add_custom_clang)
             COMMAND echo No files to run clang-format on.
         )
         message(STATUS "   -> clang-format-fix   ; *** NO FILES TO PROCESS")
+
+        add_custom_target(
+            clang-format
+            COMMAND echo No files to run clang-format on.
+        )
+        message(STATUS "   -> clang-format       ; *** NO FILES TO PROCESS")
 
         # Clang-tidy
         add_custom_target(

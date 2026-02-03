@@ -23,37 +23,37 @@
 #endif
 
 #include <libhpc/debug/assertions.hh>
-#include <libhpc/mpi/init.hh>
-#include <libhpc/mpi/comm.hh>
 #include <libhpc/logging/globals.hh>
+#include <libhpc/mpi/comm.hh>
+#include <libhpc/mpi/init.hh>
 
 namespace hpc {
 
-    extern hpc::application *global_app;
+extern hpc::application *global_app;
 }
 
 int main(int argc, char *argv[]) {
-    typedef HPC_APP_CLASS application_type;
-    {
-        hpc::mpi::initialise(argc, argv);
-        try {
-            application_type app(argc, argv);
-            hpc::global_app = &app;
-            app();
-        } catch(hpc::silent_terminate &ex) {
-        }
-#ifdef NDEBUG
-        catch(std::exception &ex) {
-            std::cerr << "\nError: " << ex.what() << "\n\n";
-            hpc::mpi::comm::world.abort();
-        }
-#endif
-        // Clean up logging stack before MPI finalization to prevent
-        // loggers from accessing MPI after MPI_Finalize is called
-        hpc::log::clear();
-        hpc::mpi::finalise();
+  typedef HPC_APP_CLASS application_type;
+  {
+    hpc::mpi::initialise(argc, argv);
+    try {
+      application_type app(argc, argv);
+      hpc::global_app = &app;
+      app();
+    } catch (hpc::silent_terminate &ex) {
     }
-    return EXIT_SUCCESS;
+#ifdef NDEBUG
+    catch (std::exception &ex) {
+      std::cerr << "\nError: " << ex.what() << "\n\n";
+      hpc::mpi::comm::world.abort();
+    }
+#endif
+    // Clean up logging stack before MPI finalization to prevent
+    // loggers from accessing MPI after MPI_Finalize is called
+    hpc::log::clear();
+    hpc::mpi::finalise();
+  }
+  return EXIT_SUCCESS;
 }
 
 #endif

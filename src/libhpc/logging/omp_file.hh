@@ -20,42 +20,42 @@
 
 #if !defined(NLOG) && defined(_OPENMP)
 
-#include <omp.h>
-#include <typeinfo>
-#include <fstream>
-#include <sstream>
-#include <iomanip>
-#include <set>
 #include "libhpc/logging/logging.hh"
+#include <fstream>
+#include <iomanip>
+#include <omp.h>
+#include <set>
+#include <sstream>
+#include <typeinfo>
 
 namespace hpc {
-    namespace logging {
-        namespace omp {
+namespace logging {
+namespace omp {
 
-            ///
-            ///
-            ///
-            class file : public logging::file {
-              public:
-                file(const std::string &filename, unsigned min_level = 0);
+///
+///
+///
+class file : public logging::file {
+public:
+  file(const std::string &filename, unsigned min_level = 0);
 
-                virtual ~file();
+  virtual ~file();
 
-                virtual void open();
+  virtual void open();
 
-                virtual void write();
+  virtual void write();
 
-              protected:
-                void _open_file();
+protected:
+  void _open_file();
 
-                void _close_file();
+  void _close_file();
 
-              protected:
-                std::set<unsigned> _tids;
-                std::string        _base;
-            };
-        } // namespace omp
-    }     // namespace logging
+protected:
+  std::set<unsigned> _tids;
+  std::string _base;
+};
+} // namespace omp
+} // namespace logging
 } // namespace hpc
 
 #endif

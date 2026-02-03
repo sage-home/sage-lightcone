@@ -21,29 +21,29 @@
 // #ifndef MPICH_SKIP_MPICXX
 // #define MPICH_SKIP_MPICXX
 // #endif
-//#ifndef OMPI_SKIP_MPICXX
-//#define OMPI_SKIP_MPICXX
-//#endif
+// #ifndef OMPI_SKIP_MPICXX
+// #define OMPI_SKIP_MPICXX
+// #endif
 #include <mpi.h>
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        void initialise();
+void initialise();
 
-        void initialise(int &argc, char **&argv);
+void initialise(int &argc, char **&argv);
 
-        bool start_chunk(int chunk, int nchunks);
-        bool finish_chunk(int chunk, int nchunks);
-        int chunk();
-        int nchunks();
-        void set_rng(unsigned long long calls);
-        unsigned long long get_rng();
+bool start_chunk(int chunk, int nchunks);
+bool finish_chunk(int chunk, int nchunks);
+int chunk();
+int nchunks();
+void set_rng(unsigned long long calls);
+unsigned long long get_rng();
 
-        bool initialised();
+bool initialised();
 
-        void finalise(bool mpi = true);
-    } // namespace mpi
+void finalise(bool mpi = true);
+} // namespace mpi
 } // namespace hpc
 
 #endif

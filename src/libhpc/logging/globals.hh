@@ -22,12 +22,12 @@
 
 #if !defined(NLOG) && defined(CUDA_HOST)
 
-#include "libhpc/system/stream.hh"
+#include "levels.hh"
 #include "libhpc/system/narg.hh"
+#include "libhpc/system/stream.hh"
 #include "logger.hh"
 #include "stack.hh"
 #include "stdout.hh"
-#include "levels.hh"
 
 #define _LOG_(count, ...) _OSTREAM##count(::hpc::log::_stack, __VA_ARGS__)
 
@@ -37,9 +37,12 @@
 
 #define LOGLN(...) LOG(__VA_ARGS__, ::hpc::log::endl)
 
-#define LOGLV(level, ...) LOG(::hpc::log::pushlevel(level), __VA_ARGS__, ::hpc::log::poplevel)
+#define LOGLV(level, ...)                                                      \
+  LOG(::hpc::log::pushlevel(level), __VA_ARGS__, ::hpc::log::poplevel)
 
-#define LOGLVLN(level, ...) LOG(::hpc::log::pushlevel(level), __VA_ARGS__, ::hpc::log::endl, ::hpc::log::poplevel)
+#define LOGLVLN(level, ...)                                                    \
+  LOG(::hpc::log::pushlevel(level), __VA_ARGS__, ::hpc::log::endl,             \
+      ::hpc::log::poplevel)
 
 #ifndef NLOGTRIVIAL
 #define LOGT(...) LOGLV(::hpc::log::trivial, __VA_ARGS__)
@@ -67,7 +70,8 @@
 
 #ifndef NLOGDEBUG
 #define LOGDLN(...) LOGLVLN(::hpc::log::debug, __VA_ARGS__)
-#define LOGDLN_TAG(tag, ...) (LOG_PUSH_TAG(tag), LOGDLN(__VA_ARGS__), LOG_POP_TAG(tag))
+#define LOGDLN_TAG(tag, ...)                                                   \
+  (LOG_PUSH_TAG(tag), LOGDLN(__VA_ARGS__), LOG_POP_TAG(tag))
 #else
 #define LOGDLN(...)
 #define LOGDLN_TAG(tag, ...)
@@ -79,9 +83,11 @@
 
 #define LOGELN(...) LOGLVLN(::hpc::log::info, __VA_ARGS__)
 
-#define LOG_ENTER() LOGTLN("Entering: ", __PRETTY_FUNCTION__, ::hpc::setindent(2))
+#define LOG_ENTER()                                                            \
+  LOGTLN("Entering: ", __PRETTY_FUNCTION__, ::hpc::setindent(2))
 
-#define LOG_EXIT() LOGTLN("Exiting: ", __PRETTY_FUNCTION__, ::hpc::setindent(-2));
+#define LOG_EXIT()                                                             \
+  LOGTLN("Exiting: ", __PRETTY_FUNCTION__, ::hpc::setindent(-2));
 
 #define LOG_PUSH(logger) ::hpc::log::push(logger)
 
@@ -98,21 +104,21 @@
 #define WARN(expr, ...) ((expr) ? LOGWLN("WARNING: ", __VA_ARGS__) : 0)
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        extern stack _stack;
+extern stack _stack;
 
-        void push(logger *log);
+void push(logger *log);
 
-        void pop();
+void pop();
 
-        void clear();
+void clear();
 
-        void push_tag(const std::string &tag);
+void push_tag(const std::string &tag);
 
-        void pop_tag(const std::string &tag);
+void pop_tag(const std::string &tag);
 
-    } // namespace log
+} // namespace log
 } // namespace hpc
 
 #else

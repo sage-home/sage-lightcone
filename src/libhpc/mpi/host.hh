@@ -18,18 +18,18 @@
 #ifndef libhpc_mpi_host_hh
 #define libhpc_mpi_host_hh
 
-#include <string>
-#include <set>
 #include "comm.hh"
+#include <set>
+#include <string>
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        std::string get_host();
+std::string get_host();
 
-        std::set<int> make_host_ranks(mpi::comm const &comm = mpi::comm::world);
+std::set<int> make_host_ranks(mpi::comm const &comm = mpi::comm::world);
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc
 
 #endif

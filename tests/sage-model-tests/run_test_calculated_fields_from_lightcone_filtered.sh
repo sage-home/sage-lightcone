@@ -108,13 +108,13 @@ echo "========== PHASE 3: Running cli_lightcone =========="
     echo ${MY_ROOT}/bin/cli_lightcone \
     --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
     --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
-    --outdir ${OUTPUTDIR} --outfields ra dec cosmological_redshift observed_redshift sfr --outfile $RAWNAME-lightcone.h5
+    --outdir ${OUTPUTDIR} --outfields ra dec redshift_cosmological redshift_observed sfr --outfile $RAWNAME-lightcone.h5
 run_with_profiling "cli_lightcone" "$BENCHMARK_CSV" \
     ${MY_ROOT}/bin/cli_lightcone \
     --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
-    --filterfield cosmological_redshift --filtermin 0 --filtermax 0.6 \
+    --filterfield redshift_cosmological --filtermin 0 --filtermax 0.6 \
     --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
-    --outdir ${OUTPUTDIR} --outfields distance snapnum ra dec cosmological_redshift observed_redshift sfr --outfile $RAWNAME--filtered-lightcone.h5
+    --outdir ${OUTPUTDIR} --outfields distance snapnum ra dec redshift_cosmological redshift_observed sfr --outfile $RAWNAME--filtered-lightcone.h5
 
 # Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
 #python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum

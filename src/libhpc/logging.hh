@@ -18,13 +18,13 @@
 #ifndef libhpc_logging_logging_hh
 #define libhpc_logging_logging_hh
 
-#include "logging/logger.hh"
+#include "logging/block.hh"
 #include "logging/file.hh"
-#include "logging/stdout.hh"
-#include "logging/omp_file.hh"
-#include "logging/thread_file.hh"
 #include "logging/globals.hh"
 #include "logging/levels.hh"
-#include "logging/block.hh"
+#include "logging/logger.hh"
+#include "logging/omp_file.hh"
+#include "logging/stdout.hh"
+#include "logging/thread_file.hh"
 
 #endif

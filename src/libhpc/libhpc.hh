@@ -18,13 +18,13 @@
 #ifndef hpc_hh
 #define hpc_hh
 
+#include "algorithm.hh"
 #include "debug.hh"
-#include "system.hh"
+#include "h5.hh"
 #include "logging.hh"
 #include "mpi.hh"
-#include "h5.hh"
-#include "algorithm.hh"
 #include "numerics.hh"
+#include "system.hh"
 #ifdef USE_GLUT
 #include "interactive/interactive.hh"
 #endif

@@ -21,21 +21,20 @@
 #include "globals.hh"
 
 namespace hpc {
-    namespace logging {
+namespace logging {
 
-        instrument::instrument() : debug::instrument() {
-        }
+instrument::instrument() : debug::instrument() {}
 
-        void instrument::enter(const char *file_name, const char *func_name) {
-            if(func_name)
-                LOGTLN("ENTER: ", func_name);
-        }
+void instrument::enter(const char *file_name, const char *func_name) {
+  if (func_name)
+    LOGTLN("ENTER: ", func_name);
+}
 
-        void instrument::exit(const char *file_name, const char *func_name) {
-            if(func_name)
-                LOGTLN("EXIT: ", func_name);
-        }
-    } // namespace logging
+void instrument::exit(const char *file_name, const char *func_name) {
+  if (func_name)
+    LOGTLN("EXIT: ", func_name);
+}
+} // namespace logging
 } // namespace hpc
 
 #endif

@@ -17,22 +17,18 @@
 
 #ifndef NLOG
 
-#include <syslog.h>
 #include "syslogd.hh"
+#include <syslog.h>
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        syslogd::syslogd(const std::string &name) : logger(), _name(name) {
-        }
+syslogd::syslogd(const std::string &name) : logger(), _name(name) {}
 
-        syslogd::~syslogd() {
-        }
+syslogd::~syslogd() {}
 
-        void syslogd::write() {
-            syslog(LOG_INFO, "%s", buffer().str().c_str());
-        }
-    } // namespace log
+void syslogd::write() { syslog(LOG_INFO, "%s", buffer().str().c_str()); }
+} // namespace log
 } // namespace hpc
 
 #endif

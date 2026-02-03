@@ -21,48 +21,47 @@
 #include "libhpc/debug/assert.hh"
 
 namespace hpc {
-    namespace num {
+namespace num {
 
-        ///
-        ///
-        ///
-        template <class DiagVec,
-                  class OffDiagVec = DiagVec,
-                  class RHSVec     = DiagVec,
-                  class SolVec     = DiagVec,
-                  class WorkVec    = DiagVec>
-        void tridiag_symm_solve(typename type_traits<DiagVec>::const_reference    diag,
-                                typename type_traits<OffDiagVec>::const_reference off_diag,
-                                typename type_traits<RHSVec>::const_reference     rhs,
-                                typename type_traits<SolVec>::reference           sol,
-                                typename type_traits<WorkVec>::reference          work) {
-            typedef typename SolVec::value_type value_type;
+///
+///
+///
+template <class DiagVec, class OffDiagVec = DiagVec, class RHSVec = DiagVec,
+          class SolVec = DiagVec, class WorkVec = DiagVec>
+void tridiag_symm_solve(
+    typename type_traits<DiagVec>::const_reference diag,
+    typename type_traits<OffDiagVec>::const_reference off_diag,
+    typename type_traits<RHSVec>::const_reference rhs,
+    typename type_traits<SolVec>::reference sol,
+    typename type_traits<WorkVec>::reference work) {
+  typedef typename SolVec::value_type value_type;
 
-            ASSERT(diag.size() > 1);
-            ASSERT(diag.size() == off_diag.size() + 1);
-            ASSERT(diag.size() == rhs.size());
-            ASSERT(diag.size() == sol.size());
-            ASSERT(diag.data() != sol.data());
-            ASSERT(off_diag.size() == work.size());
-            ASSERT(off_diag.data() != work.data());
+  ASSERT(diag.size() > 1);
+  ASSERT(diag.size() == off_diag.size() + 1);
+  ASSERT(diag.size() == rhs.size());
+  ASSERT(diag.size() == sol.size());
+  ASSERT(diag.data() != sol.data());
+  ASSERT(off_diag.size() == work.size());
+  ASSERT(off_diag.data() != work.data());
 
-            // Forward sweep.
-            sol[0]      = rhs[0] / diag[0];
-            work[0]     = off_diag[0] / diag[0];
-            unsigned ii = 1;
-            for(; ii < off_diag.size(); ++ii) {
-                value_type tmp = 1.0 / (diag[ii] - work[ii - 1] * off_diag[ii - 1]);
-                sol[ii]        = (rhs[ii] - sol[ii - 1] * off_diag[ii - 1]) * tmp;
-                work[ii]       = off_diag[ii] * tmp;
-            }
-            sol[ii] = (rhs[ii] - sol[ii - 1] * off_diag[ii - 1]) / (diag[ii] - work[ii - 1] * off_diag[ii - 1]);
+  // Forward sweep.
+  sol[0] = rhs[0] / diag[0];
+  work[0] = off_diag[0] / diag[0];
+  unsigned ii = 1;
+  for (; ii < off_diag.size(); ++ii) {
+    value_type tmp = 1.0 / (diag[ii] - work[ii - 1] * off_diag[ii - 1]);
+    sol[ii] = (rhs[ii] - sol[ii - 1] * off_diag[ii - 1]) * tmp;
+    work[ii] = off_diag[ii] * tmp;
+  }
+  sol[ii] = (rhs[ii] - sol[ii - 1] * off_diag[ii - 1]) /
+            (diag[ii] - work[ii - 1] * off_diag[ii - 1]);
 
-            // Back-substitution.
-            for(; ii > 0; --ii)
-                sol[ii - 1] -= work[ii - 1] * sol[ii];
-        }
+  // Back-substitution.
+  for (; ii > 0; --ii)
+    sol[ii - 1] -= work[ii - 1] * sol[ii];
+}
 
-    } // namespace num
+} // namespace num
 } // namespace hpc
 
 #endif

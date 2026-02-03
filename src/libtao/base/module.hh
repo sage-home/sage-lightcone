@@ -1,224 +1,158 @@
 #ifndef tao_base_module_hh
 #define tao_base_module_hh
 
-#include <list>
-#include <string>
-#include <boost/optional.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <pugixml.hpp>
-#include "xml_dict.hh"
 #include "batch.hh"
 #include "types.hh"
+#include "xml_dict.hh"
+#include <boost/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <list>
+#include <pugixml.hpp>
+#include <string>
 
 namespace tao {
 
-   template< class Backend >
-   class module
-   {
-   public:
+template <class Backend> class module {
+public:
+  typedef Backend backend_type;
 
-      typedef Backend backend_type;
+public:
+  module(const std::string &name = std::string(),
+         pugi::xml_node base = pugi::xml_node()) :_name(name),
+      _init(false), _base(base), _global_cli_dict(NULL), _it(0),
+      _complete(false) {}
 
-   public:
+  virtual ~module() {}
 
-      module( const std::string& name = std::string(),
-	      pugi::xml_node base = pugi::xml_node() )
-         : _name( name ),
-           _init( false ),
-           _base( base ),
-           _global_cli_dict( NULL ),
-           _it( 0 ),
-           _complete( false )
-      {
+  void add_parent(module &parent) {
+    LOGBLOCKI("Adding ", parent.name(), " to ", _name, ".");
+
+    // Check that we don't already have this guy.
+    ASSERT(std::find(_parents.begin(), _parents.end(), &parent) ==
+               _parents.end(),
+           "Module's cannot add duplicate parents.");
+
+    // Add it to the lists.
+    _parents.push_back(&parent);
+    parent._children.push_back(this);
+  }
+
+  std::list<module *> &parents() { return _parents; }
+
+  void process(unsigned long long iteration) {
+    // Iteration should never be lower than my current.
+    ASSERT(iteration >= _it);
+
+    // If we have not already processed this round, launch
+    // the execute routine.
+    if (iteration > _it) {
+      // Should only ever be greater by one.
+      ASSERT(iteration == _it + 1);
+
+      // Process all parents.
+      bool all_complete = !_parents.empty();
+      for (auto &parent : _parents) {
+        parent->process(iteration);
+        if (!parent->complete())
+          all_complete = false;
       }
 
-      virtual
-      ~module()
-      {
+      // Call the user-defined execute routine.
+      if (!all_complete)
+        execute();
+      else {
+        LOGDLN("Module ", _name,
+               ": All parents are complete, marking myself as complete.");
+        _complete = true;
       }
 
-      void
-      add_parent( module& parent )
-      {
-         LOGBLOCKI( "Adding ", parent.name(), " to ", _name, "." );
+      // Update my iteration counter.
+      _it = iteration;
+    }
+  }
 
-         // Check that we don't already have this guy.
-         ASSERT( std::find( _parents.begin(), _parents.end(), &parent ) == _parents.end(),
-                 "Module's cannot add duplicate parents." );
+  virtual void
+  initialise(const cli_dict &global_cli_dict,
+             boost::optional<boost::property_tree::ptree> checkpoint =
+                 boost::optional<boost::property_tree::ptree>()) {
+    // Don't initialise if we're already doing so.
+    if (_init)
+      return;
 
-         // Add it to the lists.
-         _parents.push_back( &parent );
-         parent._children.push_back( this );
-      }
+    // Flag myself as having commenced initialisation.
+    _init = true;
+    _complete = false;
 
-      std::list<module*>&
-      parents()
-      {
-         return _parents;
-      }
+    // Initialise parents first.
+    for (auto par : _parents)
+      par->initialise(global_cli_dict, checkpoint);
 
-      void
-      process( unsigned long long iteration )
-      {
-         // Iteration should never be lower than my current.
-         ASSERT( iteration >= _it );
+    // Store global dictionary.
+    _global_cli_dict = &global_cli_dict;
 
-         // If we have not already processed this round, launch
-         // the execute routine.
-         if( iteration > _it )
-         {
-            // Should only ever be greater by one.
-            ASSERT( iteration == _it + 1 );
+    // Reset the iteration.
+    _it = 0;
+  }
 
-            // Process all parents.
-            bool all_complete = !_parents.empty();
-            for( auto& parent : _parents )
-            {
-               parent->process( iteration );
-               if( !parent->complete() )
-                  all_complete = false;
-            }
+  virtual void execute() = 0;
 
-            // Call the user-defined execute routine.
-            if( !all_complete )
-               execute();
-            else
-            {
-               LOGDLN( "Module ", _name, ": All parents are complete, marking myself as complete." );
-               _complete = true;
-            }
+  virtual void finalise() {}
 
-            // Update my iteration counter.
-            _it = iteration;
-         }
-      }
+  virtual tao::batch<real_type> &batch() {
+    // By default return the first parent.
+    ASSERT(!_parents.empty(), "Cannot get batch of non-existant parent.");
+    return _parents.front()->batch();
+  }
 
-      virtual
-      void
-      initialise( const cli_dict&  global_cli_dict,
-                  boost::optional<boost::property_tree::ptree> checkpoint = boost::optional<boost::property_tree::ptree>() )
-      {
-         // Don't initialise if we're already doing so.
-         if( _init )
-            return;
+  virtual backend_type *backend() { return 0; }
 
-         // Flag myself as having commenced initialisation.
-         _init = true;
-         _complete = false;
+  virtual boost::optional<boost::any> find_attribute(const std::string &name) {
+    // By default pass on to parents.
+    for (auto par : _parents) {
+      auto res = par->find_attribute(name);
+      if (res)
+        return res;
+    }
+    return boost::none;
+  }
 
-         // Initialise parents first.
-         for( auto par : _parents )
-            par->initialise( global_cli_dict, checkpoint );
+  template <class T> T attribute(const std::string &name) {
+    auto res = find_attribute(name);
+    EXCEPT(res, "Failed to locate attribute on module chain with name: ", name);
+    return boost::any_cast<T>(*res);
+  }
 
-         // Store global dictionary.
-         _global_cli_dict = &global_cli_dict;
+  virtual void log_metrics() {
+    // LOGILN( _name, " runtime: ", time(), " (s)" );
+    // LOGILN( _name, " db time: ", db_time(), " (s)" );
+  }
 
-         // Reset the iteration.
-         _it = 0;
-      }
+  void checkpoint(boost::property_tree::ptree &pt) {
+    this->do_checkpoint(pt);
+    for (auto const &child : _children)
+      child->checkpoint(pt);
+  }
 
-      virtual
-      void
-      execute() = 0;
+  virtual void do_checkpoint(boost::property_tree::ptree &pt) {}
 
-      virtual
-      void
-      finalise()
-      {
-      }
+  bool complete() const { return _complete; }
 
-      virtual
-      tao::batch<real_type>&
-      batch()
-      {
-         // By default return the first parent.
-         ASSERT( !_parents.empty(), "Cannot get batch of non-existant parent." );
-         return _parents.front()->batch();
-      }
+  const std::string &name() const { return _name; }
 
-      virtual
-      backend_type*
-      backend()
-      {
-         return 0;
-      }
+  pugi::xml_node local_xml_node() { return _base; }
 
-      virtual
-      boost::optional<boost::any>
-      find_attribute( const std::string& name )
-      {
-         // By default pass on to parents.
-         for( auto par : _parents )
-         {
-            auto res = par->find_attribute( name );
-            if( res )
-               return res;
-         }
-         return boost::none;
-      }
+protected:
+  std::string _name;
+  unsigned long long _it;
+  bool _init;
+  std::list<module *> _parents;
+  std::list<module *> _children;
+  bool _complete;
 
-      template< class T >
-      T
-      attribute( const std::string& name )
-      {
-         auto res = find_attribute( name );
-         EXCEPT( res, "Failed to locate attribute on module chain with name: ", name );
-         return boost::any_cast<T>( *res );
-      }
+  pugi::xml_node _base;
+  cli_dict const *_global_cli_dict;
+};
 
-      virtual
-      void
-      log_metrics()
-      {
-         // LOGILN( _name, " runtime: ", time(), " (s)" );
-         // LOGILN( _name, " db time: ", db_time(), " (s)" );
-      }
-
-      void
-      checkpoint( boost::property_tree::ptree& pt )
-      {
-         this->do_checkpoint( pt );
-         for( auto const& child : _children )
-            child->checkpoint( pt );
-      }
-
-      virtual
-      void
-      do_checkpoint( boost::property_tree::ptree& pt )
-      {
-      }
-
-      bool
-      complete() const
-      {
-         return _complete;
-      }
-
-      const std::string&
-      name() const
-      {
-         return _name;
-      }
-
-      pugi::xml_node
-      local_xml_node()
-      {
-         return _base;
-      }
-
-   protected:
-
-      std::string _name;
-      unsigned long long _it;
-      bool _init;
-      std::list<module*> _parents;
-      std::list<module*> _children;
-      bool _complete;
-
-      pugi::xml_node _base;
-      cli_dict const* _global_cli_dict;
-   };
-
-}
+} // namespace tao
 
 #endif

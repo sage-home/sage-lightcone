@@ -20,52 +20,50 @@
 
 #if !defined(NDEBUG) || !defined(NEXCEPT)
 
+#include "stacktrace.hh"
+#include <exception>
 #include <iostream>
 #include <string>
-#include <exception>
-#include "stacktrace.hh"
 
 namespace hpc {
-    namespace debug {
+namespace debug {
 
-        ///
-        ///
-        ///
-        class assertion : public std::exception {
-          public:
-            ~assertion() throw();
+///
+///
+///
+class assertion : public std::exception {
+public:
+  ~assertion() throw();
 
-            assertion &details(const char *expr,
-                               const char *file,
-                               int         line,
+  assertion &details(const char *expr, const char *file, int line,
 #ifndef NSTACKTRACE
-                               const stacktrace &st,
+                     const stacktrace &st,
 #endif
-                               const std::string &msg = std::string()) throw();
+                     const std::string &msg = std::string()) throw();
 
-            virtual const char *what() const throw();
+  virtual const char *what() const throw();
 
-            const std::string &message() const;
+  const std::string &message() const;
 
-          protected:
-            void _write_buffer(std::string &buf) throw();
+protected:
+  void _write_buffer(std::string &buf) throw();
 
-          protected:
-            const char *_file;
-            int         _line;
-            const char *_expr;
-            std::string _msg, _buf;
+protected:
+  const char *_file;
+  int _line;
+  const char *_expr;
+  std::string _msg, _buf;
 #ifndef NSTACKTRACE
-            stacktrace _st;
+  stacktrace _st;
 #endif
-        };
+};
 
-    } // namespace debug
+} // namespace debug
 
-    class exception : public debug::assertion {
-      public:
-        virtual const char *what() const throw();
-    };
+class exception : public debug::assertion {
+public:
+  virtual const char *what() const throw();
+};
 
 } // namespace hpc
 

@@ -19,16 +19,16 @@
 #define hpc_system_hh
 
 #include "system/anon.hh"
-#include "system/stream.hh"
-#include "system/timer.hh"
-#include "system/id.hh"
-#include "system/filesystem.hh"
 #include "system/file_descriptor.hh"
+#include "system/filesystem.hh"
+#include "system/has.hh"
+#include "system/id.hh"
+#include "system/matrix.hh"
 #include "system/path_finder.hh"
+#include "system/stream.hh"
+#include "system/string.hh"
+#include "system/timer.hh"
 #include "system/tmpfile.hh"
 #include "system/view.hh"
-#include "system/matrix.hh"
-#include "system/has.hh"
-#include "system/string.hh"
 
 #endif
