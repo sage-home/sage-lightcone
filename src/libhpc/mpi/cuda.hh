@@ -23,10 +23,10 @@
 #include "comm.hh"
 
 namespace hpc {
-    namespace cuda {
+namespace cuda {
 
-        void select_device(mpi::comm const &comm = mpi::comm::world);
-    }
+void select_device(mpi::comm const &comm = mpi::comm::world);
+}
 } // namespace hpc
 
 #endif

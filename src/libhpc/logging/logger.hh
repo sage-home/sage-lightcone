@@ -18,160 +18,158 @@
 #ifndef libhpc_logging_logger_hh
 #define libhpc_logging_logger_hh
 
-#include <typeinfo>
-#include <sstream>
+#include "libhpc/system/stream.hh"
+#include <boost/thread.hpp>
 #include <iomanip>
 #include <list>
 #include <map>
 #include <set>
-#include <boost/thread.hpp>
-#include "libhpc/system/stream.hh"
+#include <sstream>
+#include <typeinfo>
 
 #ifndef NLOG
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        ///
-        ///
-        ///
-        struct level_t {
-            unsigned level;
-        };
+///
+///
+///
+struct level_t {
+  unsigned level;
+};
 
-        ///
-        ///
-        ///
-        class logger {
-          public:
-            logger(unsigned min_level = 0, const std::string &tag = std::string());
+///
+///
+///
+class logger {
+public:
+  logger(unsigned min_level = 0, const std::string &tag = std::string());
 
-            virtual ~logger();
+  virtual ~logger();
 
-            virtual void open();
+  virtual void open();
 
-            virtual void close();
+  virtual void close();
 
-            virtual void new_line();
+  virtual void new_line();
 
-            virtual void prefix();
+  virtual void prefix();
 
-            virtual void write() = 0;
+  virtual void write() = 0;
 
-            void add_tag(const std::string &tag);
+  void add_tag(const std::string &tag);
 
-            void push_level(unsigned level);
+  void push_level(unsigned level);
 
-            void pop_level();
+  void pop_level();
 
-            void push_tag(const std::string &tag);
+  void push_tag(const std::string &tag);
 
-            void pop_tag(const std::string &tag);
+  void pop_tag(const std::string &tag);
 
-            bool visible();
+  bool visible();
 
-            std::stringstream &buffer();
+  std::stringstream &buffer();
 
-            std::list<unsigned> &levels();
+  std::list<unsigned> &levels();
 
-            std::map<std::string, int> &current_tags();
+  std::map<std::string, int> &current_tags();
 
-            template <class T> logger &operator<<(const T &obj) {
-                typename _traits<T>::impl impl;
-                impl(*this, obj);
-                return *this;
-            }
+  template <class T> logger &operator<<(const T &obj) {
+    typename _traits<T>::impl impl;
+    impl(*this, obj);
+    return *this;
+  }
 
-            template <class T> void write_buffer(const T &obj) {
-                std::stringstream &buf = buffer();
-                buf << obj;
-                write();
-                buf.str(std::string());
-            }
+  template <class T> void write_buffer(const T &obj) {
+    std::stringstream &buf = buffer();
+    buf << obj;
+    write();
+    buf.str(std::string());
+  }
 
-            template <class T> void operator()(const T &obj, bool allow_new_line = true) {
-                // Don't log if currently below minimum level.
-                if(visible()) {
-                    // Print new line prefix, if required.
-                    if(allow_new_line && _get_new_line())
-                        prefix();
+  template <class T> void operator()(const T &obj, bool allow_new_line = true) {
+    // Don't log if currently below minimum level.
+    if (visible()) {
+      // Print new line prefix, if required.
+      if (allow_new_line && _get_new_line())
+        prefix();
 
-                    // Write the object.
-                    write_buffer(obj);
-                }
-            }
+      // Write the object.
+      write_buffer(obj);
+    }
+  }
 
-          protected:
-            bool &_get_new_line();
+protected:
+  bool &_get_new_line();
 
-            ///
-            ///
-            ///
-            template <class T> struct _traits {
-                struct impl {
-                    void operator()(logger &log, const T &obj) {
-                        log(obj);
-                    }
-                };
-            };
+  ///
+  ///
+  ///
+  template <class T> struct _traits {
+    struct impl {
+      void operator()(logger &log, const T &obj) { log(obj); }
+    };
+  };
 
-            // Using mappings from thread ID to the object in question.
-            // Need this for threaded loggers.
-            std::map<boost::thread::id, bool>                _new_line;
-            boost::mutex                                     _new_line_mutex;
-            std::map<boost::thread::id, std::stringstream *> _buf;
-            boost::mutex                                     _buf_mutex;
-            std::map<boost::thread::id, std::list<unsigned>> _levels;
-            boost::mutex                                     _levels_mutex;
+  // Using mappings from thread ID to the object in question.
+  // Need this for threaded loggers.
+  std::map<boost::thread::id, bool> _new_line;
+  boost::mutex _new_line_mutex;
+  std::map<boost::thread::id, std::stringstream *> _buf;
+  boost::mutex _buf_mutex;
+  std::map<boost::thread::id, std::list<unsigned>> _levels;
+  boost::mutex _levels_mutex;
 
-            // Tags need a mapping from the tag to a count so we can
-            // push and pop them properly.
-            std::map<boost::thread::id, std::map<std::string, int>> _cur_tags;
-            boost::mutex                                            _tags_mutex;
+  // Tags need a mapping from the tag to a count so we can
+  // push and pop them properly.
+  std::map<boost::thread::id, std::map<std::string, int>> _cur_tags;
+  boost::mutex _tags_mutex;
 
-            unsigned              _min_level;
-            std::set<std::string> _tags;
-        };
+  unsigned _min_level;
+  std::set<std::string> _tags;
+};
 
-        ///
-        ///
-        ///
-        template <> struct logger::_traits<logger &(logger &)> {
-            struct impl {
-                void operator()(logger &log, logger &(*fp)(logger &));
-            };
-        };
+///
+///
+///
+template <> struct logger::_traits<logger &(logger &)> {
+  struct impl {
+    void operator()(logger &log, logger &(*fp)(logger &));
+  };
+};
 
-        ///
-        ///
-        ///
-        template <> struct logger::_traits<setindent_t> {
-            struct impl {
-                void operator()(logger &log, setindent_t si);
-            };
-        };
+///
+///
+///
+template <> struct logger::_traits<setindent_t> {
+  struct impl {
+    void operator()(logger &log, setindent_t si);
+  };
+};
 
-        ///
-        ///
-        ///
-        logger &endl(logger &log);
+///
+///
+///
+logger &endl(logger &log);
 
-        ///
-        ///
-        ///
-        level_t pushlevel(unsigned level);
+///
+///
+///
+level_t pushlevel(unsigned level);
 
-        ///
-        ///
-        ///
-        logger &operator<<(logger &log, level_t level);
+///
+///
+///
+logger &operator<<(logger &log, level_t level);
 
-        ///
-        ///
-        ///
-        logger &poplevel(logger &log);
+///
+///
+///
+logger &poplevel(logger &log);
 
-    } // namespace log
+} // namespace log
 } // namespace hpc
 
 #endif

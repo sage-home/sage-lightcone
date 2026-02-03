@@ -15,15 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with libhpc.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "libhpc/system/string.hh"
 #include "helpers.hh"
+#include "libhpc/system/string.hh"
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        std::string rank_string(mpi::comm const &comm, unsigned width) {
-            return index_string(comm.rank()*nchunks()+chunk(), width);
-        }
+std::string rank_string(mpi::comm const &comm, unsigned width) {
+  return index_string(comm.rank() * nchunks() + chunk(), width);
+}
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc

@@ -20,38 +20,38 @@
 
 #ifndef NLOG
 
-#include <typeinfo>
+#include "libhpc/logging.hh"
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <mpi.h>
-#include "libhpc/logging.hh"
+#include <sstream>
+#include <typeinfo>
 
 #define LOG_MPI(base) LOG_PUSH(new hpc::mpi::logger(base, 0))
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        extern double log_base_time;
+extern double log_base_time;
 
-        ///
-        ///
-        ///
-        class logger : public log::file {
-          public:
-            logger(const std::string &filename, unsigned level = 0);
+///
+///
+///
+class logger : public log::file {
+public:
+  logger(const std::string &filename, unsigned level = 0);
 
-            virtual ~logger();
+  virtual ~logger();
 
-            virtual void open();
+  virtual void open();
 
-            virtual void prefix();
+  virtual void prefix();
 
-          protected:
-            int         _my_rank;
-            std::string _base;
-        };
-    } // namespace mpi
+protected:
+  int _my_rank;
+  std::string _base;
+};
+} // namespace mpi
 } // namespace hpc
 
 #else

@@ -18,14 +18,12 @@
 #ifndef hpc_algorithm_hh
 #define hpc_algorithm_hh
 
-#include "algorithm/dual.hh"
 #include "algorithm/bin.hh"
-#include "algorithm/median.hh"
-#include "algorithm/dual.hh"
-#include "algorithm/bin.hh"
-#include "algorithm/kdtree.hh"
 #include "algorithm/binary_partitioner.hh"
-#include "algorithm/sort_by_key.hh"
+#include "algorithm/dual.hh"
+#include "algorithm/kdtree.hh"
+#include "algorithm/median.hh"
 #include "algorithm/permute.hh"
+#include "algorithm/sort_by_key.hh"
 
 #endif

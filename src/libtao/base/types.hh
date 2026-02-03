@@ -3,7 +3,7 @@
 
 namespace tao {
 
-    typedef double real_type;
+typedef double real_type;
 }
 
 #endif

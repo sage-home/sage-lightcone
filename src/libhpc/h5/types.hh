@@ -19,14 +19,14 @@
 #define hpc_h5_types_hh
 
 namespace hpc {
-    namespace h5 {
+namespace h5 {
 
-        struct hid_tag {};
+struct hid_tag {};
 
-        class location;
-        class group;
+class location;
+class group;
 
-    } // namespace h5
+} // namespace h5
 } // namespace hpc
 
 #endif

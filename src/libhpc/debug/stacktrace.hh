@@ -20,39 +20,39 @@
 
 #ifndef NSTACKTRACE
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace hpc {
-    namespace debug {
+namespace debug {
 
-        class stacktrace {
-          public:
-            struct value_type {
-                const char *file_name;
-                char *      func_name;
-            };
+class stacktrace {
+public:
+  struct value_type {
+    const char *file_name;
+    char *func_name;
+  };
 
-            typedef const value_type *const_iterator;
+  typedef const value_type *const_iterator;
 
-            static const unsigned MAX_DEPTH;
+  static const unsigned MAX_DEPTH;
 
-          public:
-            stacktrace();
+public:
+  stacktrace();
 
-            const_iterator begin() const;
+  const_iterator begin() const;
 
-            const_iterator end() const;
+  const_iterator end() const;
 
-          protected:
-            void _get_stack();
+protected:
+  void _get_stack();
 
-          protected:
-            int        _depth;
-            value_type _st[32];
-        };
+protected:
+  int _depth;
+  value_type _st[32];
+};
 
-    } // namespace debug
+} // namespace debug
 } // namespace hpc
 
 #endif

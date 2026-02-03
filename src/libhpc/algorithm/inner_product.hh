@@ -20,15 +20,15 @@
 
 namespace hpc {
 
-    template <class Iterator1, class Iterator2>
-    typename std::iterator_traits<Iterator1>::value_type
-        inner_product(Iterator1 first1, const Iterator1 &last1, Iterator2 first2) {
-        typedef typename std::iterator_traits<Iterator1>::value_type real_type;
-        real_type                                                    sum = 0.0;
-        while(first1 != last1)
-            sum += (*first1++) * (*first2++);
-        return sum;
-    }
+template <class Iterator1, class Iterator2>
+typename std::iterator_traits<Iterator1>::value_type
+inner_product(Iterator1 first1, const Iterator1 &last1, Iterator2 first2) {
+  typedef typename std::iterator_traits<Iterator1>::value_type real_type;
+  real_type sum = 0.0;
+  while (first1 != last1)
+    sum += (*first1++) * (*first2++);
+  return sum;
+}
 
 } // namespace hpc
 

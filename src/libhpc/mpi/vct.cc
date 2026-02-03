@@ -18,66 +18,55 @@
 #include "vct.hh"
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        vct::vct(mpi::comm const &comm) : _comm(&comm) {
-        }
+vct::vct(mpi::comm const &comm) : _comm(&comm) {}
 
-        vct::~vct() {
-        }
+vct::~vct() {}
 
-        void vct::clear() {
-            hpc::deallocate(_nbrs);
-            hpc::deallocate(_rtn);
-        }
+void vct::clear() {
+  hpc::deallocate(_nbrs);
+  hpc::deallocate(_rtn);
+}
 
-        void vct::set_comm(mpi::comm const &comm) {
-            clear();
-            _comm = &comm;
-        }
+void vct::set_comm(mpi::comm const &comm) {
+  clear();
+  _comm = &comm;
+}
 
-        mpi::comm const &vct::comm() const {
-            return *_comm;
-        }
+mpi::comm const &vct::comm() const { return *_comm; }
 
-        unsigned vct::n_neighbors() const {
-            return _nbrs.size();
-        }
+unsigned vct::n_neighbors() const { return _nbrs.size(); }
 
-        std::vector<unsigned> const &vct::neighbors() const {
-            return _nbrs;
-        }
+std::vector<unsigned> const &vct::neighbors() const { return _nbrs; }
 
-        unsigned vct::rank_to_nbr(unsigned rank) const {
-            return _rtn.at(rank);
-        }
+unsigned vct::rank_to_nbr(unsigned rank) const { return _rtn.at(rank); }
 
-        void vct::iscatter(void const *         out,
-                           void *               inc,
-                           mpi::datatype const &type,
-                           mpi::requests &      reqs,
-                           unsigned             block_size,
-                           int                  tag) const {
-            unsigned num_nbrs = this->_nbrs.size();
+void vct::iscatter(void const *out, void *inc, mpi::datatype const &type,
+                   mpi::requests &reqs, unsigned block_size, int tag) const {
+  unsigned num_nbrs = this->_nbrs.size();
 
 #ifndef NDEBUG
-            // Check that every rank involved is sending the same number of blocks.
-            {
-                std::vector<unsigned> check_cnts(num_nbrs);
-                bcast<unsigned>(block_size, check_cnts);
-                for(unsigned ii = 0; ii < check_cnts.size(); ++ii)
-                    ASSERT(check_cnts[ii] == block_size, "VCT iscatter block sizes don't match.");
-            }
+  // Check that every rank involved is sending the same number of blocks.
+  {
+    std::vector<unsigned> check_cnts(num_nbrs);
+    bcast<unsigned>(block_size, check_cnts);
+    for (unsigned ii = 0; ii < check_cnts.size(); ++ii)
+      ASSERT(check_cnts[ii] == block_size,
+             "VCT iscatter block sizes don't match.");
+  }
 #endif
 
-            reqs.resize(2 * num_nbrs);
-            unsigned raw_block_size = type.size() * block_size;
-            unsigned cur_req        = 0;
-            for(unsigned ii = 0; ii < num_nbrs; ++ii)
-                _comm->isend((uint8_t *)out + ii * raw_block_size, type, _nbrs[ii], reqs[cur_req++], block_size, tag);
-            for(unsigned ii = 0; ii < num_nbrs; ++ii)
-                _comm->irecv((uint8_t *)inc + ii * raw_block_size, type, _nbrs[ii], reqs[cur_req++], block_size, tag);
-        }
+  reqs.resize(2 * num_nbrs);
+  unsigned raw_block_size = type.size() * block_size;
+  unsigned cur_req = 0;
+  for (unsigned ii = 0; ii < num_nbrs; ++ii)
+    _comm->isend((uint8_t *)out + ii * raw_block_size, type, _nbrs[ii],
+                 reqs[cur_req++], block_size, tag);
+  for (unsigned ii = 0; ii < num_nbrs; ++ii)
+    _comm->irecv((uint8_t *)inc + ii * raw_block_size, type, _nbrs[ii],
+                 reqs[cur_req++], block_size, tag);
+}
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc

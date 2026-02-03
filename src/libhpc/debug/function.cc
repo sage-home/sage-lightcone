@@ -17,36 +17,36 @@
 
 #if !defined(NINSTRUMENT) || !defined(NSTACKTRACE)
 
+#include "function.hh"
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include <list>
+#include <memory>
 #include <stdlib.h>
 #include <string.h>
-#include <memory>
-#include <list>
-#include <dlfcn.h>
-#include <cxxabi.h>
-#include "function.hh"
 
 namespace hpc {
-    namespace debug {
+namespace debug {
 
-        void func_details(void *func_addr, const char **file_name, char **func_name) {
-            Dl_info info;
-            if(dladdr(func_addr, &info)) {
-                *file_name = info.dli_fname;
-                if(info.dli_sname) {
-                    int   status;
-                    char *demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
-                    if(status == 0 && demangled)
-                        *func_name = demangled;
-                    else
-                        *func_name = strdup(info.dli_sname);
-                } else
-                    *func_name = NULL;
-            } else {
-                *file_name = NULL;
-                *func_name = NULL;
-            }
-        }
-    } // namespace debug
+void func_details(void *func_addr, const char **file_name, char **func_name) {
+  Dl_info info;
+  if (dladdr(func_addr, &info)) {
+    *file_name = info.dli_fname;
+    if (info.dli_sname) {
+      int status;
+      char *demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+      if (status == 0 && demangled)
+        *func_name = demangled;
+      else
+        *func_name = strdup(info.dli_sname);
+    } else
+      *func_name = NULL;
+  } else {
+    *file_name = NULL;
+    *func_name = NULL;
+  }
+}
+} // namespace debug
 } // namespace hpc
 
 #endif

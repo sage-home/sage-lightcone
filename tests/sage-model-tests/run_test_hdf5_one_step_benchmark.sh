@@ -195,7 +195,7 @@ run_with_profiling "cli_lightcone" "$BENCHMARK_CSV" \
     ${MY_ROOT}/bin/cli_lightcone \
     --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
     --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
-    --outdir ${OUTPUTDIR} --outfields ra,dec,cosmological_redshift,observed_redshift,sfr --outfile $RAWNAME-lightcone.h5
+    --outdir ${OUTPUTDIR} --outfields ra dec redshift_cosmological redshift_observed sfr --outfile $RAWNAME-lightcone.h5
 
 measure_disk_usage "${OUTPUTDIR}" "final" "$DISK_IO_CSV"
 

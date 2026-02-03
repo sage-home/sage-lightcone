@@ -19,21 +19,22 @@
 #define hpc_algorithm_dual_hh
 
 namespace hpc {
-    namespace algorithm {
+namespace algorithm {
 
-        template <class InputIterator, class OutputIterator>
-        void dual(InputIterator start, const InputIterator &finish, OutputIterator result) {
-            typedef typename InputIterator::value_type value_type;
-            if(start != finish) {
-                value_type cur = *start++;
-                while(start != finish) {
-                    *result++ = 0.5 * (*start + cur);
-                    cur       = *start++;
-                }
-            }
-        }
+template <class InputIterator, class OutputIterator>
+void dual(InputIterator start, const InputIterator &finish,
+          OutputIterator result) {
+  typedef typename InputIterator::value_type value_type;
+  if (start != finish) {
+    value_type cur = *start++;
+    while (start != finish) {
+      *result++ = 0.5 * (*start + cur);
+      cur = *start++;
+    }
+  }
+}
 
-    } // namespace algorithm
+} // namespace algorithm
 } // namespace hpc
 
 #endif

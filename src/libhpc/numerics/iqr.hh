@@ -19,18 +19,19 @@
 #define libhpc_numerics_iqr_hh
 
 namespace hpc {
-    namespace numerics {
+namespace numerics {
 
-        template <class Iter> typename Iter::value_type interquartile_range(Iter start, unsigned size) {
-            std::vector<typename Iter::value_type> set(size);
-            for(unsigned ii = 0; ii < size; ++start, ++ii)
-                set[ii] = *start;
-            std::sort(set.begin(), set.end());
-            unsigned q = size / 4;
-            return set[size - q] - set[q];
-        }
+template <class Iter>
+typename Iter::value_type interquartile_range(Iter start, unsigned size) {
+  std::vector<typename Iter::value_type> set(size);
+  for (unsigned ii = 0; ii < size; ++start, ++ii)
+    set[ii] = *start;
+  std::sort(set.begin(), set.end());
+  unsigned q = size / 4;
+  return set[size - q] - set[q];
+}
 
-    } // namespace numerics
+} // namespace numerics
 } // namespace hpc
 
 #endif

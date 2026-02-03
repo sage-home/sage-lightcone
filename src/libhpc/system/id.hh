@@ -20,7 +20,7 @@
 
 namespace hpc {
 
-    long get_process_id();
+long get_process_id();
 }
 
 #endif

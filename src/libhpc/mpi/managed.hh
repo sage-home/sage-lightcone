@@ -18,65 +18,56 @@
 #ifndef hpc_mpi_managed_hh
 #define hpc_mpi_managed_hh
 
-#include "init.hh"
-#include "comm.hh"
 #include "async.hh"
+#include "comm.hh"
+#include "init.hh"
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        template <class ManagerT, class WorkerT> class managed {
-          public:
-            typedef ManagerT manager_type;
-            typedef WorkerT  worker_type;
+template <class ManagerT, class WorkerT> class managed {
+public:
+  typedef ManagerT manager_type;
+  typedef WorkerT worker_type;
 
-          public:
-            managed(mpi::comm const &comm = mpi::comm::world, int mgr_rank = 0) :
-                _comm(&comm), _mgr_rank(mgr_rank), _mgr(0), _wkr(0) {
-            }
+public:
+  managed(mpi::comm const &comm = mpi::comm::world, int mgr_rank = 0)
+      : _comm(&comm), _mgr_rank(mgr_rank), _mgr(0), _wkr(0) {}
 
-            mpi::comm const &comm() const {
-                ASSERT(_comm);
-                return *_comm;
-            }
+  mpi::comm const &comm() const {
+    ASSERT(_comm);
+    return *_comm;
+  }
 
-            int manager_rank() const {
-                return _mgr_rank;
-            }
+  int manager_rank() const { return _mgr_rank; }
 
-            bool am_manager() const {
-                return _mgr_rank == _comm->rank();
-            }
+  bool am_manager() const { return _mgr_rank == _comm->rank(); }
 
-            manager_type *manager() {
-                return _mgr;
-            }
+  manager_type *manager() { return _mgr; }
 
-            worker_type *worker() {
-                return _wkr;
-            }
+  worker_type *worker() { return _wkr; }
 
-            void process() {
-                if(_comm->rank() == _mgr_rank) {
-                    if(!_mgr)
-                        _mgr = new manager_type;
-                    _mgr->process();
-                } else {
-                    if(!_wkr)
-                        _wkr = new worker_type;
-                    _wkr->process();
-                }
-            }
+  void process() {
+    if (_comm->rank() == _mgr_rank) {
+      if (!_mgr)
+        _mgr = new manager_type;
+      _mgr->process();
+    } else {
+      if (!_wkr)
+        _wkr = new worker_type;
+      _wkr->process();
+    }
+  }
 
-          protected:
-            int              _mgr_rank;
-            manager_type *   _mgr;
-            worker_type *    _wkr;
-            mpi::async       _async;
-            mpi::comm const *_comm;
-        };
+protected:
+  int _mgr_rank;
+  manager_type *_mgr;
+  worker_type *_wkr;
+  mpi::async _async;
+  mpi::comm const *_comm;
+};
 
-    } // namespace mpi
+} // namespace mpi
 } // namespace hpc
 
 #endif

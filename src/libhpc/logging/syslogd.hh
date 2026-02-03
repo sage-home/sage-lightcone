@@ -20,24 +20,24 @@
 #include "logger.hh"
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        ///
-        ///
-        ///
-        class syslogd : public logger {
-          public:
-            syslogd(const std::string &name);
+///
+///
+///
+class syslogd : public logger {
+public:
+  syslogd(const std::string &name);
 
-            ~syslogd();
+  ~syslogd();
 
-            virtual void write();
+  virtual void write();
 
-          protected:
-            std::string _name;
-        };
+protected:
+  std::string _name;
+};
 
-    } // namespace log
+} // namespace log
 } // namespace hpc
 
 #endif

@@ -19,37 +19,37 @@
 #ifdef DARWIN
 #include <mach-o/dyld.h>
 #endif
-#include "libhpc/debug/insist.hh"
 #include "filesystem.hh"
+#include "libhpc/debug/insist.hh"
 
 namespace hpc {
 
-    fs::path executable_path() {
+fs::path executable_path() {
 #ifdef DARWIN
 
-        // Get the path.
-        char     path[1024];
-        uint32_t size = sizeof(path);
-        INSIST(_NSGetExecutablePath(path, &size), == 0);
+  // Get the path.
+  char path[1024];
+  uint32_t size = sizeof(path);
+  INSIST(_NSGetExecutablePath(path, &size), == 0);
 
-        // Return a boost filesystem path.
-        return fs::path(path); //.parent_path();
+  // Return a boost filesystem path.
+  return fs::path(path); //.parent_path();
 
 #else
 
-        // Get the path to (and including) the executable.
-        size_t               path_size = 100;
-        std::vector<char> path(path_size + 1);
-        do {
-            if(path_size >= path.size())
-                path.resize(2 * path_size);
-            path_size = readlink("/proc/self/exe", path.data(), path.size());
-        } while(path_size >= path.size());
+  // Get the path to (and including) the executable.
+  size_t path_size = 100;
+  std::vector<char> path(path_size + 1);
+  do {
+    if (path_size >= path.size())
+      path.resize(2 * path_size);
+    path_size = readlink("/proc/self/exe", path.data(), path.size());
+  } while (path_size >= path.size());
 
-        // Return a boost filesystem path.
-        return fs::path(path.begin(), path.end());
+  // Return a boost filesystem path.
+  return fs::path(path.begin(), path.end());
 
 #endif
-    }
+}
 
 } // namespace hpc

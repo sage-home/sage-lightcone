@@ -18,58 +18,47 @@
 #ifndef hpc_system_array_hh
 #define hpc_system_array_hh
 
-#include <iostream>
 #include "libhpc/system/cuda.hh"
+#include <iostream>
 
 namespace hpc {
 
-    template <class T, std::size_t N> class array {
-      public:
-        typedef T        value_type;
-        typedef T *      iterator;
-        typedef T const *const_iterator;
+template <class T, std::size_t N> class array {
+public:
+  typedef T value_type;
+  typedef T *iterator;
+  typedef T const *const_iterator;
 
-      public:
-        T elems[N];
+public:
+  T elems[N];
 
-        const_iterator begin() const {
-            return elems;
-        }
+  const_iterator begin() const { return elems; }
 
-        iterator begin() {
-            return elems;
-        }
+  iterator begin() { return elems; }
 
-        const_iterator end() const {
-            return elems + N;
-        }
+  const_iterator end() const { return elems + N; }
 
-        iterator end() {
-            return elems + N;
-        }
+  iterator end() { return elems + N; }
 
-        CUDA_DEV_HOST
-        T &operator[](std::size_t idx) {
-            return elems[idx];
-        }
+  CUDA_DEV_HOST
+  T &operator[](std::size_t idx) { return elems[idx]; }
 
-        CUDA_DEV_HOST
-        T const &operator[](std::size_t idx) const {
-            return elems[idx];
-        }
-    };
+  CUDA_DEV_HOST
+  T const &operator[](std::size_t idx) const { return elems[idx]; }
+};
 
-    template <class T, size_t N> std::ostream &operator<<(std::ostream &strm, hpc::array<T, N> const &obj) {
-        strm << "(";
-        if(N) {
-            typename hpc::array<T, N>::const_iterator it = obj.begin();
-            strm << *it++;
-            while(it != obj.end())
-                strm << ", " << *it++;
-        }
-        strm << ")";
-        return strm;
-    }
+template <class T, size_t N>
+std::ostream &operator<<(std::ostream &strm, hpc::array<T, N> const &obj) {
+  strm << "(";
+  if (N) {
+    typename hpc::array<T, N>::const_iterator it = obj.begin();
+    strm << *it++;
+    while (it != obj.end())
+      strm << ", " << *it++;
+  }
+  strm << ")";
+  return strm;
+}
 
 } // namespace hpc
 

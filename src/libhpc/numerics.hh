@@ -19,15 +19,15 @@
 #define hpc_numerics_hh
 
 #include "numerics/constants.hh"
-#include "numerics/vector.hh"
-#include "numerics/matrix.hh"
-#include "numerics/interp.hh"
-#include "numerics/tridiag.hh"
-#include "numerics/spline.hh"
-#include "numerics/interp_iterator.hh"
-#include "numerics/simpson.hh"
 #include "numerics/coords.hh"
 #include "numerics/dft.hh"
+#include "numerics/interp.hh"
+#include "numerics/interp_iterator.hh"
+#include "numerics/matrix.hh"
+#include "numerics/simpson.hh"
+#include "numerics/spline.hh"
 #include "numerics/spline_integrator.hh"
+#include "numerics/tridiag.hh"
+#include "numerics/vector.hh"
 
 #endif

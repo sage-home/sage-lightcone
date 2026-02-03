@@ -17,70 +17,61 @@
 
 #if !defined(NDEBUG) || !defined(NEXCEPT)
 
-#include <sstream>
 #include "assertions.hh"
+#include <sstream>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
 namespace hpc {
-    namespace debug {
+namespace debug {
 
-        assertion::~assertion() throw() {
-        }
+assertion::~assertion() throw() {}
 
-        assertion &assertion::details(const char *expr,
-                                      const char *file,
-                                      int         line,
+assertion &assertion::details(const char *expr, const char *file, int line,
 #ifndef NSTACKTRACE
-                                      const stacktrace &st,
+                              const stacktrace &st,
 #endif
-                                      const std::string &msg) throw() {
-            _expr = expr;
-            _file = file;
-            _line = line;
-            _msg  = msg;
+                              const std::string &msg) throw() {
+  _expr = expr;
+  _file = file;
+  _line = line;
+  _msg = msg;
 #ifndef NSTACKTRACE
-            _st = st;
+  _st = st;
 #endif
 
-            // Need to do this here because the "what" method
-            // is const.
-            _write_buffer(_buf);
+  // Need to do this here because the "what" method
+  // is const.
+  _write_buffer(_buf);
 
-            return *this;
-        }
+  return *this;
+}
 
-        const char *assertion::what() const throw() {
-            return _buf.c_str();
-        }
+const char *assertion::what() const throw() { return _buf.c_str(); }
 
-        const std::string &assertion::message() const {
-            return _msg;
-        }
+const std::string &assertion::message() const { return _msg; }
 
-        void assertion::_write_buffer(std::string &buf) throw() {
-            std::stringstream ss;
-            ss << "\n\nFile:  " << _file << "\n";
-            ss << "Line:  " << _line << "\n";
-            ss << "Expr:  " << _expr << "\n";
+void assertion::_write_buffer(std::string &buf) throw() {
+  std::stringstream ss;
+  ss << "\n\nFile:  " << _file << "\n";
+  ss << "Line:  " << _line << "\n";
+  ss << "Expr:  " << _expr << "\n";
 #ifdef _OPENMP
-            ss << "Thread ID: " << omp_get_thread_num() << "\n";
+  ss << "Thread ID: " << omp_get_thread_num() << "\n";
 #endif
 #ifndef NSTACKTRACE
-            ss << "Stack trace:\n";
-            for(const auto &level : _st)
-                ss << "  " << level.func_name << "\n";
+  ss << "Stack trace:\n";
+  for (const auto &level : _st)
+    ss << "  " << level.func_name << "\n";
 #endif
-            ss << "\n" << _msg << "\n";
-            buf = ss.str();
-        }
+  ss << "\n" << _msg << "\n";
+  buf = ss.str();
+}
 
-    } // namespace debug
+} // namespace debug
 
-    const char *exception::what() const throw() {
-        return this->_msg.c_str();
-    }
+const char *exception::what() const throw() { return this->_msg.c_str(); }
 
 } // namespace hpc
 

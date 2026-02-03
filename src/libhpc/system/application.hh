@@ -18,40 +18,40 @@
 #ifndef libhpc_system_application_hh
 #define libhpc_system_application_hh
 
+#include "libhpc/debug.hh"
+#include <boost/program_options.hpp>
 #include <signal.h>
 #include <string>
-#include <boost/program_options.hpp>
-#include "libhpc/debug.hh"
 
 namespace hpc {
-    namespace po = boost::program_options;
+namespace po = boost::program_options;
 
-    class silent_terminate : hpc::exception {};
+class silent_terminate : hpc::exception {};
 
-    class application {
-      public:
-        application(int argc, char *argv[], std::string const &info = std::string());
+class application {
+public:
+  application(int argc, char *argv[], std::string const &info = std::string());
 
-        void handle_signal(int sig);
+  void handle_signal(int sig);
 
-        void ignore_signal(int sig);
+  void ignore_signal(int sig);
 
-        virtual void signaled(int param);
+  virtual void signaled(int param);
 
-        po::options_description &options();
+  po::options_description &options();
 
-        po::positional_options_description &positional_options();
+  po::positional_options_description &positional_options();
 
-        void parse_options(int argc, char *argv[]);
+  void parse_options(int argc, char *argv[]);
 
-        bool has_option(std::string const &opt) const;
+  bool has_option(std::string const &opt) const;
 
-      protected:
-        po::options_description            _opt_desc;
-        po::positional_options_description _pos_opt_desc;
-        po::variables_map                  _vm;
-        std::string                        _app_info;
-    };
+protected:
+  po::options_description _opt_desc;
+  po::positional_options_description _pos_opt_desc;
+  po::variables_map _vm;
+  std::string _app_info;
+};
 
 } // namespace hpc
 

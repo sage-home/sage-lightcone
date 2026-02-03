@@ -18,44 +18,48 @@
 #ifndef libhpc_system_type_traits_hh
 #define libhpc_system_type_traits_hh
 
-#include <vector>
 #include <boost/type_traits/integral_constant.hpp>
-#include <boost/type_traits/remove_reference.hpp>
 #include <boost/type_traits/is_fundamental.hpp>
+#include <boost/type_traits/remove_reference.hpp>
+#include <vector>
 #ifdef USE_THRUST
 #include <thrust/host_vector.h>
 #endif
 
 namespace hpc {
 
-    template <class T> struct type_traits {
-        typedef typename boost::remove_reference<T>::type        value;
-        typedef const typename boost::remove_reference<T>::type  const_value;
-        typedef typename boost::remove_reference<T>::type &      reference;
-        typedef const typename boost::remove_reference<T>::type &const_reference;
-    };
+template <class T> struct type_traits {
+  typedef typename boost::remove_reference<T>::type value;
+  typedef const typename boost::remove_reference<T>::type const_value;
+  typedef typename boost::remove_reference<T>::type &reference;
+  typedef const typename boost::remove_reference<T>::type &const_reference;
+};
 
-    template <class T>
-    struct is_fundamental_r : public boost::is_fundamental<typename boost::remove_reference<T>::type> {};
+template <class T>
+struct is_fundamental_r
+    : public boost::is_fundamental<typename boost::remove_reference<T>::type> {
+};
 
-    template <class T> struct random_access_trait : boost::false_type {};
+template <class T> struct random_access_trait : boost::false_type {};
 
-    template <class T, class Alloc> struct random_access_trait<std::vector<T, Alloc>> : boost::true_type {};
+template <class T, class Alloc>
+struct random_access_trait<std::vector<T, Alloc>> : boost::true_type {};
 
 #ifdef USE_THRUST
 
-    template <class T, class Alloc> struct random_access_trait<thrust::host_vector<T, Alloc>> : boost::true_type {};
+template <class T, class Alloc>
+struct random_access_trait<thrust::host_vector<T, Alloc>> : boost::true_type {};
 
 #endif
 
-    // {
-    //    template< class U >
-    //    struct enabler {};
+// {
+//    template< class U >
+//    struct enabler {};
 
-    //    template< class U >
-    //    static char
-    //    test( enabler<U,
-    // };
+//    template< class U >
+//    static char
+//    test( enabler<U,
+// };
 
 } // namespace hpc
 

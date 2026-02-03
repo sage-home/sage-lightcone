@@ -18,5 +18,5 @@
 #include "buffer.hh"
 
 namespace hpc {
-    namespace h5 {}
+namespace h5 {}
 } // namespace hpc

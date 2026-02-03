@@ -20,11 +20,12 @@
 
 #ifndef NDEBUG
 
+#include "comm.hh"
 #include "libhpc/debug/assert.hh"
 #include "libhpc/debug/assertions.hh"
-#include "comm.hh"
 
-#define MPI_ASSERT(expr, comm, ...) ASSERT((comm).all_reduce(expr, MPI_LAND), ##__VA_ARGS__)
+#define MPI_ASSERT(expr, comm, ...)                                            \
+  ASSERT((comm).all_reduce(expr, MPI_LAND), ##__VA_ARGS__)
 
 #else
 

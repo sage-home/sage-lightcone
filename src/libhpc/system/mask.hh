@@ -20,15 +20,15 @@
 
 namespace hpc {
 
-    template <class T> T bit_mask(T size) {
-        T mask = 0;
-        if(size > 0) {
-            unsigned num_bits = log2i(size);
-            for(unsigned ii = 0; ii < num_bits; ++ii)
-                mask |= (1 << ii);
-        }
-        return mask;
-    }
+template <class T> T bit_mask(T size) {
+  T mask = 0;
+  if (size > 0) {
+    unsigned num_bits = log2i(size);
+    for (unsigned ii = 0; ii < num_bits; ++ii)
+      mask |= (1 << ii);
+  }
+  return mask;
+}
 
 } // namespace hpc
 

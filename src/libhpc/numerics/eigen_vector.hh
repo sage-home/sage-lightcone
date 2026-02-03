@@ -23,21 +23,20 @@
 #include <Eigen/Eigen>
 
 namespace hpc {
-    namespace numerics {
-        namespace impl {
-            namespace eigen {
+namespace numerics {
+namespace impl {
+namespace eigen {
 
-                template <class T, int Rows> class vector : public Eigen::Matrix<T, Rows, 1> {
-                  public:
-                    typedef Eigen::Matrix<T, Rows, 1> super_type;
+template <class T, int Rows> class vector : public Eigen::Matrix<T, Rows, 1> {
+public:
+  typedef Eigen::Matrix<T, Rows, 1> super_type;
 
-                  public:
-                    vector() : super_type() {
-                    }
-                };
-            } // namespace eigen
-        }     // namespace impl
-    }         // namespace numerics
+public:
+  vector() : super_type() {}
+};
+} // namespace eigen
+} // namespace impl
+} // namespace numerics
 } // namespace hpc
 
 #endif

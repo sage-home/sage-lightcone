@@ -18,51 +18,49 @@
 #ifndef libhpc_h5_location_hh
 #define libhpc_h5_location_hh
 
-#include <vector>
-#include <boost/optional.hpp>
 #include "libhpc/mpi.hh"
-#include <hdf5.h>
 #include "types.hh"
+#include <boost/optional.hpp>
+#include <hdf5.h>
+#include <vector>
 
 namespace hpc {
-    namespace h5 {
+namespace h5 {
 
-        class dataset;
+class dataset;
 
-        class location {
-          public:
-            location(hid_t id = -1);
+class location {
+public:
+  location(hid_t id = -1);
 
-            ~location();
+  ~location();
 
-            hid_t id() const;
+  hid_t id() const;
 
-            bool has_link(const std::string &name) const;
+  bool has_link(const std::string &name) const;
 
-            void open_group(const std::string &name, h5::group &group) const;
+  void open_group(const std::string &name, h5::group &group) const;
 
-            void create_group(const std::string &name);
+  void create_group(const std::string &name);
 
-            hsize_t extent(const std::string &name) const;
+  hsize_t extent(const std::string &name) const;
 
-            h5::dataset dataset(std::string const &name) const;
+  h5::dataset dataset(std::string const &name) const;
 
-            template <class T> void write(std::string const &name, T const &value);
+  template <class T> void write(std::string const &name, T const &value);
 
-            template <class Buffer>
-            void write(std::string const &                           name,
-                       typename type_traits<Buffer>::const_reference buf,
-                       mpi::comm const &                             comm = mpi::comm::self);
+  template <class Buffer>
+  void write(std::string const &name,
+             typename type_traits<Buffer>::const_reference buf,
+             mpi::comm const &comm = mpi::comm::self);
 
-          protected:
-            hid_t _id;
-        };
+protected:
+  hid_t _id;
+};
 
-        void copy(location const &   src,
-                  std::string const &src_name,
-                  location const &   dst,
-                  std::string const &dst_name = std::string());
-    } // namespace h5
+void copy(location const &src, std::string const &src_name, location const &dst,
+          std::string const &dst_name = std::string());
+} // namespace h5
 } // namespace hpc
 
 #endif

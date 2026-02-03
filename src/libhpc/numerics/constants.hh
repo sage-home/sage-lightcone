@@ -19,20 +19,20 @@
 #define hpc_numerics_constants_hh
 
 namespace hpc {
-    namespace constant {
+namespace constant {
 
-        // Astronomy/astrophysics.
-        static const double c           = 2.99792458e8;  // m/s
-        static const double c_km_s      = 299792.458;    // km/s
-        static const double c_mpc_gyr   = 3.06391536e2;  // Mpc/Gyr
-        static const double parsec      = 3.08567758e16; // m
-        static const double mpc         = 3.08567758e22; // m
-        static const double gravitation = 6.672e-8;      // ?
+// Astronomy/astrophysics.
+static const double c = 2.99792458e8;         // m/s
+static const double c_km_s = 299792.458;      // km/s
+static const double c_mpc_gyr = 3.06391536e2; // Mpc/Gyr
+static const double parsec = 3.08567758e16;   // m
+static const double mpc = 3.08567758e22;      // m
+static const double gravitation = 6.672e-8;   // ?
 
-        // Mathematical.
-        static const double pi = M_PI;
+// Mathematical.
+static const double pi = M_PI;
 
-    } // namespace constant
+} // namespace constant
 } // namespace hpc
 
 #endif

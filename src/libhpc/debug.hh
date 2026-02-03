@@ -19,8 +19,8 @@
 #define hpc_debug_hh
 
 #include "debug/assert.hh"
-#include "debug/insist.hh"
-#include "debug/except.hh"
 #include "debug/assertions.hh"
+#include "debug/except.hh"
+#include "debug/insist.hh"
 
 #endif

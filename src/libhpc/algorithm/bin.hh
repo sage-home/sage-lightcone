@@ -18,17 +18,19 @@
 #ifndef hpc_algorithm_bin_hh
 #define hpc_algorithm_bin_hh
 
+#include <algorithm>
+
 namespace hpc {
-    namespace algorithm {
+namespace algorithm {
 
-        template <class InputIterator>
-        unsigned
-            bin(const InputIterator &start, const InputIterator &finish, typename InputIterator::value_type value) {
-            auto it = std::lower_bound(start, finish, value);
-            return it - start;
-        }
+template <class InputIterator>
+unsigned bin(const InputIterator &start, const InputIterator &finish,
+             typename InputIterator::value_type value) {
+  auto it = std::lower_bound(start, finish, value);
+  return it - start;
+}
 
-    } // namespace algorithm
+} // namespace algorithm
 } // namespace hpc
 
 #endif

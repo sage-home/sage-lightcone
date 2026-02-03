@@ -18,18 +18,18 @@
 #ifndef libhpc_mpi_hh
 #define libhpc_mpi_hh
 
-#include "mpi/init.hh"
-#include "mpi/type_map.hh"
+#include "mpi/application.hh"
 #include "mpi/assert.hh"
-#include "mpi/logger.hh"
+#include "mpi/async.hh"
+#include "mpi/comm.hh"
 #include "mpi/datatype.hh"
+#include "mpi/helpers.hh"
+#include "mpi/indexer.hh"
+#include "mpi/init.hh"
+#include "mpi/logger.hh"
 #include "mpi/request.hh"
 #include "mpi/requests.hh"
-#include "mpi/comm.hh"
-#include "mpi/helpers.hh"
+#include "mpi/type_map.hh"
 #include "mpi/vct.hh"
-#include "mpi/indexer.hh"
-#include "mpi/async.hh"
-#include "mpi/application.hh"
 
 #endif

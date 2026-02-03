@@ -23,20 +23,19 @@
 #include "eigen_matrix.hh"
 
 namespace hpc {
-    namespace numerics {
+namespace numerics {
 
-        template <class T,
-                  int Rows = Eigen::Dynamic, // TODO: fix this to be generic
-                  int Cols = Eigen::Dynamic>
-        class matrix : public impl::eigen::matrix<T, Rows, Cols> {
-          public:
-            typedef impl::eigen::matrix<T, Rows, Cols> super_type;
+template <class T,
+          int Rows = Eigen::Dynamic, // TODO: fix this to be generic
+          int Cols = Eigen::Dynamic>
+class matrix : public impl::eigen::matrix<T, Rows, Cols> {
+public:
+  typedef impl::eigen::matrix<T, Rows, Cols> super_type;
 
-          public:
-            matrix() : super_type() {
-            }
-        };
-    } // namespace numerics
+public:
+  matrix() : super_type() {}
+};
+} // namespace numerics
 } // namespace hpc
 
 #endif

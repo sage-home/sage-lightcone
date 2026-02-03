@@ -58,11 +58,11 @@ Computed Fields Created by cli_lightcone
   │ dec                   │ Cartesian → spherical conversion (degrees)  │ Yes, if requested                 │
   ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤
   │ cosmological_redshift │ Distance → redshift via cosmology           │ Yes, if requested                 │
-  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                                    
-  │ observed_redshift     │ Cosmological + peculiar velocity correction │ Yes, if requested                 │                       
-  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                                    
+  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                             
+  │ observed_redshift     │ Cosmological + peculiar velocity correction │ Yes, if requested                 │
+  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                             
   │ sfr                   │ sfrdisk + sfrbulge                          │ Yes, if requested                 │
-  └───────────────────────┴─────────────────────────────────────────────┴───────────────────────────────────┘                                                                                                                                                                                                     
+  └───────────────────────┴─────────────────────────────────────────────┴───────────────────────────────────┘                                                                                                                                                                        
   Output Behavior                                                                                                                                                                                                
                                                                                                                                                                                                                  
   The output HDF5 lightcone file contains:                                                                                                                                                                       

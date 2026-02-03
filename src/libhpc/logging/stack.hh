@@ -18,49 +18,49 @@
 #ifndef libhpc_logging_stack_hh
 #define libhpc_logging_stack_hh
 
-#include <list>
-#include <boost/shared_ptr.hpp>
 #include "logger.hh"
+#include <boost/shared_ptr.hpp>
+#include <list>
 
 #ifndef NLOG
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        ///
-        ///
-        ///
-        class stack {
-          public:
-            typedef std::list<boost::shared_ptr<logger>>::iterator iterator;
+///
+///
+///
+class stack {
+public:
+  typedef std::list<boost::shared_ptr<logger>>::iterator iterator;
 
-          public:
-            stack();
+public:
+  stack();
 
-            ~stack();
+  ~stack();
 
-            void push(logger *log);
+  void push(logger *log);
 
-            void pop();
+  void pop();
 
-            void clear();
+  void clear();
 
-            iterator begin();
+  iterator begin();
 
-            iterator end();
+  iterator end();
 
-            template <class T> stack &operator<<(const T &obj) {
-                for(iterator it = _logs.begin(); it != _logs.end(); ++it) {
-                    boost::shared_ptr<logger> &log = *it;
-                    *log << obj;
-                }
-                return *this;
-            }
+  template <class T> stack &operator<<(const T &obj) {
+    for (iterator it = _logs.begin(); it != _logs.end(); ++it) {
+      boost::shared_ptr<logger> &log = *it;
+      *log << obj;
+    }
+    return *this;
+  }
 
-          protected:
-            std::list<boost::shared_ptr<logger>> _logs;
-        };
-    } // namespace log
+protected:
+  std::list<boost::shared_ptr<logger>> _logs;
+};
+} // namespace log
 } // namespace hpc
 
 #endif

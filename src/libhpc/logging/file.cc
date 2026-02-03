@@ -17,40 +17,38 @@
 
 #ifndef NLOG
 
-#include "libhpc/debug.hh"
 #include "file.hh"
+#include "libhpc/debug.hh"
 
 namespace hpc {
-    namespace log {
+namespace log {
 
-        file::file(std::string const &filename, unsigned min_level) : logger(min_level), _filename(filename) {
-        }
+file::file(std::string const &filename, unsigned min_level)
+    : logger(min_level), _filename(filename) {}
 
-        file::~file() {
-            close();
-        }
+file::~file() { close(); }
 
-        void file::open() {
-            close();
-            remove(_filename.c_str());
-            _file.open(_filename.c_str(), std::fstream::out | std::fstream::app);
-            ASSERT((bool)_file);
-            _get_new_line() = true;
-        }
+void file::open() {
+  close();
+  remove(_filename.c_str());
+  _file.open(_filename.c_str(), std::fstream::out | std::fstream::app);
+  ASSERT((bool)_file);
+  _get_new_line() = true;
+}
 
-        void file::close() {
-            if(_file.is_open()) {
-                _file << buffer().str();
-                _file.close();
-            }
-        }
+void file::close() {
+  if (_file.is_open()) {
+    _file << buffer().str();
+    _file.close();
+  }
+}
 
-        void file::write() {
-            _file << buffer().str();
-            _file.flush();
-        }
+void file::write() {
+  _file << buffer().str();
+  _file.flush();
+}
 
-    } // namespace log
+} // namespace log
 } // namespace hpc
 
 #endif

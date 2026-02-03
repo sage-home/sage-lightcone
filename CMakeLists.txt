@@ -3,6 +3,20 @@
 #    -   latest version availale on Travis CI     -
 cmake_minimum_required(VERSION 3.10)
 
+# Set CMake policies to suppress warnings
+# CMP0074: find_package uses <PackageName>_ROOT variables (CMake 3.12+)
+if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+endif()
+# CMP0144: find_package uses upper-case <PACKAGENAME>_ROOT variables (CMake 3.27+)
+if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif()
+# CMP0167: FindBoost module is deprecated, use BoostConfig.cmake (CMake 3.30+)
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 # Read the file with the macro definitions which specify
 # the behaviour specific to this project and then run
 # the initialization macro
@@ -106,6 +120,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DNLOGDEBUG -DNLOGTRIVIAL -DNINSTRUMENT -DNSTACKTRACE -DNMEMDEBUG -DNMEMOPS -DNMEMSTATS)
     # Debug compiler flags
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g")
+    # Suppress duplicate library warnings on macOS
+    if(APPLE)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries")
+    endif()
 else()
     message(STATUS "Compiling in RELEASE mode...")
     add_definitions(-DNDEBUG -DNLOGDEBUG -DNLOGTRIVIAL -DNINSTRUMENT -DNSTACKTRACE -DNMEMDEBUG -DNMEMOPS -DNMEMSTATS)
@@ -116,6 +134,10 @@ else()
 
     # Release compiler flags
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O1")
+    # Suppress duplicate library warnings on macOS
+    if(APPLE)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries")
+    endif()
 endif()
 
 # Load all macros and functions

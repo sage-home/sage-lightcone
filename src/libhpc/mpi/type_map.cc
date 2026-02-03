@@ -20,10 +20,10 @@
 #if !(defined(MPICH) || defined(MPICH2))
 
 namespace hpc {
-    namespace mpi {
+namespace mpi {
 
-        MPI_Datatype _type_map[11];
-    }
+MPI_Datatype _type_map[11];
+}
 } // namespace hpc
 
 #endif

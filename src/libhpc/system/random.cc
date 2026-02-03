@@ -19,5 +19,5 @@
 
 namespace hpc {
 
-    engine_type engine(std::time(0));
+engine_type engine(std::time(0));
 }
