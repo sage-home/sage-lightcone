@@ -135,16 +135,15 @@ test_cli_validation:
   before_script:
     - *install_dependencies
   script:
-    - export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
-    - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
-    - export PATH=$HDF5_ROOT/bin:$PATH
-    # Pre-create venv so setup.sh doesn't fail trying to make one
-    - python3 -m venv .venv
-    - source .venv/bin/activate
-    - pip install -r requirements.txt
-    - echo "Running CLI validation tests..."
-    - ls -la bin/cli_lightcone || { echo "ERROR: cli_lightcone not found in artifacts"; exit 1; }
-    - tests/test_cli_validation.sh
+    - |
+      export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
+      export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
+      export PATH=$HDF5_ROOT/bin:$PATH
+      python3 -m venv .venv
+      source .venv/bin/activate
+      pip install -r requirements.txt
+      ls -la bin/cli_lightcone || { echo "ERROR: cli_lightcone not found in artifacts"; exit 1; }
+      tests/test_cli_validation.sh
   dependencies:
     - build
   only:
@@ -158,25 +157,25 @@ test_verify_kdtree:
   before_script:
     - *install_dependencies
   script:
-    - export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
-    - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
-    - export PATH=$HDF5_ROOT/bin:$PATH
-    - export CC=mpicc
-    - export CXX=mpicxx
-
-    # Pre-create Python venv (so setup.sh finds it and doesn't fail)
-    - python3 -m venv .venv
-    - source .venv/bin/activate
-    - pip install -r requirements.txt
-
-    # Build SAGE from sage-model submodule
-    - echo "Building SAGE..."
-    - cd sage-model && make -j$MAKE_JOBS && cp sage $CI_PROJECT_DIR/bin/sage && cd $CI_PROJECT_DIR
-
-    # Download Mini-Millennium tree files
-    - cd tests/sage-model-tests
-    - mkdir -p input/millennium/trees
     - |
+      export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
+      export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
+      export PATH=$HDF5_ROOT/bin:$PATH
+      export CC=mpicc
+      export CXX=mpicxx
+
+      # Pre-create Python venv so setup.sh finds it and doesn't fail
+      python3 -m venv .venv
+      source .venv/bin/activate
+      pip install -r requirements.txt
+
+      # Build SAGE from sage-model submodule
+      echo "Building SAGE..."
+      cd sage-model && make -j$MAKE_JOBS && cp sage $CI_PROJECT_DIR/bin/sage && cd $CI_PROJECT_DIR
+
+      # Download Mini-Millennium tree files
+      cd tests/sage-model-tests
+      mkdir -p input/millennium/trees
       if [ ! -f input/millennium/trees/trees_063.7 ]; then
         echo "Downloading Mini-Millennium tree files..."
         cd input/millennium/trees
@@ -186,20 +185,20 @@ test_verify_kdtree:
         cd $CI_PROJECT_DIR/tests/sage-model-tests
       fi
 
-    # Create parameter files (concatenated from header + settings, same as benchmark script)
-    - mkdir -p input
-    - cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+      # Create parameter file (concatenated from header + settings, same as benchmark script)
+      mkdir -p input
+      cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
 
-    # Run SAGE to produce HDF5 output
-    - echo "Running SAGE..."
-    - mkdir -p output/millennium
-    - $CI_PROJECT_DIR/bin/sage input/millennium_sage_hdf5.par
-    - mkdir -p output_sage_hdf5_one_step_benchmark
-    - mv output/millennium output_sage_hdf5_one_step_benchmark/
+      # Run SAGE to produce HDF5 output
+      echo "Running SAGE..."
+      mkdir -p output/millennium
+      $CI_PROJECT_DIR/bin/sage input/millennium_sage_hdf5.par
+      mkdir -p output_sage_hdf5_one_step_benchmark
+      mv output/millennium output_sage_hdf5_one_step_benchmark/
 
-    # Run the KD-tree verification from project root
-    - cd $CI_PROJECT_DIR
-    - ./verify_kdtree_output.sh
+      # Run the KD-tree verification from project root
+      cd $CI_PROJECT_DIR
+      ./verify_kdtree_output.sh
   artifacts:
     paths:
       - validation_output/
