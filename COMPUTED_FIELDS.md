@@ -47,7 +47,8 @@ The NEW workflow (`sage2kdtree`) uses `data/subtree_count` (int64) instead, with
 
 # Computed fields for cli_lightcone
 
-Computed Fields Created by cli_lightcone                                                                                                                                                                       
+Computed Fields Created by cli_lightcone
+
   ┌───────────────────────┬─────────────────────────────────────────────┬───────────────────────────────────┐
   │         Field         │                 Computation                 │         Saved to Output?          │
   ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤
@@ -58,20 +59,21 @@ Computed Fields Created by cli_lightcone
   │ dec                   │ Cartesian → spherical conversion (degrees)  │ Yes, if requested                 │
   ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤
   │ cosmological_redshift │ Distance → redshift via cosmology           │ Yes, if requested                 │
-  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                             
+  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤
   │ observed_redshift     │ Cosmological + peculiar velocity correction │ Yes, if requested                 │
-  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤                             
+  ├───────────────────────┼─────────────────────────────────────────────┼───────────────────────────────────┤
   │ sfr                   │ sfrdisk + sfrbulge                          │ Yes, if requested                 │
-  └───────────────────────┴─────────────────────────────────────────────┴───────────────────────────────────┘                                                                                                                                                                        
-  Output Behavior                                                                                                                                                                                                
-                                                                                                                                                                                                                 
-  The output HDF5 lightcone file contains:                                                                                                                                                                       
-  1. If --outfields specified: Only the requested fields (can include computed fields)                                                                                                                           
-  2. If no --outfields: All fields from the input KD-tree /data/* group                                                                                                                                          
-                                                                                                                                                                                                                 
-  Key implementation locations:                                                                                                                                                                                  
-  - Computed fields: src/libtao/base/kdtree_backend/kdtree_backend.hh:600-761                                                                                                                                    
-  - Base output fields: src/libtao/base/query.hh:70-90                                                                                                                                                           
-  - HDF5 output: src/libtao/modules/hdf5.hh:400-665                                                                                                                                                              
-                                                                                                                                                                                                                 
-  So unlike sage2kdtree, cli_lightcone creates new computed fields (ra, dec, redshifts, distance, sfr) that are useful for astronomical analysis and are written to output if requested.   
+  └───────────────────────┴─────────────────────────────────────────────┴───────────────────────────────────┘
+
+  Output Behavior
+
+  The output HDF5 lightcone file contains:
+  1. If --outfields specified: Only the requested fields (can include computed fields)
+  2. If no --outfields: All fields from the input KD-tree /data/* group
+
+  Key implementation locations:
+  - Computed fields: src/libtao/base/kdtree_backend/kdtree_backend.hh:600-761
+  - Base output fields: src/libtao/base/query.hh:70-90
+  - HDF5 output: src/libtao/modules/hdf5.hh:400-665
+
+  So unlike sage2kdtree, cli_lightcone creates new computed fields (ra, dec, redshifts, distance, sfr) that are useful for astronomical analysis and are written to output if requested.

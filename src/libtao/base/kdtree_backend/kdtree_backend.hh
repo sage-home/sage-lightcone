@@ -35,8 +35,6 @@ public:
 
   struct lightcone_data {
     std::array<real_type, 3> crd;
-    unsigned long long gidx;
-    unsigned subsize;
   };
 
   struct sed_data {
@@ -305,8 +303,6 @@ protected:
     auto x = _bat->set_scalar<real_type>("Posx"); // SAGE CamelCase
     auto y = _bat->set_scalar<real_type>("Posy"); // SAGE CamelCase
     auto z = _bat->set_scalar<real_type>("Posz"); // SAGE CamelCase
-    auto subsize = _bat->set_scalar<unsigned>("subsize");
-    auto gidx = _bat->set_scalar<unsigned long long>("global_index");
 
     hpc::view<std::vector<real_type>> dist, redshift;
     if (lc) {
@@ -319,8 +315,6 @@ protected:
         x[ii] = _lc_data[ii].crd[0] + _dom.min()[0];
         y[ii] = _lc_data[ii].crd[1] + _dom.min()[1];
         z[ii] = _lc_data[ii].crd[2] + _dom.min()[2];
-        subsize[ii] = _lc_data[ii].subsize;
-        gidx[ii] = _lc_data[ii].gidx;
 
         if (lc) {
           dist[ii] = sqrt(x[ii] * x[ii] + y[ii] * y[ii] + z[ii] * z[ii]);
