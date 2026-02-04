@@ -169,28 +169,26 @@ test_verify_kdtree:
       source .venv/bin/activate
       pip install -r requirements.txt
 
-      # Build SAGE from sage-model submodule
+      # Build SAGE and run first_run.sh to download trees and generate millennium.par
       echo "Building SAGE..."
-      cd sage-model && make -j$MAKE_JOBS && cp sage $CI_PROJECT_DIR/bin/sage && cd $CI_PROJECT_DIR
-
-      # Download Mini-Millennium tree files
-      cd tests/sage-model-tests
-      mkdir -p input/millennium/trees
-      if [ ! -f input/millennium/trees/trees_063.7 ]; then
-        echo "Downloading Mini-Millennium tree files..."
-        cd input/millennium/trees
-        wget "https://www.dropbox.com/s/l5ukpo7ar3rgxo4/mini-millennium-treefiles.tar?dl=0" -O mini-millennium-treefiles.tar
-        tar -xf mini-millennium-treefiles.tar
-        rm -f mini-millennium-treefiles.tar
-        cd $CI_PROJECT_DIR/tests/sage-model-tests
-      fi
+      cd sage-model
+      make -j$MAKE_JOBS
+      cp sage $CI_PROJECT_DIR/bin/sage
+      echo "Running first_run.sh to download tree files and set up millennium.par..."
+      bash first_run.sh
+      cd $CI_PROJECT_DIR
 
       # Generate millennium_settings.txt from sage-model's millennium.par
+      cd tests/sage-model-tests
       python3 utils/extract_settings.py
 
       # Create parameter file (concatenated from header + settings, same as benchmark script)
       mkdir -p input
       cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+
+      # Symlink tree files so par file relative paths resolve from tests/sage-model-tests/
+      mkdir -p input/millennium
+      ln -sfn $CI_PROJECT_DIR/sage-model/input/millennium/trees input/millennium/trees
 
       # Run SAGE to produce HDF5 output
       echo "Running SAGE..."
@@ -213,7 +211,7 @@ test_verify_kdtree:
   cache:
     key: tree-files
     paths:
-      - tests/sage-model-tests/input/millennium/trees/
+      - sage-model/input/millennium/trees/
     policy: pull-push
   only:
     - main
