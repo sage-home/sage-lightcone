@@ -63,13 +63,14 @@ These principles guide all design decisions and implementation choices in Sage-l
 
 ### 5. Unified Processing Model
 
-**Principle**: Sage-light-cone has one consistent, well-understood method for processing merger trees.
+**Principle**: Sage-light-cone has one consistent, well-understood method for processing spatially indexed galaxies grouped by snapshot.
 
 **Requirements**:
-- A single tree traversal algorithm handles all scientific requirements.
+- The sage output is assumed to have ordering of galaxies within snapshots to be based on merger trees.
 - Consistent galaxy inheritance and property calculation methods.
 - Robust orphan galaxy handling that prevents data loss.
-- Clear separation between tree traversal logic and physics calculations.
+- Clear separation between merger tree structure and physics calculations.
+- Spatially indexing galaxies to optimise light-cone extraction
 
 **Benefits**: Eliminates complexity from maintaining multiple processing modes, simplifies validation, reduces bug surface area, and makes the system easier to understand and modify.
 

@@ -160,10 +160,6 @@ void kdtree_backend::open(hpc::fs::path const &fn) {
   _lc_mem_type.insert(hpc::h5::datatype::native_double, "y", sizeof(double));
   _lc_mem_type.insert(hpc::h5::datatype::native_double, "z",
                       2 * sizeof(double));
-  _lc_mem_type.insert(hpc::h5::datatype::native_ullong, "global_index",
-                      HOFFSET(lightcone_data, gidx));
-  _lc_mem_type.insert(hpc::h5::datatype::native_uint, "subsize",
-                      HOFFSET(lightcone_data, subsize));
 
   // Populate field types from HDF5 /data group datasets
   hpc::h5::group data_group;
