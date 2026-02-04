@@ -121,12 +121,15 @@ build:
       - bin/*.a
     expire_in: 1 week
   cache:
-    key: build-cache-$CI_COMMIT_REF_SLUG
-    paths:
-      - hdf5-install/
-      - dep/pugixml-1.7/scripts/build/
-      - bin/
-    policy: pull-push
+    - key: hdf5-cache
+      paths:
+        - hdf5-install/
+      policy: pull-push
+    - key: build-cache-$CI_COMMIT_REF_SLUG
+      paths:
+        - dep/pugixml-1.7/scripts/build/
+        - bin/
+      policy: pull-push
 
 # CLI validation tests
 test_cli_validation:
@@ -146,6 +149,11 @@ test_cli_validation:
       tests/test_cli_validation.sh
   dependencies:
     - build
+  cache:
+    key: hdf5-cache
+    paths:
+      - hdf5-install/
+    policy: pull
   only:
     - main
     - merge_requests
@@ -209,10 +217,14 @@ test_verify_kdtree:
   dependencies:
     - build
   cache:
-    key: tree-files
-    paths:
-      - sage-model/input/millennium/trees/
-    policy: pull-push
+    - key: hdf5-cache
+      paths:
+        - hdf5-install/
+      policy: pull
+    - key: tree-files
+      paths:
+        - sage-model/input/millennium/trees/
+      policy: pull-push
   only:
     - main
     - merge_requests
@@ -251,6 +263,11 @@ build_release:
       - bin_release/cli_lightcone
       - bin_release/*.a
     expire_in: 1 week
+  cache:
+    key: hdf5-cache
+    paths:
+      - hdf5-install/
+    policy: pull-push
   only:
     - tags
     - main
