@@ -185,6 +185,9 @@ test_verify_kdtree:
         cd $CI_PROJECT_DIR/tests/sage-model-tests
       fi
 
+      # Generate millennium_settings.txt from sage-model's millennium.par
+      python3 utils/extract_settings.py
+
       # Create parameter file (concatenated from header + settings, same as benchmark script)
       mkdir -p input
       cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
