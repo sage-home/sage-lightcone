@@ -177,6 +177,13 @@ test_verify_kdtree:
       source .venv/bin/activate
       pip install -r requirements.txt
 
+      # Clone sage-model if not present (it's not a submodule, it's cloned by build_platform_aware.sh)
+      SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
+      if [ ! -d "sage-model" ]; then
+        echo "Cloning SAGE from ${SAGE_REPO}..."
+        git clone ${SAGE_REPO} sage-model
+      fi
+
       # Build SAGE and run first_run.sh to download trees and generate millennium.par
       echo "Building SAGE..."
       cd sage-model
