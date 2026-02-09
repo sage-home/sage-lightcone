@@ -176,8 +176,13 @@ test_verify_kdtree:
       source .venv/bin/activate
       pip install -r requirements.txt
 
-      # Clone sage-model if not present (it's not a submodule, it's cloned by build_platform_aware.sh)
+      # Clone sage-model if not present or incomplete (e.g. from cache artifacts)
       SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
+      if [ -d "sage-model" ] && [ ! -f "sage-model/Makefile" ]; then
+        echo "sage-model directory exists but is missing Makefile. Cleaning up..."
+        rm -rf sage-model
+      fi
+
       if [ ! -d "sage-model" ]; then
         echo "Cloning SAGE from ${SAGE_REPO}..."
         git clone ${SAGE_REPO} sage-model
@@ -196,7 +201,7 @@ test_verify_kdtree:
       cd tests/sage-model-tests
       echo "Running first_run.sh to download tree files and set up millennium.par..."
       bash first_run.sh
-      
+
       # Generate millennium_settings.txt from the local millennium.par
       python3 utils/extract_settings.py
 
@@ -226,7 +231,7 @@ test_verify_kdtree:
       paths:
         - hdf5-install/
       policy: pull
-    - key: tree-files
+    - key: tree-files-v2
       paths:
         - tests/sage-model-tests/input/millennium/trees/
       policy: pull-push
