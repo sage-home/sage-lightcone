@@ -54,39 +54,26 @@ public:
   }
 
   template <class PartT> void construct(PartT &part) {
-    LOGILN("Constructing kdtree NOW.");
 
     clear();
 
     // Get initial bounds and resize for the local splits.
     _bnds = part.bounds();
     _splits.resize(part.n_branch_cells());
-    LOGILN("Initial bounds: ", _bnds);
-    LOGILN("Leaf cells:   ", n_leafs());
-    LOGILN("Branch cells: ", part.n_branch_cells());
-    LOGILN("Total cells:  ", n_cells());
 
     // Perform parallel part of partitioning.
     std::vector<std::array<coord_type, 2>> bnds = _bnds;
     {
-      LOGILN("Performing parallel refinementNOW.");
 
       std::list<std::tuple<coord_type, unsigned, int>> splits;
       mpi::comm comm(*_comm);
 
       // Refine until we hit serial or finish splitting.
       if (part.n_branch_cells() > 0) {
-        LOGILN("Stuff to do?");
-        if (comm.size() == 1)
-          LOGILN("Comm size 1");
         while (comm.size() != 1) {
-          LOGILN("BoundsNOW: ", bnds);
           part.partition(0, bnds, comm);
-          LOGILN("After Bounds: ", bnds);
           comm = part.sub_comm();
           auto split = part.split_and_side();
-          LOGILN("SplitNOW: ", std::get<0>(split), ", ", std::get<1>(split));
-          LOGILN("SideNOW:  ", std::get<2>(split));
           splits.push_back(split);
           if (std::get<2>(split) == 0)
             std::get<1>(bnds[std::get<1>(split)]) = std::get<0>(split);
@@ -94,15 +81,12 @@ public:
             std::get<0>(bnds[std::get<1>(split)]) = std::get<0>(split);
 
           // Update local boundary.
-          LOGILN("New bounds Now: ", _bnds);
           _bnds[std::get<1>(split)][std::get<2>(split) ? 0 : 1] =
               std::get<0>(split);
-          LOGILN("New bounds: ", _bnds);
         }
       }
 
       // Transfer
-      LOGILN("Splits TransferNOW: ", splits.size());
       _root_splits.resize(splits.size());
       boost::copy(splits, _root_splits.begin());
     }
@@ -110,8 +94,6 @@ public:
     // Now continue partitioning serially. We need to
     // avoid this if we are already complete.
     {
-      LOGBLOCKD("Performing serial refinement.");
-
       if (part.need_refinement(0))
         _construct_serial_recursive(part, 0, bnds);
     }
@@ -121,13 +103,10 @@ public:
   void
   _construct_serial_recursive(PartT &part, unsigned cell,
                               std::vector<std::array<coord_type, 2>> &bnds) {
-    LOGILN("Refining cell: ", cell);
-    LOGILN("Bounds: ", bnds);
 
     part.partition(cell, bnds, mpi::comm::self);
     _splits[cell].pos = std::get<0>(part.split());
     _splits[cell].dim = std::get<1>(part.split());
-    LOGILN("Split: ", _splits[cell].pos, ", ", _splits[cell].dim);
 
     if (part.need_refinement(part.left_child(cell))) {
       coord_type tmp = bnds[_splits[cell].dim][1];

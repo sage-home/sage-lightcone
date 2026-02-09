@@ -183,7 +183,7 @@ test_verify_kdtree:
         git clone ${SAGE_REPO} sage-model
       fi
 
-# Build SAGE (but don't run configuration yet)
+      # Build SAGE (but don't run configuration yet)
       echo "Building SAGE..."
       cd sage-model
       export HDF5_DIR=$HDF5_ROOT
@@ -216,7 +216,6 @@ test_verify_kdtree:
       ./verify_kdtree_output.sh
   artifacts:
     paths:
-      - validation_output/
       - verify_kdtree_output.txt
     when: always
     expire_in: 1 week

@@ -30,8 +30,7 @@ source setup.sh
 ```
 and on your own macOS M3 laptop the build should be done as follows:
 
-```
-On MacOS 
+```bash
 source setup_mac.sh
 ./build_platform_aware.sh
 ```
@@ -39,7 +38,7 @@ source setup_mac.sh
 after which the executables will be under the bin director.
 
 
-### To run the end to end test (From sage to kdindexing to extracting a lightcone)
+### To run the end to end test (From sage to kd-indexing to extracting a lightcone)
 * cd tests/sage-model-tests
 * ./run_test_hdf5_one_step.sh
  
@@ -76,7 +75,7 @@ snapshot_displs          Dataset {65}
 snapshot_redshifts       Dataset {64/Inf}
 ```
 
-1. cosmology holds the meta data for the simulation.  These are box_size, hubble constant, omega_l, and omega_m.
+1. cosmology holds the meta data for the simulation.  These are box_size, hubble constant, omega_l, and omega_m.  These are mandatory and used to calculate comoving distances from galaxy redshifts during the light-cone extraction.
 2. data contains the data for all the fields.  Each field has its own dataset. The order of the gaflaxiy entries are the same for all datasets.  All the data belonging to the same snapshot will be contiguous (As described by snapshot_counts and snapshot_displ).  The order within a snapshot is such that they are in KD-TREE order using the x, y, and z coordinates to order them.  This means for example that all entries with an x less than half the the distance from the minimum x to the maximum x will be contiguous.
 3. lightcone contains the KD-TREE indices for each snapshot.
 4. snapshot_counts, snapshot_displ, and snapshot_redshifts contains the indices to each snapshot and the associated redshift for that snapshot.
