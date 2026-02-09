@@ -9,16 +9,16 @@ variables:
   # Use a Docker image with development tools pre-installed
   # You may need to customize this based on your specific requirements
   DOCKER_IMAGE: "ubuntu:22.04"
-  
+
   # Git submodule strategy - fetch submodules recursively
   GIT_SUBMODULE_STRATEGY: recursive
-  
+
   # Build configuration
   CMAKE_BUILD_TYPE: "Debug"
-  
+
   # Parallel build jobs
   MAKE_JOBS: "4"
-  
+
   # HDF5 version
   HDF5_VERSION: "1.14.0"
 
@@ -35,10 +35,10 @@ variables:
   # Set GCC 12 as default
   - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
   - update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
-  
+
   # Set HDF5 installation directory
   - export HDF5_PREFIX=$CI_PROJECT_DIR/hdf5-install
-  
+
   # Check if HDF5 is already built (from cache)
   - |
     if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ]; then
@@ -56,12 +56,11 @@ variables:
       echo "HDF5 already installed, skipping build..."
     fi
   - cd $CI_PROJECT_DIR
-  
   # Update library paths
   - export LD_LIBRARY_PATH=$HDF5_PREFIX/lib:$LD_LIBRARY_PATH
   - export PKG_CONFIG_PATH=$HDF5_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
   - export PATH=$HDF5_PREFIX/bin:$PATH
-  
+
   # Verify HDF5 installation
   - h5cc -show || echo "h5cc not found"
   - pkg-config --modversion hdf5 || echo "HDF5 pkg-config not found"
@@ -89,10 +88,10 @@ build:
     - export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
     - export PATH=$HDF5_ROOT/bin:$PATH
-    
+
     # Clean up any old CMake cache files
     - find . -name CMakeCache.txt -exec rm -f {} \;
-    
+
     # Build PugiXML dependency first
     - echo "Building PugiXML..."
     - cd dep/pugixml-1.7/scripts
@@ -102,7 +101,7 @@ build:
     - make -j$MAKE_JOBS
     - make install
     - cd ../../../..
-    
+
     # Build main project
     - echo "Building main project..."
     - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
@@ -186,12 +185,21 @@ test_verify_kdtree:
 
       # Build SAGE and run first_run.sh to download trees and generate millennium.par
       echo "Building SAGE..."
-      cd sage-model
+      # Rename sage-model to SAGE26 to satisfy first_run.sh requirement
+      if [ -d "sage-model" ]; then
+        mv sage-model SAGE26
+      fi
+      cd SAGE26
       export HDF5_DIR=$HDF5_ROOT
       make -j$MAKE_JOBS
       cp sage $CI_PROJECT_DIR/bin/sage
       echo "Running first_run.sh to download tree files and set up millennium.par..."
       bash first_run.sh
+      cd ..
+      # Rename back to sage-model for compatibility with subsequent steps
+      if [ -d "SAGE26" ]; then
+        mv SAGE26 sage-model
+      fi
       cd $CI_PROJECT_DIR
 
       # Generate millennium_settings.txt from sage-model's millennium.par
@@ -251,7 +259,7 @@ build_release:
     - export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
     - export PATH=$HDF5_ROOT/bin:$PATH
-    
+
     - find . -name CMakeCache.txt -exec rm -f {} \;
     - echo "Building PugiXML (Release)..."
     - cd dep/pugixml-1.7/scripts
