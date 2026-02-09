@@ -3,8 +3,8 @@ import re
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # script_dir is root/tests/sage-model-tests/utils
-# We want to go to root/sage-model/input/millennium.par
-input_path = os.path.join(script_dir, '../../../sage-model/input/millennium.par')
+# We want to go to root/tests/sage-model-tests/input/millennium.par
+input_path = os.path.join(script_dir, '../input/millennium.par')
 # We want to output to root/tests/sage-model-tests/mypar_files/millennium_settings.txt
 output_path = os.path.join(script_dir, '../mypar_files/millennium_settings.txt')
 

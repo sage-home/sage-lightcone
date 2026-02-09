@@ -183,33 +183,26 @@ test_verify_kdtree:
         git clone ${SAGE_REPO} sage-model
       fi
 
-      # Build SAGE and run first_run.sh to download trees and generate millennium.par
+# Build SAGE (but don't run configuration yet)
       echo "Building SAGE..."
       cd sage-model
-      # Use our fixed version of first_run.sh that doesn't enforce SAGE26 dir name
-      cp $CI_PROJECT_DIR/tests/sage-model-tests/first_run.sh .
       export HDF5_DIR=$HDF5_ROOT
       make -j$MAKE_JOBS
       cp sage $CI_PROJECT_DIR/bin/sage
-      # Need to make sure the library path is set so sage can find libsage.so or similar if needed
-      # (though likely statically linked or rpath, but let's be safe if issues persist)
-
-      echo "Running first_run.sh to download tree files and set up millennium.par..."
-      bash first_run.sh
       cd ..
       cd $CI_PROJECT_DIR
 
-      # Generate millennium_settings.txt from sage-model's millennium.par
+      # Configure SAGE using the tests/sage-model-tests setup
       cd tests/sage-model-tests
+      echo "Running first_run.sh to download tree files and set up millennium.par..."
+      bash first_run.sh
+      
+      # Generate millennium_settings.txt from the local millennium.par
       python3 utils/extract_settings.py
 
       # Create parameter file (concatenated from header + settings, same as benchmark script)
-      mkdir -p input
+      # input/ directory already exists from first_run.sh
       cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
-
-      # Symlink tree files so par file relative paths resolve from tests/sage-model-tests/
-      mkdir -p input/millennium
-      ln -sfn $CI_PROJECT_DIR/sage-model/input/millennium/trees input/millennium/trees
 
       # Run SAGE to produce HDF5 output
       echo "Running SAGE..."
@@ -236,7 +229,7 @@ test_verify_kdtree:
       policy: pull
     - key: tree-files
       paths:
-        - sage-model/input/millennium/trees/
+        - tests/sage-model-tests/input/millennium/trees/
       policy: pull-push
   only:
     - main
