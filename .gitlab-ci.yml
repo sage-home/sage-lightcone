@@ -200,10 +200,15 @@ test_verify_kdtree:
       # Configure SAGE using the tests/sage-model-tests setup
       cd tests/sage-model-tests
       echo "Running first_run.sh to download tree files and set up millennium.par..."
+
+      # Debug: check if file exists before running script
+      ls -l input/millennium.par || echo "File missing before script"
+
       bash first_run.sh
 
-      # Generate millennium_settings.txt from the local millennium.par
-      python3 utils/extract_settings.py
+      # Debug: check if file exists after running script and where we are
+      echo "Current directory: $(pwd)"
+      ls -l input/millennium.par || echo "File missing after script"
 
       # Create parameter file (concatenated from header + settings, same as benchmark script)
       # input/ directory already exists from first_run.sh

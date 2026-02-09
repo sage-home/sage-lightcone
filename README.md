@@ -39,8 +39,11 @@ after which the executables will be under the bin director.
 
 
 ### To run the end to end test (From sage to kd-indexing to extracting a lightcone)
-* cd tests/sage-model-tests
-* ./run_test_hdf5_one_step.sh
+
+```bash
+./verify_kdtree_output.sh
+```
+This end to end test runs and compares the lightcones from two previously validated workflows.  One using the currently most performant sage2dkdtree and the other using an earlier but slower version of the sage2kdtree process.
  
 
 ## Building on other environments
