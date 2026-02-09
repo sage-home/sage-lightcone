@@ -185,21 +185,18 @@ test_verify_kdtree:
 
       # Build SAGE and run first_run.sh to download trees and generate millennium.par
       echo "Building SAGE..."
-      # Rename sage-model to SAGE26 to satisfy first_run.sh requirement
-      if [ -d "sage-model" ]; then
-        mv sage-model SAGE26
-      fi
-      cd SAGE26
+      cd sage-model
+      # Use our fixed version of first_run.sh that doesn't enforce SAGE26 dir name
+      cp $CI_PROJECT_DIR/tests/sage-model-tests/first_run.sh .
       export HDF5_DIR=$HDF5_ROOT
       make -j$MAKE_JOBS
       cp sage $CI_PROJECT_DIR/bin/sage
+      # Need to make sure the library path is set so sage can find libsage.so or similar if needed
+      # (though likely statically linked or rpath, but let's be safe if issues persist)
+
       echo "Running first_run.sh to download tree files and set up millennium.par..."
       bash first_run.sh
       cd ..
-      # Rename back to sage-model for compatibility with subsequent steps
-      if [ -d "SAGE26" ]; then
-        mv SAGE26 sage-model
-      fi
       cd $CI_PROJECT_DIR
 
       # Generate millennium_settings.txt from sage-model's millennium.par
