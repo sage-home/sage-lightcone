@@ -105,6 +105,12 @@ else
     echo "Building SAGE for HPC/Linux environment..."
     # Use MPI compiler for HPC environments
     export CC=mpicc
+    
+    # If HDF5_ROOT is set (common in CI/CMake), map it to HDF5_DIR (used by SAGE Makefile)
+    if [ -n "$HDF5_ROOT" ] && [ -z "$HDF5_DIR" ]; then
+        export HDF5_DIR="$HDF5_ROOT"
+        echo "Mapped HDF5_ROOT to HDF5_DIR: $HDF5_DIR"
+    fi
 fi
 
 # Build sage

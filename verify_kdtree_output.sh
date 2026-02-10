@@ -20,7 +20,19 @@ fi
 
 # 2. Define Inputs
 TEST_DIR="tests/sage-model-tests"
-INPUT_SAGE_DIR="${TEST_DIR}/output_sage_hdf5_one_step_benchmark/millennium"
+
+# Check for benchmark output first (CI default), then standard output (local default)
+if [ -d "${TEST_DIR}/output_sage_hdf5_one_step_benchmark/millennium" ]; then
+    INPUT_SAGE_DIR="${TEST_DIR}/output_sage_hdf5_one_step_benchmark/millennium"
+    echo "Using benchmark SAGE output: ${INPUT_SAGE_DIR}"
+elif [ -d "${TEST_DIR}/output_sage_hdf5_one_step/millennium" ]; then
+    INPUT_SAGE_DIR="${TEST_DIR}/output_sage_hdf5_one_step/millennium"
+    echo "Using standard SAGE output: ${INPUT_SAGE_DIR}"
+else
+    # Default fallback (will fail check later)
+    INPUT_SAGE_DIR="${TEST_DIR}/output_sage_hdf5_one_step_benchmark/millennium"
+fi
+
 PARAM_FILE="${TEST_DIR}/input/millennium_sage_hdf5.par"
 ALIST_FILE="${TEST_DIR}/input/millennium/trees/millennium.a_list"
 
@@ -33,7 +45,7 @@ echo "Using SAGE input from: ${INPUT_SAGE_DIR}"
 
 if [ ! -f "${INPUT_SAGE_DIR}/model_0.hdf5" ]; then
     echo "ERROR: SAGE output not found at ${INPUT_SAGE_DIR}/model_0.hdf5"
-    echo "Please run 'tests/sage-model-tests/run_test_hdf5_one_step.sh' first to generate input data."
+    echo "Please run 'tests/sage-model-tests/run_test_hdf5_one_step_benchmark.sh' (for benchmark output) or 'tests/sage-model-tests/run_test_hdf5_one_step.sh' (for standard output) first to generate input data."
     exit 1
 fi
 
