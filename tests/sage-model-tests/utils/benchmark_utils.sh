@@ -18,7 +18,8 @@ end_timer() {
     local end_time=$(date +%s.%N)
     
     local duration="0"
-    if [ -n "$start_time" ]; then
+    # Basic numeric check for start_time (simple regex for float/int)
+    if [[ "$start_time" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
         duration=$(echo "$end_time - $start_time" | bc)
     fi
 
@@ -32,14 +33,14 @@ run_with_profiling() {
     local phase_name=$1
     local output_csv=$2
     shift 2
-    local cmd="$@"
+    # Do NOT capture cmd="$@" as string, use "$@" directly to preserve argument splitting
 
     start_timer "$phase_name"
 
     # Use /usr/bin/time for memory profiling (works on macOS and Linux)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS version
-        /usr/bin/time -l $cmd 2> /tmp/benchmark_time_${phase_name}.txt
+        /usr/bin/time -l "$@" 2> /tmp/benchmark_time_${phase_name}.txt
         local exit_code=$?
 
         # If command failed, print stderr
@@ -50,14 +51,14 @@ run_with_profiling() {
         fi
 
         # Extract peak memory (maxrss is in bytes on macOS)
-        local peak_mem=$(grep "maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $1}')
+        local peak_mem=$(grep "maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $1}' | head -n 1)
         local peak_mem_mb="0"
-        if [ -n "$peak_mem" ]; then
+        if [[ "$peak_mem" =~ ^[0-9]+$ ]]; then
             peak_mem_mb=$(echo "scale=2; $peak_mem / 1024 / 1024" | bc)
         fi
     else
         # Linux version
-        /usr/bin/time -v $cmd 2> /tmp/benchmark_time_${phase_name}.txt
+        /usr/bin/time -v "$@" 2> /tmp/benchmark_time_${phase_name}.txt
         local exit_code=$?
 
         # If command failed, print stderr
@@ -68,9 +69,9 @@ run_with_profiling() {
         fi
 
         # Extract peak memory (maxrss is in KB on Linux)
-        local peak_mem=$(grep "Maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $6}')
+        local peak_mem=$(grep "Maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $6}' | head -n 1)
         local peak_mem_mb="0"
-        if [ -n "$peak_mem" ]; then
+        if [[ "$peak_mem" =~ ^[0-9]+$ ]]; then
             peak_mem_mb=$(echo "scale=2; $peak_mem / 1024" | bc)
         fi
     fi
@@ -101,13 +102,13 @@ measure_disk_usage() {
         if [[ "$OSTYPE" == "darwin"* ]]; then
             # macOS: du -k gives kilobytes
             local size_kb=$(du -sk "$dir" 2>/dev/null | awk '{print $1}')
-            if [ -n "$size_kb" ]; then
+            if [[ "$size_kb" =~ ^[0-9]+$ ]]; then
                 size_mb=$(echo "scale=2; $size_kb / 1024" | bc)
             fi
         else
             # Linux: du -sb gives bytes
             local size_bytes=$(du -sb "$dir" 2>/dev/null | cut -f1)
-            if [ -n "$size_bytes" ]; then
+            if [[ "$size_bytes" =~ ^[0-9]+$ ]]; then
                 size_mb=$(echo "scale=2; $size_bytes / 1024 / 1024" | bc)
             fi
         fi
