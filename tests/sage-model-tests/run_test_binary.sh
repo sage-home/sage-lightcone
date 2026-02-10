@@ -2,10 +2,12 @@
 
 # What's my code's root directory
 export MY_SCRIPT=${BASH_SOURCE:-$0}
-export MY_SCRIPTS_DIRECTORY=$(dirname $MY_SCRIPT)
+export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname $MY_SCRIPT)" && pwd)
 export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY}/../.. && pwd)
 export MY_SCRIPT=
-export MY_SCRIPTS_DIRECTORY=
+
+# Change to script directory - required for relative paths like ./first_run.sh
+cd "${MY_SCRIPTS_DIRECTORY}"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macOS detected - using Homebrew setup"
@@ -25,12 +27,32 @@ rm -rf input
 rm -rf output
 rm -rf ${OUTPUTDIR}
 rm -f *${RAWNAME}*
+
+# Copy base millennium.par from sage-model before running first_run.sh
+mkdir -p input
+if [ -f "${MY_ROOT}/sage-model/input/millennium.par" ]; then
+    cp "${MY_ROOT}/sage-model/input/millennium.par" input/millennium.par
+    echo "✓ Copied base millennium.par from sage-model"
+else
+    echo "ERROR: sage-model/input/millennium.par not found"
+    echo "Please ensure the sage-model submodule is initialized: git submodule update --init --recursive"
+    exit 1
+fi
+
 ./first_run.sh
 echo ==== Have finished with first_run.sh ====
+
+# Extract settings from millennium.par created by first_run.sh
+echo "Extracting settings from millennium.par..."
+python3 utils/extract_settings.py
+
+# Generate .par files by concatenating headers with settings
+cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
+cat mypar_files/millennium_sage_binary_kdtreeindex_header.txt mypar_files/millennium_settings.txt > input/millennium_minus1.par
+cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+echo "✓ Parameter files generated."
+
 mkdir -p output/millennium/
-cp mypar_files/millennium.par input
-cp mypar_files/millennium_minus1.par input
-cp mypar_files/millennium_sage_hdf5.par input
 
 ${MY_ROOT}/bin/sage input/millennium.par
 mv output ${OUTPUTDIR}

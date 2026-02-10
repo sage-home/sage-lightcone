@@ -382,6 +382,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot() {
               << std::endl;
   }
 
+  _load_param(_param_fn);
   _load_redshifts(_alist_fn);
 
   std::vector<hpc::fs::path> sage_files;
@@ -423,28 +424,16 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot() {
                             hpc::h5::property_list());
     z_dset.write(_redshifts);
 
-    // Create cosmology group and write attributes (required by Phase 4 /
-    // Lightcone) Legacy pipeline expects these to be present
+    // Create cosmology group and write datasets (required by kdtree_backend)
+    // kdtree_backend expects: cosmology/box_size, cosmology/hubble,
+    // cosmology/omega_m, cosmology/omega_l as scalar datasets
     hpc::h5::group cosmo_group;
     cosmo_group.create(out_file, "cosmology");
 
-    auto write_attr = [&](const char *name, double val) {
-      hid_t space_id = H5Screate(H5S_SCALAR);
-      hid_t attr_id = H5Acreate2(cosmo_group.id(), name, H5T_NATIVE_DOUBLE,
-                                 space_id, H5P_DEFAULT, H5P_DEFAULT);
-      if (attr_id >= 0) {
-        H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
-        H5Aclose(attr_id);
-      }
-      H5Sclose(space_id);
-    };
-
-    write_attr("SimulationBoxSize", _box_size);
-    // _hubble is stored as H0 (e.g. 73.0), but HubbleParam usually expects h
-    // (e.g. 0.73)
-    write_attr("HubbleParam", _hubble / 100.0);
-    write_attr("OmegaMatter", _omega_m);
-    write_attr("OmegaLambda", _omega_l);
+    out_file.write<double>("cosmology/box_size", _box_size);
+    out_file.write<double>("cosmology/hubble", _hubble);
+    out_file.write<double>("cosmology/omega_m", _omega_m);
+    out_file.write<double>("cosmology/omega_l", _omega_l);
   }
 
   for (size_t snap = 0; snap < _redshifts.size(); ++snap) {

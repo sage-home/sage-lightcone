@@ -45,6 +45,9 @@ fi
 # Restore the correct scripts directory for this script
 export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
 
+# Change to script directory - required for relative paths like ./first_run.sh
+cd "${MY_SCRIPTS_DIRECTORY}"
+
 # Ensure sage-model repository exists (clone if missing)
 SAGE_REPO="https://github.com/MBradley1985/SAGE26.git"
 if [ ! -d "${MY_ROOT}/sage-model" ]; then
@@ -116,6 +119,17 @@ mkdir -p ${OUTPUTDIR}
 echo "phase,duration_sec,peak_mem_mb" > $BENCHMARK_CSV
 echo "phase,disk_mb" > $DISK_IO_CSV
 
+# Ensure input directory exists and copy base millennium.par from sage-model
+mkdir -p input
+if [ -f "${MY_ROOT}/sage-model/input/millennium.par" ]; then
+    cp "${MY_ROOT}/sage-model/input/millennium.par" input/millennium.par
+    echo "✓ Copied base millennium.par from sage-model"
+else
+    echo "ERROR: sage-model/input/millennium.par not found"
+    echo "Please ensure the sage-model submodule is initialized: git submodule update --init --recursive"
+    exit 1
+fi
+
 # Check if tree files already exist - skip first_run.sh if so
 if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/millennium.a_list" ]; then
     echo "✓ Tree files already present - skipping download."
@@ -149,10 +163,24 @@ else
     echo "✓ Tree files and scale factor list verified."
 fi
 
+# Update paths in millennium.par to use current directory
+CURRENT_DIR=$(pwd)
+sed -i'' -e "s|^OutputDir.*|OutputDir   ${CURRENT_DIR}/output/millennium/|" input/millennium.par
+sed -i'' -e "s|^SimulationDir.*|SimulationDir   ${CURRENT_DIR}/input/millennium/trees/|" input/millennium.par
+sed -i'' -e "s|^FileWithSnapList.*|FileWithSnapList ${CURRENT_DIR}/input/millennium/trees/millennium.a_list|" input/millennium.par
+echo "✓ Updated paths in millennium.par"
+
+# Extract settings from millennium.par
+echo "Extracting settings from millennium.par..."
+python3 utils/extract_settings.py
+
+# Generate .par files by concatenating headers with settings
+cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
+cat mypar_files/millennium_sage_binary_kdtreeindex_header.txt mypar_files/millennium_settings.txt > input/millennium_minus1.par
+cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+echo "✓ Parameter files generated."
+
 mkdir -p output/millennium/
-cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium.par
-cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_binary_kdtreeindex_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_minus1.par
-cat ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_sage_hdf5_header.txt ${MY_SCRIPTS_DIRECTORY}/mypar_files/millennium_settings.txt >> ${MY_SCRIPTS_DIRECTORY}/input/millennium_sage_hdf5.par
 
 # PHASE 1: Use shared SAGE output (run by benchmark_workflows.sh)
 # NOTE: SAGE is run once by benchmark_workflows.sh and shared between workflows

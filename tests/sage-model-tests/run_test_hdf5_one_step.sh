@@ -20,10 +20,12 @@ done
 
 # What's my code's root directory
 export MY_SCRIPT=${BASH_SOURCE:-$0}
-export MY_SCRIPTS_DIRECTORY=$(dirname $MY_SCRIPT)
+export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname $MY_SCRIPT)" && pwd)
 export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY}/../.. && pwd)
 export MY_SCRIPT=
-export MY_SCRIPTS_DIRECTORY=
+
+# Change to script directory - required for relative paths like ./first_run.sh
+cd "${MY_SCRIPTS_DIRECTORY}"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macOS detected - using Homebrew setup"
@@ -98,7 +100,18 @@ rm -f *${RAWNAME}*
 # Only remove input/*.par files, preserve input/millennium/trees/
 rm -f input/*.par 2>/dev/null
 
-# Check if tree files already exist - skip first_run.sh if so
+# Ensure input directory exists and copy base millennium.par from sage-model
+mkdir -p input
+if [ -f "${MY_ROOT}/sage-model/input/millennium.par" ]; then
+    cp "${MY_ROOT}/sage-model/input/millennium.par" input/millennium.par
+    echo "✓ Copied base millennium.par from sage-model"
+else
+    echo "ERROR: sage-model/input/millennium.par not found"
+    echo "Please ensure the sage-model submodule is initialized: git submodule update --init --recursive"
+    exit 1
+fi
+
+# Check if tree files already exist - skip download if so
 if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/millennium.a_list" ]; then
     echo "✓ Tree files already present - skipping download."
 else
@@ -130,30 +143,45 @@ else
 
     echo "✓ Tree files and scale factor list verified."
 fi
+
+# Update paths in millennium.par to use current directory
+CURRENT_DIR=$(pwd)
+sed -i'' -e "s|^OutputDir.*|OutputDir   ${CURRENT_DIR}/output/millennium/|" input/millennium.par
+sed -i'' -e "s|^SimulationDir.*|SimulationDir   ${CURRENT_DIR}/input/millennium/trees/|" input/millennium.par
+sed -i'' -e "s|^FileWithSnapList.*|FileWithSnapList ${CURRENT_DIR}/input/millennium/trees/millennium.a_list|" input/millennium.par
+echo "✓ Updated paths in millennium.par"
+
+# Extract settings from millennium.par
+echo "Extracting settings from millennium.par..."
+python3 utils/extract_settings.py
+
+# Generate .par files by concatenating headers with settings
+cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
+cat mypar_files/millennium_sage_binary_kdtreeindex_header.txt mypar_files/millennium_settings.txt > input/millennium_minus1.par
+cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+echo "✓ Parameter files generated."
+
 mkdir -p output/millennium/
-cp mypar_files/millennium.par input
-cp mypar_files/millennium_minus1.par input
-cp mypar_files/millennium_sage_hdf5.par input
 
 ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
 mv output ${OUTPUTDIR}
 
-echo "Create kdtree in one step"
+#echo "Create kdtree in one step"
 
-${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
+#${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
 
 # echo "Creating kdtree indexed HDF5..."
 # ${MY_ROOT}/bin/sageh5toh5 -m convert -v 2 -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-depthfirstordered.h5
 # ${MY_ROOT}/bin/sageimport --settings ${OUTPUTDIR}/${RAWNAME}-depthfirstordered_import_settings.xml
 # ${MY_ROOT}/bin/dstreeinit --mode kdtree --tree ${OUTPUTDIR}/out_$RAWNAME-depthfirstordered.h5 --sage ${OUTPUTDIR}/$RAWNAME-bysnap.h5 --output ${OUTPUTDIR}/$RAWNAME-kdtree.h5
 
-echo "Test by creating a lightcone and plotting SnapNum..."
+#echo "Test by creating a lightcone and plotting SnapNum..."
 #${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 10 --ramin 0 --ramax 30 --zmin 0 --zmax 0.5 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-source ${MY_ROOT}/.venv/bin/activate
+#${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+#source ${MY_ROOT}/.venv/bin/activate
 # Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
-python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum
+#python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum
 
 # Clean up
-rm -f log.00000
-rm -rf log
+#rm -f log.00000
+#rm -rf log
