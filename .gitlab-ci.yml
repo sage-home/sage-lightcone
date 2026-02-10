@@ -190,6 +190,12 @@ test_verify_kdtree:
       # This compares the output from the script above using both new and legacy converters
       echo "Running verification..."
       ./verify_kdtree_output.sh
+
+      # Enforce success message check
+      if ! grep -q "SUCCESS: Full validation passed (Structure matched, Content matched after sorting)." verify_kdtree_output.txt; then
+        echo "ERROR: CI Check Failed - Validation success message not found in logs."
+        exit 1
+      fi
   artifacts:
     paths:
       - verify_kdtree_output.txt
