@@ -16,7 +16,11 @@ end_timer() {
     local output_file=$2
     local start_time=$(cat /tmp/benchmark_start_${phase_name}.txt)
     local end_time=$(date +%s.%N)
-    local duration=$(echo "$end_time - $start_time" | bc)
+    
+    local duration="0"
+    if [ -n "$start_time" ]; then
+        duration=$(echo "$end_time - $start_time" | bc)
+    fi
 
     echo "${phase_name},${duration}" >> "$output_file"
     rm /tmp/benchmark_start_${phase_name}.txt
@@ -38,17 +42,37 @@ run_with_profiling() {
         /usr/bin/time -l $cmd 2> /tmp/benchmark_time_${phase_name}.txt
         local exit_code=$?
 
+        # If command failed, print stderr
+        if [ $exit_code -ne 0 ]; then
+             echo "ERROR: Command failed with exit code $exit_code"
+             echo "Captured stderr:"
+             cat /tmp/benchmark_time_${phase_name}.txt
+        fi
+
         # Extract peak memory (maxrss is in bytes on macOS)
         local peak_mem=$(grep "maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $1}')
-        local peak_mem_mb=$(echo "scale=2; $peak_mem / 1024 / 1024" | bc)
+        local peak_mem_mb="0"
+        if [ -n "$peak_mem" ]; then
+            peak_mem_mb=$(echo "scale=2; $peak_mem / 1024 / 1024" | bc)
+        fi
     else
         # Linux version
         /usr/bin/time -v $cmd 2> /tmp/benchmark_time_${phase_name}.txt
         local exit_code=$?
 
+        # If command failed, print stderr
+        if [ $exit_code -ne 0 ]; then
+             echo "ERROR: Command failed with exit code $exit_code"
+             echo "Captured stderr:"
+             cat /tmp/benchmark_time_${phase_name}.txt
+        fi
+
         # Extract peak memory (maxrss is in KB on Linux)
         local peak_mem=$(grep "Maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $6}')
-        local peak_mem_mb=$(echo "scale=2; $peak_mem / 1024" | bc)
+        local peak_mem_mb="0"
+        if [ -n "$peak_mem" ]; then
+            peak_mem_mb=$(echo "scale=2; $peak_mem / 1024" | bc)
+        fi
     fi
 
     end_timer "$phase_name" "$output_csv"

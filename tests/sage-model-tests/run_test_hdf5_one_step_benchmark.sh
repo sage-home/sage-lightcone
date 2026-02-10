@@ -3,6 +3,9 @@
 # Load utilities
 source $(dirname $0)/utils/benchmark_utils.sh
 
+# Exit on error
+set -e
+
 # Parse command line arguments
 FORCE_REBUILD=0
 for arg in "$@"; do
