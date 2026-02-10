@@ -176,53 +176,17 @@ test_verify_kdtree:
       source .venv/bin/activate
       pip install -r requirements.txt
 
-      # Clone sage-model if not present or incomplete (e.g. from cache artifacts)
-      SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
-      if [ -d "sage-model" ] && [ ! -f "sage-model/Makefile" ]; then
-        echo "sage-model directory exists but is missing Makefile. Cleaning up..."
-        rm -rf sage-model
-      fi
-
-      if [ ! -d "sage-model" ]; then
-        echo "Cloning SAGE from ${SAGE_REPO}..."
-        git clone ${SAGE_REPO} sage-model
-      fi
-
-      # Build SAGE (but don't run configuration yet)
-      echo "Building SAGE..."
-      cd sage-model
-      export HDF5_DIR=$HDF5_ROOT
-      make -j$MAKE_JOBS
-      cp sage $CI_PROJECT_DIR/bin/sage
-      cd ..
-      cd $CI_PROJECT_DIR
-
-      # Configure SAGE using the tests/sage-model-tests setup
-      cd tests/sage-model-tests
-      echo "Running first_run.sh to download tree files and set up millennium.par..."
-
-      # Debug: check if file exists before running script
-      ls -l input/millennium.par || echo "File missing before script"
-
-      bash first_run.sh
-
-      # Debug: check if file exists after running script and where we are
-      echo "Current directory: $(pwd)"
-      ls -l input/millennium.par || echo "File missing after script"
-
-      # Create parameter file (concatenated from header + settings, same as benchmark script)
-      # input/ directory already exists from first_run.sh
-      cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
-
-      # Run SAGE to produce HDF5 output
-      echo "Running SAGE..."
-      mkdir -p output/millennium
-      $CI_PROJECT_DIR/bin/sage input/millennium_sage_hdf5.par
-      mkdir -p output_sage_hdf5_one_step_benchmark
-      mv output/millennium output_sage_hdf5_one_step_benchmark/
+      # Run the consolidated benchmark script which handles:
+      # 1. Cloning/Building SAGE
+      # 2. Downloading trees (first_run.sh)
+      # 3. Running SAGE -> HDF5 Output (output_sage_hdf5_one_step_benchmark)
+      # 4. Running a sample kd-tree conversion
+      echo "Running run_test_hdf5_one_step_benchmark.sh to setup and run SAGE..."
+      ./tests/sage-model-tests/run_test_hdf5_one_step_benchmark.sh --rebuild
 
       # Run the KD-tree verification from project root
-      cd $CI_PROJECT_DIR
+      # This compares the output from the script above using both new and legacy converters
+      echo "Running verification..."
       ./verify_kdtree_output.sh
   artifacts:
     paths:
