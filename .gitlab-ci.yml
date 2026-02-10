@@ -25,7 +25,7 @@ variables:
 # Define a template for installing dependencies
 .install_dependencies: &install_dependencies
   - apt-get update -qq
-  - apt-get install -y build-essential cmake git wget curl bc
+  - apt-get install -y build-essential cmake git wget curl bc time
   - apt-get install -y gcc-12 g++-12
   - apt-get install -y libboost-all-dev
   - apt-get install -y libopenmpi-dev openmpi-bin
