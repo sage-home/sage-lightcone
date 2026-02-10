@@ -130,7 +130,7 @@ build:
         - bin/
       policy: pull-push
 
-# CLI validation tests
+# CLI validation tests.
 test_cli_validation:
   stage: test
   image: $DOCKER_IMAGE
