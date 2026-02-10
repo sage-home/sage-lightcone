@@ -17,6 +17,8 @@ end_timer() {
     local start_time=$(cat /tmp/benchmark_start_${phase_name}.txt)
     local end_time=$(date +%s.%N)
     
+    echo "DEBUG: timer $phase_name start=$start_time end=$end_time"
+
     local duration="0"
     # Basic numeric check for start_time (simple regex for float/int)
     if [[ "$start_time" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
@@ -34,6 +36,9 @@ run_with_profiling() {
     local output_csv=$2
     shift 2
     # Do NOT capture cmd="$@" as string, use "$@" directly to preserve argument splitting
+
+    echo "DEBUG: run_with_profiling phase='$phase_name' cmd='$@'"
+    echo "DEBUG: current directory: $(pwd)"
 
     start_timer "$phase_name"
 
@@ -68,11 +73,16 @@ run_with_profiling() {
              cat /tmp/benchmark_time_${phase_name}.txt
         fi
 
+        echo "DEBUG: time output file content:"
+        cat /tmp/benchmark_time_${phase_name}.txt
+
         # Extract peak memory (maxrss is in KB on Linux)
         local peak_mem=$(grep "Maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $6}' | head -n 1)
         local peak_mem_mb="0"
         if [[ "$peak_mem" =~ ^[0-9]+$ ]]; then
             peak_mem_mb=$(echo "scale=2; $peak_mem / 1024" | bc)
+        else
+            echo "DEBUG: Could not parse peak_mem '$peak_mem'. defaulting to 0"
         fi
     fi
 
