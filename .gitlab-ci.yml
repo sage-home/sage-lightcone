@@ -182,7 +182,9 @@ test_verify_kdtree:
       # 3. Running SAGE -> HDF5 Output (output_sage_hdf5_one_step_benchmark)
       # 4. Running a sample kd-tree conversion
       echo "Running run_test_hdf5_one_step_benchmark.sh to setup and run SAGE..."
-      ./tests/sage-model-tests/run_test_hdf5_one_step_benchmark.sh --rebuild
+      cd tests/sage-model-tests
+      ./run_test_hdf5_one_step_benchmark.sh --rebuild
+      cd ../..
 
       # Run the KD-tree verification from project root
       # This compares the output from the script above using both new and legacy converters
