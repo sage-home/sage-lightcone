@@ -40,8 +40,9 @@ variables:
   - export HDF5_PREFIX=$CI_PROJECT_DIR/hdf5-install
 
   # Check if HDF5 is already built (from cache)
+  # Check for both library and compiler wrapper to ensure complete installation
   - |
-    if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ]; then
+    if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ] || [ ! -f $HDF5_PREFIX/bin/h5cc ]; then
       echo "Building HDF5 ${HDF5_VERSION} from source with MPI support..."
       cd /tmp
       wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz
@@ -62,7 +63,7 @@ variables:
   - export PATH=$HDF5_PREFIX/bin:$PATH
 
   # Verify HDF5 installation
-  - h5cc -show || echo "h5cc not found"
+  - h5cc -show || h5pcc -show || echo "HDF5 compiler wrapper not found"
   - pkg-config --modversion hdf5 || echo "HDF5 pkg-config not found"
 
 build:

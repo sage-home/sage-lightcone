@@ -47,6 +47,116 @@ static const std::map<std::string, FieldMetadata> calculated_fields_metadata = {
     {"distance", {"Comoving distance from observer", "Mpc/h"}},
     {"sfr", {"Total Star Formation Rate (disk + bulge)", "Msun/yr"}}};
 
+// Helper to copy SageOutputHeader from source to dest file
+static void copy_sage_header(const std::string &src_path, hid_t dst_file_id) {
+  try {
+    hpc::h5::file src_file(src_path, H5F_ACC_RDONLY);
+    if (src_file.has_link("SageOutputHeader")) {
+      // H5Ocopy(src_loc_id, src_name, dst_loc_id, dst_name, ocpypl_id,
+      // lcpl_id)
+      H5Ocopy(src_file.id(), "SageOutputHeader", dst_file_id,
+              "SageOutputHeader", H5P_DEFAULT, H5P_DEFAULT);
+    }
+  } catch (...) {
+    // Ignore errors
+  }
+}
+
+// Helpers for writing scalar attributes
+static void write_string_attribute(hid_t loc_id, const std::string &attr_name,
+                                   const std::string &value) {
+  if (value.empty())
+    return;
+  hid_t str_type = H5Tcopy(H5T_C_S1);
+  H5Tset_size(str_type, value.length() + 1);
+  H5Tset_strpad(str_type, H5T_STR_NULLTERM);
+  hid_t space_id = H5Screate(H5S_SCALAR);
+  hid_t attr_id = H5Acreate2(loc_id, attr_name.c_str(), str_type, space_id,
+                             H5P_DEFAULT, H5P_DEFAULT);
+  if (attr_id >= 0) {
+    H5Awrite(attr_id, str_type, value.c_str());
+    H5Aclose(attr_id);
+  }
+  H5Sclose(space_id);
+  H5Tclose(str_type);
+}
+
+static void write_double_attribute(hid_t loc_id, const std::string &attr_name,
+                                   double value) {
+  hid_t space_id = H5Screate(H5S_SCALAR);
+  hid_t attr_id = H5Acreate2(loc_id, attr_name.c_str(), H5T_NATIVE_DOUBLE,
+                             space_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (attr_id >= 0) {
+    H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &value);
+    H5Aclose(attr_id);
+  }
+  H5Sclose(space_id);
+}
+
+static void write_int_attribute(hid_t loc_id, const std::string &attr_name,
+                                int value) {
+  hid_t space_id = H5Screate(H5S_SCALAR);
+  hid_t attr_id = H5Acreate2(loc_id, attr_name.c_str(), H5T_NATIVE_INT,
+                             space_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (attr_id >= 0) {
+    H5Awrite(attr_id, H5T_NATIVE_INT, &value);
+    H5Aclose(attr_id);
+  }
+  H5Sclose(space_id);
+}
+
+static void write_bool_attribute(hid_t loc_id, const std::string &attr_name,
+                                 bool value) {
+  // HDF5 doesn't have a native bool type, use int (0/1) or string
+  // ("true"/"false") Using int for standard compliance
+  int int_val = value ? 1 : 0;
+  write_int_attribute(loc_id, attr_name, int_val);
+}
+
+// Function to write LightconeOutputHeader group with attributes from cli_dict
+static void write_lightcone_header(hid_t file_id, const cli_dict &dict) {
+  // Create group "LightconeOutputHeader"
+  hid_t group_id = H5Gcreate2(file_id, "LightconeOutputHeader", H5P_DEFAULT,
+                              H5P_DEFAULT, H5P_DEFAULT);
+  if (group_id < 0) {
+    // If group already exists, open it? Assuming new file or truncated, so
+    // create should work unless permissions/corruption.
+    // If it exists (e.g. appended), maybe open it.
+    group_id = H5Gopen2(file_id, "LightconeOutputHeader", H5P_DEFAULT);
+  }
+
+  if (group_id >= 0) {
+    write_string_attribute(group_id, "dataset", dict._dataset);
+    write_double_attribute(group_id, "decmin", dict._decmin);
+    write_double_attribute(group_id, "decmax", dict._decmax);
+    write_double_attribute(group_id, "ramin", dict._ramin);
+    write_double_attribute(group_id, "ramax", dict._ramax);
+    write_double_attribute(group_id, "zmin", dict._zmin);
+    write_double_attribute(group_id, "zmax", dict._zmax);
+    write_string_attribute(group_id, "outfile", dict._outfile);
+    write_string_attribute(group_id, "outdir", dict._outdir);
+    write_string_attribute(group_id, "filter_field", dict._filter_field);
+    write_string_attribute(group_id, "filter_min", dict._filter_min);
+    write_string_attribute(group_id, "filter_max", dict._filter_max);
+    write_bool_attribute(group_id, "unique", dict._unique);
+    write_int_attribute(group_id, "rng_seed", dict._rng_seed);
+
+    // Join output fields into a single string
+    std::string outfields_str;
+    for (size_t i = 0; i < dict._output_fields.size(); ++i) {
+      outfields_str += dict._output_fields[i];
+      if (i < dict._output_fields.size() - 1) {
+        outfields_str += ",";
+      }
+    }
+    if (!outfields_str.empty()) {
+      write_string_attribute(group_id, "output_fields", outfields_str);
+    }
+
+    H5Gclose(group_id);
+  }
+}
+
 namespace tao {
 namespace modules {
 
@@ -77,6 +187,8 @@ public:
           _construct_filename_static(global_cli_dict._outfile, -1);
       // Create a new file to store the gathered results.
       // This will overwrite the existing file0 if it exists.
+      // Create a new file to store the gathered results.
+      // This will overwrite the existing file0 if it exists.
       // If the file does not exist, it will be created.
       // If the file exists, it will be truncated.
       hpc::h5::file _file0(file0, H5F_ACC_TRUNC);
@@ -85,6 +197,12 @@ public:
                   << std::endl;
         throw silent_terminate();
       }
+
+      // Copy SageOutputHeader from input dataset
+      copy_sage_header(global_cli_dict._dataset, _file0.id());
+
+      // Write LightconeOutputHeader with CLI arguments
+      write_lightcone_header(_file0.id(), global_cli_dict);
 
       int rank = 0;
       std::vector<std::string> result_files;
@@ -346,6 +464,15 @@ public:
 
     // Open the file. Truncate if we are not reloading.
     _file.open(_fn, H5F_ACC_TRUNC);
+
+    // Copy SageOutputHeader if running in single process mode
+    // (In multi-process mode, this is handled during gather in
+    // process_cli_options)
+    if (mpi::comm::world.size() == 1) {
+      copy_sage_header(global_cli_dict._dataset, _file.id());
+      write_lightcone_header(_file.id(), global_cli_dict);
+    }
+
     _records = 0;
     _ready = false;
 

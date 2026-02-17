@@ -262,6 +262,7 @@ private:
   void _process_snapshot(hpc::h5::file &file, std::string const &name,
                          hpc::h5::file &out_file, hpc::h5::dataset &data,
                          unsigned long long &displ);
+  void _copy_header_to_output();
   void _read_coords(hpc::h5::file &file, std::string const &snap_name,
                     std::array<std::vector<double>, 3> &crds,
                     std::vector<unsigned long long> &tree_idxs);
@@ -1140,6 +1141,78 @@ void sage2kdtree_application::_load_redshifts(hpc::fs::path const &fn) {
   }
 }
 
+void sage2kdtree_application::_copy_header_to_output() {
+  if (_verb >= 1) {
+    std::cout << "  → Initializing output file and copying metadata..."
+              << std::endl;
+  }
+
+  // 1. Create output file (truncate mode) - Sequential access (Rank 0 only)
+  // This ensures file exists for subsequent collective open
+  try {
+    hpc::h5::file out_file(_output_fn.string(), H5F_ACC_TRUNC);
+
+    // 2. Find a valid SAGE HDF5 input file that contains the Header group
+    hpc::fs::path sage_file_path;
+    hpc::fs::directory_iterator end_iter;
+    for (hpc::fs::directory_iterator dir_itr(_sage_dir); dir_itr != end_iter;
+         ++dir_itr) {
+      if (hpc::fs::is_regular_file(dir_itr->status())) {
+        std::string ext = dir_itr->path().extension().string();
+        std::string stem = dir_itr->path().stem().string();
+        if (ext == ".hdf5" || ext == ".h5") {
+          try {
+            // Check if file has "Header" group
+            hpc::h5::file check_file(dir_itr->path().string(), H5F_ACC_RDONLY);
+            if (check_file.has_link("Header")) {
+              // Prefer model.hdf5 (master) or model_0.hdf5
+              if (stem == "model" || stem == "model_0") {
+                sage_file_path = dir_itr->path();
+                break;
+              }
+              if (sage_file_path.empty()) {
+                sage_file_path = dir_itr->path();
+              }
+            }
+          } catch (...) {
+            // Ignore files we can't open
+          }
+        }
+      }
+    }
+
+    if (sage_file_path.empty()) {
+      if (_verb >= 1)
+        std::cout << "    Warning: No SAGE HDF5 files found with Header group."
+                  << std::endl;
+      return;
+    }
+
+    // 3. Open input file and copy Header group
+    if (_verb >= 2)
+      std::cout << "    Copying Header from " << sage_file_path.filename()
+                << " to SageOutputHeader" << std::endl;
+
+    hpc::h5::file in_file(sage_file_path.string(), H5F_ACC_RDONLY);
+
+    // H5Ocopy(src_loc_id, src_name, dst_loc_id, dst_name, ocpypl_id,
+    // lcpl_id)
+    hid_t status = H5Ocopy(in_file.id(), "Header", out_file.id(),
+                           "SageOutputHeader", H5P_DEFAULT, H5P_DEFAULT);
+    if (status < 0) {
+      if (_verb >= 1)
+        std::cout << "    Warning: Failed to copy Header group." << std::endl;
+    } else {
+      if (_verb >= 2)
+        std::cout << "    Successfully copied Header group." << std::endl;
+    }
+
+  } catch (std::exception &e) {
+    std::cerr << "Error initializing output file: " << e.what() << std::endl;
+    throw;
+  }
+}
+
 void sage2kdtree_application::phase4_build_kdtree_index() {
   if (_verb >= 1 && _comm->rank() == 0) {
     std::cout << "Phase 4: Building KD-tree spatial index..." << std::endl;
@@ -1149,7 +1222,15 @@ void sage2kdtree_application::phase4_build_kdtree_index() {
   hpc::h5::file snap_file(_bysnap_fn.string(), H5F_ACC_RDONLY, *_comm);
 
   // Create output KD-tree file
-  hpc::h5::file out_file(_output_fn.string(), H5F_ACC_TRUNC, *_comm);
+  // Rank 0 creates file sequentially and copies Header first
+  if (_comm->rank() == 0) {
+    _copy_header_to_output();
+  }
+  _comm->barrier();
+
+  // Open collectively with RDWR (file must exist now)
+  // Use H5F_ACC_RDWR to preserve the Header we just copied
+  hpc::h5::file out_file(_output_fn.string(), H5F_ACC_RDWR, *_comm);
 
   // Note: Don't create groups explicitly - HDF5 will auto-create them
   // when we create datasets with paths like "lightcone/data" or "data/posx"
