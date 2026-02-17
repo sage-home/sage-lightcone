@@ -139,3 +139,57 @@ count_files() {
         echo "0"
     fi
 }
+
+# Prepare parameter files for SAGE run (downloads trees, updates paths, generates par files)
+# Usage: prepare_parameter_file
+prepare_parameter_file() {
+    # Check if tree files already exist - skip first_run.sh if so
+    if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/millennium.a_list" ]; then
+        echo "✓ Tree files already present - skipping download."
+    else
+        echo "Tree files not found - running first_run.sh to download..."
+        ./first_run.sh
+        FIRST_RUN_STATUS=$?
+        echo ==== Have finished with first_run.sh ====
+
+        # Check if first_run.sh succeeded
+        if [ $FIRST_RUN_STATUS -ne 0 ]; then
+            echo "ERROR: first_run.sh failed with exit code $FIRST_RUN_STATUS"
+            exit 1
+        fi
+
+        # Verify tree files were downloaded
+        if [ ! -f "input/millennium/trees/trees_063.7" ]; then
+            echo "ERROR: Tree files not found. first_run.sh may have failed to download them."
+            echo "Expected file: input/millennium/trees/trees_063.7"
+            echo "Please check your internet connection and try again."
+            exit 1
+        fi
+
+        # Verify scale factor list was downloaded
+        if [ ! -f "input/millennium/trees/millennium.a_list" ]; then
+            echo "ERROR: Scale factor list not found."
+            echo "Expected file: input/millennium/trees/millennium.a_list"
+            exit 1
+        fi
+
+        echo "✓ Tree files and scale factor list verified."
+    fi
+
+    # Update paths in millennium.par to use current directory
+    CURRENT_DIR=$(pwd)
+    sed -i'' -e "s|^OutputDir.*|OutputDir   ${CURRENT_DIR}/output/millennium/|" input/millennium.par
+    sed -i'' -e "s|^SimulationDir.*|SimulationDir   ${CURRENT_DIR}/input/millennium/trees/|" input/millennium.par
+    sed -i'' -e "s|^FileWithSnapList.*|FileWithSnapList ${CURRENT_DIR}/input/millennium/trees/millennium.a_list|" input/millennium.par
+    echo "✓ Updated paths in millennium.par"
+
+    # Extract settings from millennium.par
+    echo "Extracting settings from millennium.par..."
+    python3 utils/extract_settings.py
+
+    # Generate .par files by concatenating headers with settings
+    cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
+    cat mypar_files/millennium_sage_binary_kdtreeindex_header.txt mypar_files/millennium_settings.txt > input/millennium_minus1.par
+    cat mypar_files/millennium_sage_hdf5_header.txt mypar_files/millennium_settings.txt > input/millennium_sage_hdf5.par
+    echo "✓ Parameter files generated."
+}

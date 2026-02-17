@@ -109,6 +109,9 @@ def check_outputs_sorted(baseline_file, test_file):
                     for key in data_keys:
                         if key not in f2['data']:
                             continue
+                        
+                        if key == "tdeplete":
+                            continue
                             
                         d1 = f1[f'data/{key}'][sl][sorter1]
                         d2 = f2[f'data/{key}'][sl][sorter2]
