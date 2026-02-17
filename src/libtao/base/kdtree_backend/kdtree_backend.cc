@@ -399,22 +399,22 @@ void kdtree_backend::load_snapshot(unsigned snap) {
   if (snap != _snap) {
 
     std::string name = make_snapshot_name(snap);
-    LOGBLOCKD("Loading kdtree snapshot: ", name);
+    // LOGBLOCKD("Loading kdtree snapshot: ", name);
     ASSERT(_file.is_open(), "Have not opened an HDF5 kdtree file.");
 
     hpc::h5::group grp = _file.group(name);
     grp >> _kdt;
     grp.dataset("cell_counts") >> _cell_cnts;
     grp.dataset("cell_offs") >> _cell_offs;
-    LOGILN("Loading kdtree snapshot: ", name);
+    // LOGILN("Loading kdtree snapshot: ", name);
 
     // Debug: Print kdtree structure information
-    LOGILN("Kdtree loaded - Dimensions: ", _kdt.n_dims());
-    LOGILN("Kdtree loaded - Branches: ", _kdt.n_branches());
-    LOGILN("Kdtree loaded - Leafs: ", _kdt.n_leafs());
-    LOGILN("Kdtree loaded - Total cells: ", _kdt.n_cells());
-    LOGILN("Kdtree loaded - Bounds size: ", _kdt.bounds().size());
-    LOGILN("Kdtree loaded - Splits size: ", _kdt.splits().size());
+    // LOGILN("Kdtree loaded - Dimensions: ", _kdt.n_dims());
+    // LOGILN("Kdtree loaded - Branches: ", _kdt.n_branches());
+    // LOGILN("Kdtree loaded - Leafs: ", _kdt.n_leafs());
+    // LOGILN("Kdtree loaded - Total cells: ", _kdt.n_cells());
+    // LOGILN("Kdtree loaded - Bounds size: ", _kdt.bounds().size());
+    // LOGILN("Kdtree loaded - Splits size: ", _kdt.splits().size());
 
     _snap = snap;
   }

@@ -47,10 +47,10 @@ public:
 
     if (!_tile_it.done()) {
       // Pepare an iterator.
-      LOGILN("Processing tile at: [",
-             _tile_it->min()[0] - _tile_it->origin()[0], ", ",
-             _tile_it->min()[1] - _tile_it->origin()[1], ", ",
-             _tile_it->min()[2] - _tile_it->origin()[2], "]");
+      // LOGILN("Processing tile at: [",
+      //        _tile_it->min()[0] - _tile_it->origin()[0], ", ",
+      //        _tile_it->min()[1] - _tile_it->origin()[1], ", ",
+      //        _tile_it->min()[2] - _tile_it->origin()[2], "]");
       /*
       std::cout << "QUERY=["<<_tile_it->translation()[0]<<"
       "<<_tile_it->translation()[1]<<" "<<_tile_it->translation()[2]<<"] ["<<
@@ -142,10 +142,10 @@ protected:
         // _tbl_idx += _gal_it.table_index();
         _n_processed_gals += _gal_it.n_processed_gals();
 
-        LOGILN("Processing tile at: [",
-               _tile_it->min()[0] - _tile_it->origin()[0], ", ",
-               _tile_it->min()[1] - _tile_it->origin()[1], ", ",
-               _tile_it->min()[2] - _tile_it->origin()[2], "]");
+        // LOGILN("Processing tile at: [",
+        //        _tile_it->min()[0] - _tile_it->origin()[0], ", ",
+        //        _tile_it->min()[1] - _tile_it->origin()[1], ", ",
+        //        _tile_it->min()[2] - _tile_it->origin()[2], "]");
         // std::cout << "QUERY=["<<_tile_it->translation()[0]<<"
         // "<<_tile_it->translation()[1]<<" "<<_tile_it->translation()[2]<<"]
         // ["<<

@@ -2848,10 +2848,10 @@ void sage2kdtree_application::phase4_build_kdtree_index() {
     std::ostringstream ss;
     ss << "snapshot" << std::setfill('0') << std::setw(3) << snap;
 
-    if (_verb >= 2 && _comm->rank() == 0) {
-      std::cout << "  Processing " << ss.str() << " (" << snap_counts[snap]
-                << " galaxies)..." << std::endl;
-    }
+    // if (_verb >= 2 && _comm->rank() == 0) {
+    //   std::cout << "  Processing " << ss.str() << " (" << snap_counts[snap]
+    //             << " galaxies)..." << std::endl;
+    // }
 
     // Process all snapshots, even if empty
     if (snap_file.has_link(ss.str())) {
