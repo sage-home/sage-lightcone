@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <boost/range/algorithm/fill.hpp>
+#include <cctype>
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -397,6 +398,63 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot() {
   } else {
     sage_files.push_back(_sage_dir);
   }
+
+  // Filter out master link files (files containing /Core_N groups where N >= 0)
+  // These are typically wrapper files that link to the actual content files,
+  // and including them duplicates data processing or misleads metadata handling
+  // (e.g. they might have num_trees_this_file=0).
+  auto it_remove = std::remove_if(
+      sage_files.begin(), sage_files.end(), [&](const hpc::fs::path &p) {
+        bool is_link_file = false;
+        try {
+          // Open file for read using raw HDF5 API for minimal overhead and
+          // errors Using explicit error suppression would be better but simple
+          // try-catch avoids crashing on bad files (which we probably want to
+          // keep to fail later?) We only want to filter valid HDF5 files that
+          // look like link files.
+
+          // Disable error printing temporarily
+          H5E_auto2_t old_func;
+          void *old_client_data;
+          H5Eget_auto2(H5E_DEFAULT, &old_func, &old_client_data);
+          H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
+
+          hid_t fid = H5Fopen(p.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+
+          if (fid >= 0) {
+            H5G_info_t ginfo;
+            if (H5Gget_info(fid, &ginfo) >= 0) {
+              for (hsize_t i = 0; i < ginfo.nlinks; ++i) {
+                char name[256];
+                ssize_t size =
+                    H5Lget_name_by_idx(fid, ".", H5_INDEX_NAME, H5_ITER_INC, i,
+                                       name, 256, H5P_DEFAULT);
+                if (size > 0) {
+                  // Check if name starts with "Core_" and follows with a digit
+                  if (strncmp(name, "Core_", 5) == 0 && std::isdigit(name[5])) {
+                    is_link_file = true;
+                    break;
+                  }
+                }
+              }
+            }
+            H5Fclose(fid);
+          }
+
+          // Restore error printing
+          H5Eset_auto2(H5E_DEFAULT, old_func, old_client_data);
+        } catch (...) {
+          // If we can't open/inspect, we don't filter it out
+        }
+
+        if (is_link_file && _verb >= 1 && _comm->rank() == 0) {
+          std::cout << "  → Ignoring master link file: " << p.filename()
+                    << std::endl;
+        }
+        return is_link_file;
+      });
+  sage_files.erase(it_remove, sage_files.end());
+
   std::sort(sage_files.begin(), sage_files.end());
 
   int n_files = sage_files.size();
@@ -435,6 +493,94 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot() {
     out_file.write<double>("cosmology/hubble", _hubble);
     out_file.write<double>("cosmology/omega_m", _omega_m);
     out_file.write<double>("cosmology/omega_l", _omega_l);
+
+    // Copy other attributes from Header/Simulation if available
+    // These are copied as attributes on the 'cosmology' group itself
+    if (!sage_files.empty()) {
+      try {
+        hpc::h5::file sage_input(sage_files[0].string(), H5F_ACC_RDONLY);
+        if (sage_input.has_link("Header/Simulation")) {
+          hpc::h5::group sage_sim = sage_input.group("Header/Simulation");
+          hid_t gid = sage_sim.id();
+
+          H5O_info_t oinfo;
+#if H5Oget_info_vers < 3
+          H5Oget_info(gid, &oinfo);
+#else
+          H5Oget_info(gid, &oinfo, H5O_INFO_NUM_ATTRS);
+#endif
+
+          for (hsize_t i = 0; i < oinfo.num_attrs; i++) {
+            const size_t MAX_NAME_LEN = 256;
+            char attr_name[MAX_NAME_LEN];
+            H5Aget_name_by_idx(gid, ".", H5_INDEX_NAME, H5_ITER_NATIVE, i,
+                               attr_name, MAX_NAME_LEN, H5P_DEFAULT);
+            std::string name(attr_name);
+
+            // transform to lower for comparison
+            std::string name_lower = name;
+            std::transform(name_lower.begin(), name_lower.end(),
+                           name_lower.begin(), ::tolower);
+
+            // Skip already handled attributes (these are stored as datasets in
+            // the cosmology group)
+            if (name_lower == "boxsize" || name_lower == "box_size" ||
+                name_lower == "hubble_h" || name_lower == "hubbleparam" ||
+                name_lower == "hubble" || name_lower == "omega_m" ||
+                name_lower == "omega" || name_lower == "omega_matter" ||
+                name_lower == "omega_l" || name_lower == "omegalambda" ||
+                name_lower == "omega_lambda") {
+              continue;
+            }
+
+            // Copy attribute
+            hid_t attr_id =
+                H5Aopen_by_idx(gid, ".", H5_INDEX_NAME, H5_ITER_NATIVE, i,
+                               H5P_DEFAULT, H5P_DEFAULT);
+            if (attr_id < 0)
+              continue;
+
+            hid_t type_id = H5Aget_type(attr_id);
+            hid_t space_id = H5Aget_space(attr_id);
+
+            // Create attribute on output group 'cosmology'
+            // Use the original name
+            hid_t out_attr_id =
+                H5Acreate2(cosmo_group.id(), name.c_str(), type_id, space_id,
+                           H5P_DEFAULT, H5P_DEFAULT);
+
+            if (out_attr_id >= 0) {
+              // Read and Write
+              // For reading, we need a buffer large enough.
+              // H5Tget_size gives the size in bytes of the type.
+              // H5Sget_simple_extent_npoints gives number of elements.
+              size_t type_size = H5Tget_size(type_id);
+              hssize_t n_points = H5Sget_simple_extent_npoints(space_id);
+              if (n_points < 1)
+                n_points = 1;
+
+              std::vector<char> data(type_size * n_points);
+
+              H5Aread(attr_id, type_id, data.data());
+              H5Awrite(out_attr_id, type_id, data.data());
+              H5Aclose(out_attr_id);
+            }
+
+            H5Sclose(space_id);
+            H5Tclose(type_id);
+            H5Aclose(attr_id);
+
+            if (_verb >= 2 && rank == 0)
+              std::cout << "    Copied cosmology attribute: " << name
+                        << std::endl;
+          }
+        }
+      } catch (std::exception &e) {
+        if (_verb >= 1 && rank == 0)
+          std::cout << "Warning: Failed to copy extra cosmology attributes: "
+                    << e.what() << std::endl;
+      }
+    }
   }
 
   for (size_t snap = 0; snap < _redshifts.size(); ++snap) {
