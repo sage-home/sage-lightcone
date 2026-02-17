@@ -201,7 +201,7 @@ else
     # Fallback: run SAGE if not run by benchmark_workflows.sh (for standalone testing)
     echo "No shared SAGE output found - running SAGE standalone"
     run_with_profiling "sage" "$BENCHMARK_CSV" \
-        ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
+        ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par > /dev/null
     mv output/millennium ${OUTPUTDIR}/
     mv output/log ${OUTPUTDIR}/ 2>/dev/null || true
 fi
