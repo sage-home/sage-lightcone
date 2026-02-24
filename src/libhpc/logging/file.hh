@@ -22,27 +22,30 @@
 
 #include "logger.hh"
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
 ///
 ///
 ///
-class file : public logger {
+class file : public logger
+{
 public:
-  file(const std::string &filename, unsigned min_level = 0);
+    file(const std::string& filename, unsigned min_level = 0);
 
-  virtual ~file();
+    virtual ~file();
 
-  virtual void open();
+    virtual void open();
 
-  virtual void close();
+    virtual void close();
 
-  virtual void write();
+    virtual void write();
 
 protected:
-  std::string _filename;
-  std::ofstream _file;
+    std::string _filename;
+    std::ofstream _file;
 };
 } // namespace log
 } // namespace hpc

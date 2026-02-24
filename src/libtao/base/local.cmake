@@ -56,7 +56,6 @@ list(APPEND INCFILES "subcones.hh" )
 list(APPEND INCFILES "tile.hh" )
 list(APPEND INCFILES "types.hh" )
 list(APPEND INCFILES "utils.hh" )
-list(APPEND INCFILES "xml_dict.hh" )
 list(APPEND INCFILES "data_dict.hh" )
 
 # Add source files
@@ -75,7 +74,6 @@ list(APPEND SRCFILES "sage.cc" )
 list(APPEND SRCFILES "simulation.cc" )
 list(APPEND SRCFILES "subcones.cc" )
 list(APPEND SRCFILES "utils.cc" )
-list(APPEND SRCFILES "xml_dict.cc" )
 list(APPEND SRCFILES "data_dict.cc" )
 # **********************************************************
 

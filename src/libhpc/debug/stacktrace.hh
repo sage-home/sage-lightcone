@@ -23,33 +23,37 @@
 #include <string>
 #include <vector>
 
-namespace hpc {
-namespace debug {
+namespace hpc
+{
+namespace debug
+{
 
-class stacktrace {
+class stacktrace
+{
 public:
-  struct value_type {
-    const char *file_name;
-    char *func_name;
-  };
+    struct value_type
+    {
+        const char* file_name;
+        char* func_name;
+    };
 
-  typedef const value_type *const_iterator;
+    typedef const value_type* const_iterator;
 
-  static const unsigned MAX_DEPTH;
+    static const unsigned MAX_DEPTH;
 
 public:
-  stacktrace();
+    stacktrace();
 
-  const_iterator begin() const;
+    const_iterator begin() const;
 
-  const_iterator end() const;
+    const_iterator end() const;
 
 protected:
-  void _get_stack();
+    void _get_stack();
 
 protected:
-  int _depth;
-  value_type _st[32];
+    int _depth;
+    value_type _st[32];
 };
 
 } // namespace debug

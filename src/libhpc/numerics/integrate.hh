@@ -18,17 +18,20 @@
 #ifndef hpc_numerics_integrate_hh
 #define hpc_numerics_integrate_hh
 
-namespace hpc {
-namespace num {
+namespace hpc
+{
+namespace num
+{
 
 template <class Function, class PointIter, class WeightIter>
-typename Function::result_type
-quadrature_summation(PointIter point_start, const PointIter &point_finish,
-                     WeightIter weight_start, Function func) {
-  typename Function::result_type sum = 0;
-  while (point_start != point_finish)
-    sum += (*weight_start++) * func(*point_start++);
-  return sum;
+typename Function::result_type quadrature_summation(PointIter point_start,
+                                                    const PointIter& point_finish,
+                                                    WeightIter weight_start, Function func)
+{
+    typename Function::result_type sum = 0;
+    while (point_start != point_finish)
+        sum += (*weight_start++) * func(*point_start++);
+    return sum;
 }
 
 } // namespace num

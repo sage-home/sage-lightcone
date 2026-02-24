@@ -22,8 +22,10 @@
 #include <execinfo.h>
 #include <stdlib.h>
 
-namespace hpc {
-namespace debug {
+namespace hpc
+{
+namespace debug
+{
 
 const unsigned stacktrace::MAX_DEPTH = 32;
 
@@ -33,16 +35,18 @@ stacktrace::const_iterator stacktrace::begin() const { return _st; }
 
 stacktrace::const_iterator stacktrace::end() const { return _st + _depth; }
 
-void stacktrace::_get_stack() {
-  void *trace[MAX_DEPTH];
-  _depth = backtrace(trace, MAX_DEPTH) - 2;
-  for (unsigned ii = 0; ii < _depth; ++ii) {
-    func_details(trace[ii + 2], &_st[ii].file_name, &_st[ii].func_name);
-    if (!_st[ii].file_name)
-      _st[ii].file_name = "??";
-    if (!_st[ii].func_name)
-      _st[ii].func_name = (char *)"??";
-  }
+void stacktrace::_get_stack()
+{
+    void* trace[MAX_DEPTH];
+    _depth = backtrace(trace, MAX_DEPTH) - 2;
+    for (unsigned ii = 0; ii < _depth; ++ii)
+    {
+        func_details(trace[ii + 2], &_st[ii].file_name, &_st[ii].func_name);
+        if (!_st[ii].file_name)
+            _st[ii].file_name = "??";
+        if (!_st[ii].func_name)
+            _st[ii].func_name = (char*)"??";
+    }
 }
 } // namespace debug
 } // namespace hpc

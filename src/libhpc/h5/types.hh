@@ -18,10 +18,14 @@
 #ifndef hpc_h5_types_hh
 #define hpc_h5_types_hh
 
-namespace hpc {
-namespace h5 {
+namespace hpc
+{
+namespace h5
+{
 
-struct hid_tag {};
+struct hid_tag
+{
+};
 
 class location;
 class group;

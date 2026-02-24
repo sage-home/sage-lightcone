@@ -26,29 +26,39 @@
 #include <thrust/host_vector.h>
 #endif
 
-namespace hpc {
+namespace hpc
+{
 
-template <class T> struct type_traits {
-  typedef typename boost::remove_reference<T>::type value;
-  typedef const typename boost::remove_reference<T>::type const_value;
-  typedef typename boost::remove_reference<T>::type &reference;
-  typedef const typename boost::remove_reference<T>::type &const_reference;
+template <class T>
+struct type_traits
+{
+    typedef typename boost::remove_reference<T>::type value;
+    typedef const typename boost::remove_reference<T>::type const_value;
+    typedef typename boost::remove_reference<T>::type& reference;
+    typedef const typename boost::remove_reference<T>::type& const_reference;
 };
 
 template <class T>
-struct is_fundamental_r
-    : public boost::is_fundamental<typename boost::remove_reference<T>::type> {
+struct is_fundamental_r : public boost::is_fundamental<typename boost::remove_reference<T>::type>
+{
 };
 
-template <class T> struct random_access_trait : boost::false_type {};
+template <class T>
+struct random_access_trait : boost::false_type
+{
+};
 
 template <class T, class Alloc>
-struct random_access_trait<std::vector<T, Alloc>> : boost::true_type {};
+struct random_access_trait<std::vector<T, Alloc>> : boost::true_type
+{
+};
 
 #ifdef USE_THRUST
 
 template <class T, class Alloc>
-struct random_access_trait<thrust::host_vector<T, Alloc>> : boost::true_type {};
+struct random_access_trait<thrust::host_vector<T, Alloc>> : boost::true_type
+{
+};
 
 #endif
 

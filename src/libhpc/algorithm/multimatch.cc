@@ -19,62 +19,73 @@
 #include "libhpc/debug/assert.hh"
 #include <boost/algorithm/string/join.hpp>
 
-namespace hpc {
+namespace hpc
+{
 
-multimatch::multimatch() : _ready(false) {}
+multimatch::multimatch()
+    : _ready(false)
+{
+}
 
 void multimatch::clear() { _matches.clear(); }
 
-void multimatch::add_match(std::string const &str) {
-  _matches.push_back(str);
-  _ready = false;
+void multimatch::add_match(std::string const& str)
+{
+    _matches.push_back(str);
+    _ready = false;
 }
 
-void multimatch::compile() {
-  if (!_ready) {
-    std::string pattern = boost::algorithm::join(_matches, ")|(");
-    if (!pattern.empty())
-      pattern = "(" + pattern + ")";
-    _re = pattern;
-    _ready = true;
-  }
+void multimatch::compile()
+{
+    if (!_ready)
+    {
+        std::string pattern = boost::algorithm::join(_matches, ")|(");
+        if (!pattern.empty())
+            pattern = "(" + pattern + ")";
+        _re = pattern;
+        _ready = true;
+    }
 }
 
-boost::optional<size_t> multimatch::match(std::string const &str,
-                                          boost::smatch &match) const {
-  ASSERT(_ready, "Multimatch not compiled.");
-  if (boost::regex_match(str, match, _re))
-    return _last_capture(match);
-  else
-    return boost::none;
+boost::optional<size_t> multimatch::match(std::string const& str, boost::smatch& match) const
+{
+    ASSERT(_ready, "Multimatch not compiled.");
+    if (boost::regex_match(str, match, _re))
+        return _last_capture(match);
+    else
+        return boost::none;
 }
 
-boost::optional<size_t> multimatch::match(std::string const &str) const {
-  boost::smatch match;
-  return this->match(str, match);
+boost::optional<size_t> multimatch::match(std::string const& str) const
+{
+    boost::smatch match;
+    return this->match(str, match);
 }
 
-boost::optional<size_t> multimatch::search(std::string const &str,
-                                           boost::smatch &match) const {
-  ASSERT(_ready, "Multimatch not compiled.");
-  if (boost::regex_search(str, match, _re))
-    return _last_capture(match);
-  else
-    return boost::none;
+boost::optional<size_t> multimatch::search(std::string const& str, boost::smatch& match) const
+{
+    ASSERT(_ready, "Multimatch not compiled.");
+    if (boost::regex_search(str, match, _re))
+        return _last_capture(match);
+    else
+        return boost::none;
 }
 
-boost::optional<size_t> multimatch::search(std::string const &str) const {
-  boost::smatch match;
-  return search(str, match);
+boost::optional<size_t> multimatch::search(std::string const& str) const
+{
+    boost::smatch match;
+    return search(str, match);
 }
 
-size_t multimatch::_last_capture(boost::smatch &match) const {
-  size_t last = std::numeric_limits<size_t>::max();
-  for (size_t ii = 1; ii < match.size(); ++ii) {
-    if (match[ii].matched)
-      last = ii - 1;
-  }
-  return last;
+size_t multimatch::_last_capture(boost::smatch& match) const
+{
+    size_t last = std::numeric_limits<size_t>::max();
+    for (size_t ii = 1; ii < match.size(); ++ii)
+    {
+        if (match[ii].matched)
+            last = ii - 1;
+    }
+    return last;
 }
 
 }; // namespace hpc

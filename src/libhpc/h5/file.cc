@@ -17,76 +17,90 @@
 
 #include "file.hh"
 
-namespace hpc {
-namespace h5 {
+namespace hpc
+{
+namespace h5
+{
 
-file::file() : location(), _comm(&mpi::comm::self) {}
+file::file()
+    : location()
+    , _comm(&mpi::comm::self)
+{
+}
 
-file::file(std::string const &filename, unsigned flags, mpi::comm const &comm,
-           property_list const &props)
-    : location(), _comm(&mpi::comm::self) {
-  open(filename, flags, comm, props);
+file::file(std::string const& filename, unsigned flags, mpi::comm const& comm,
+           property_list const& props)
+    : location()
+    , _comm(&mpi::comm::self)
+{
+    open(filename, flags, comm, props);
 }
 
 file::~file() { close(); }
 
-void file::open(std::string const &filename, unsigned flags,
-                mpi::comm const &comm, property_list const &props) {
-  _comm = &comm;
+void file::open(std::string const& filename, unsigned flags, mpi::comm const& comm,
+                property_list const& props)
+{
+    _comm = &comm;
 
-  h5::property_list local_props(props);
+    h5::property_list local_props(props);
 #ifdef PARALLELHDF5
-  if (*_comm != mpi::comm::null && _comm->size() != 1) {
-    if (!props)
-      local_props.create(H5P_FILE_ACCESS);
-    local_props.set_parallel(*_comm);
-  }
+    if (*_comm != mpi::comm::null && _comm->size() != 1)
+    {
+        if (!props)
+            local_props.create(H5P_FILE_ACCESS);
+        local_props.set_parallel(*_comm);
+    }
 #else
-  ASSERT(
-      *_comm == mpi::comm::null || _comm->size() == 1,
-      "Attempting to create parallel HDF5 file without parallel extensions.");
+    ASSERT(*_comm == mpi::comm::null || _comm->size() == 1,
+           "Attempting to create parallel HDF5 file without parallel extensions.");
 #endif
 
-  if (flags == H5F_ACC_TRUNC || flags == H5F_ACC_EXCL)
-    _id = H5Fcreate(filename.c_str(), flags, H5P_DEFAULT, local_props.id());
-  else
-    _id = H5Fopen(filename.c_str(), flags, local_props.id());
+    if (flags == H5F_ACC_TRUNC || flags == H5F_ACC_EXCL)
+        _id = H5Fcreate(filename.c_str(), flags, H5P_DEFAULT, local_props.id());
+    else
+        _id = H5Fopen(filename.c_str(), flags, local_props.id());
 }
 
-void file::close() {
-  if (_id != -1) {
-    INSIST(H5Fclose(_id), >= 0); // is collective
-    _id = -1;
-    _comm = &mpi::comm::self;
-  }
+void file::close()
+{
+    if (_id != -1)
+    {
+        INSIST(H5Fclose(_id), >= 0); // is collective
+        _id = -1;
+        _comm = &mpi::comm::self;
+    }
 }
 
 bool file::is_open() const { return _id >= 0; }
 
 void file::flush() const { INSIST(H5Fflush(_id, H5F_SCOPE_GLOBAL), >= 0); }
 
-h5::group file::group(std::string const &name) const {
-  h5::group grp;
-  grp.open(*this, name);
-  return grp;
+h5::group file::group(std::string const& name) const
+{
+    h5::group grp;
+    grp.open(*this, name);
+    return grp;
 }
 
-std::vector<std::string> file::links() const {
-  hsize_t n_objs;
-  INSIST(H5Gget_num_objs(_id, &n_objs), >= 0);
-  std::vector<std::string> lnks(n_objs);
-  for (unsigned ii = 0; ii < n_objs; ++ii) {
-    hsize_t size = 1 + H5Lget_name_by_idx(_id, ".", H5_INDEX_NAME, H5_ITER_INC,
-                                          ii, 0, 0, H5P_DEFAULT);
-    char *name = new char[size];
-    ASSERT(size > 0);
-    INSIST(H5Lget_name_by_idx(_id, ".", H5_INDEX_NAME, H5_ITER_INC, ii, name,
-                              size, H5P_DEFAULT),
-           >= 0);
-    lnks[ii] = name;
-    delete[] name;
-  }
-  return lnks;
+std::vector<std::string> file::links() const
+{
+    hsize_t n_objs;
+    INSIST(H5Gget_num_objs(_id, &n_objs), >= 0);
+    std::vector<std::string> lnks(n_objs);
+    for (unsigned ii = 0; ii < n_objs; ++ii)
+    {
+        hsize_t size =
+            1 + H5Lget_name_by_idx(_id, ".", H5_INDEX_NAME, H5_ITER_INC, ii, 0, 0, H5P_DEFAULT);
+        char* name = new char[size];
+        ASSERT(size > 0);
+        INSIST(
+            H5Lget_name_by_idx(_id, ".", H5_INDEX_NAME, H5_ITER_INC, ii, name, size, H5P_DEFAULT),
+            >= 0);
+        lnks[ii] = name;
+        delete[] name;
+    }
+    return lnks;
 }
 
 // template<>

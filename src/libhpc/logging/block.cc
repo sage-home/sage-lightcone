@@ -19,17 +19,27 @@
 
 #include "block.hh"
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
-block::block(levels_type level) : _lvl(level) {}
+block::block(levels_type level)
+    : _lvl(level)
+{
+}
 
-block::block(std::string const &tag, levels_type lvl) : _lvl(lvl), _tag(tag) {}
+block::block(std::string const& tag, levels_type lvl)
+    : _lvl(lvl)
+    , _tag(tag)
+{
+}
 
-block::~block() {
-  LOGLVLN(_lvl, "Done.", setindent(-1));
-  if (!_tag.empty())
-    LOG_POP_TAG(_tag);
+block::~block()
+{
+    LOGLVLN(_lvl, "Done.", setindent(-1));
+    if (!_tag.empty())
+        LOG_POP_TAG(_tag);
 }
 
 } // namespace log

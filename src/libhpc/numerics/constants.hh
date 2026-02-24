@@ -18,8 +18,10 @@
 #ifndef hpc_numerics_constants_hh
 #define hpc_numerics_constants_hh
 
-namespace hpc {
-namespace constant {
+namespace hpc
+{
+namespace constant
+{
 
 // Astronomy/astrophysics.
 static const double c = 2.99792458e8;         // m/s

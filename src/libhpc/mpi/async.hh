@@ -23,49 +23,53 @@
 #include "libhpc/mpi/comm.hh"
 #include <boost/unordered_map.hpp>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-class async_event_handler {
+class async_event_handler
+{
 public:
-  async_event_handler(int tag = 0);
+    async_event_handler(int tag = 0);
 
-  int tag() const;
+    int tag() const;
 
-  virtual bool event(MPI_Status const &stat) = 0;
+    virtual bool event(MPI_Status const& stat) = 0;
 
 protected:
-  int _tag;
+    int _tag;
 };
 
-class async {
+class async
+{
 public:
-  typedef async_event_handler event_handler;
+    typedef async_event_handler event_handler;
 
 public:
-  async(mpi::comm const &comm = mpi::comm::world);
+    async(mpi::comm const& comm = mpi::comm::world);
 
-  void set_comm(mpi::comm const &comm);
+    void set_comm(mpi::comm const& comm);
 
-  mpi::comm const &comm() const;
+    mpi::comm const& comm() const;
 
-  mpi::comm const &worker_comm() const;
+    mpi::comm const& worker_comm() const;
 
-  void set_max_events(unsigned max_evts);
+    void set_max_events(unsigned max_evts);
 
-  void add_event_handler(event_handler *eh);
+    void add_event_handler(event_handler* eh);
 
-  boost::unordered_map<int, event_handler *> const &event_handlers() const;
+    boost::unordered_map<int, event_handler*> const& event_handlers() const;
 
-  bool run();
+    bool run();
 
-  void done(int ec = 0) const;
+    void done(int ec = 0) const;
 
 protected:
-  boost::unordered_map<int, event_handler *> _ev_hndlrs;
-  unsigned _max_evts;
-  mpi::comm const *_comm;
-  mpi::comm _wkr_comm;
+    boost::unordered_map<int, event_handler*> _ev_hndlrs;
+    unsigned _max_evts;
+    mpi::comm const* _comm;
+    mpi::comm _wkr_comm;
 };
 
 } // namespace mpi

@@ -22,24 +22,29 @@
 #include <boost/optional.hpp>
 #include <list>
 
-namespace hpc {
+namespace hpc
+{
 namespace fs = boost::filesystem;
 
-class path_finder {
+class path_finder
+{
 public:
-  path_finder();
+    path_finder();
 
-  template <class Seq>
-  path_finder(Seq const &roots) : _roots(roots.begin(), roots.end()) {}
+    template <class Seq>
+    path_finder(Seq const& roots)
+        : _roots(roots.begin(), roots.end())
+    {
+    }
 
-  void add_root(fs::path const &root);
+    void add_root(fs::path const& root);
 
-  boost::optional<fs::path> find(fs::path const &path);
+    boost::optional<fs::path> find(fs::path const& path);
 
-  std::list<fs::path> const &roots() const;
+    std::list<fs::path> const& roots() const;
 
 protected:
-  std::list<fs::path> _roots;
+    std::list<fs::path> _roots;
 };
 
 } // namespace hpc

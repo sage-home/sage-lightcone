@@ -15,6 +15,5 @@
 #include "tile.hh"
 #include "types.hh"
 #include "utils/progress.hh"
-#include "xml_dict.hh"
 
 #endif

@@ -17,56 +17,63 @@
 
 #include "derive.hh"
 
-namespace hpc {
-namespace h5 {
+namespace hpc
+{
+namespace h5
+{
 
-derive::derive(size_t mem_size) : _mem_size(mem_size) {}
-
-void derive::add(const h5::datatype &mem_type, hsize_t mem_offs,
-                 const h5::datatype &file_type, const std::string &desc) {
-  _cache.push_back(boost::make_tuple(&mem_type, mem_offs, &file_type, desc));
+derive::derive(size_t mem_size)
+    : _mem_size(mem_size)
+{
 }
 
-void derive::add2(h5::datatype const &mem_type, hsize_t mem_offs,
-                  std::string const &desc, h5::datatype const &file_type) {
-  h5::datatype const *fdt =
-      (file_type == h5::datatype::invalid) ? &mem_type : &file_type;
-  _cache.push_back(boost::make_tuple(&mem_type, mem_offs, fdt, desc));
+void derive::add(const h5::datatype& mem_type, hsize_t mem_offs, const h5::datatype& file_type,
+                 const std::string& desc)
+{
+    _cache.push_back(boost::make_tuple(&mem_type, mem_offs, &file_type, desc));
 }
 
-void derive::commit(h5::datatype &mem_type, h5::datatype &file_type) {
-  hsize_t mem_size = _calc_mem_size();
-  hsize_t file_size = _calc_file_size();
-  mem_type.compound(mem_size);
-  file_type.compound(file_size);
-  hsize_t offs = 0;
-  for (std::list<entry_type>::const_iterator it = _cache.begin();
-       it != _cache.end(); ++it) {
-    std::string const &desc = boost::get<3>(*it);
-    mem_type.insert(*boost::get<0>(*it), desc, boost::get<1>(*it));
-    file_type.insert(*boost::get<2>(*it), desc, offs);
-    offs += boost::get<2>(*it)->size();
-  }
+void derive::add2(h5::datatype const& mem_type, hsize_t mem_offs, std::string const& desc,
+                  h5::datatype const& file_type)
+{
+    h5::datatype const* fdt = (file_type == h5::datatype::invalid) ? &mem_type : &file_type;
+    _cache.push_back(boost::make_tuple(&mem_type, mem_offs, fdt, desc));
 }
 
-hsize_t derive::_calc_mem_size() {
-  ASSERT(_mem_size > 0, "Memory structure size has not been set.");
+void derive::commit(h5::datatype& mem_type, h5::datatype& file_type)
+{
+    hsize_t mem_size = _calc_mem_size();
+    hsize_t file_size = _calc_file_size();
+    mem_type.compound(mem_size);
+    file_type.compound(file_size);
+    hsize_t offs = 0;
+    for (std::list<entry_type>::const_iterator it = _cache.begin(); it != _cache.end(); ++it)
+    {
+        std::string const& desc = boost::get<3>(*it);
+        mem_type.insert(*boost::get<0>(*it), desc, boost::get<1>(*it));
+        file_type.insert(*boost::get<2>(*it), desc, offs);
+        offs += boost::get<2>(*it)->size();
+    }
+}
+
+hsize_t derive::_calc_mem_size()
+{
+    ASSERT(_mem_size > 0, "Memory structure size has not been set.");
 #ifndef NDEBUG
-  for (std::list<entry_type>::const_iterator it = _cache.begin();
-       it != _cache.end(); ++it)
-    ASSERT(boost::get<1>(*it) < _mem_size,
-           "Memory structure size too small for offsets.");
+    for (std::list<entry_type>::const_iterator it = _cache.begin(); it != _cache.end(); ++it)
+        ASSERT(boost::get<1>(*it) < _mem_size, "Memory structure size too small for offsets.");
 #endif
-  return _mem_size;
+    return _mem_size;
 }
 
-hsize_t derive::_calc_file_size() {
-  hsize_t size = 0;
-  for (std::list<entry_type>::const_iterator it = _cache.begin();
-       it != _cache.end(); ++it) {
-    size += boost::get<2>(*it)->size();
-  }
-  return size;
+hsize_t derive::_calc_file_size()
+{
+    hsize_t size = 0;
+    for (std::list<entry_type>::const_iterator it = _cache.begin(); it != _cache.end(); ++it)
+    {
+        size += boost::get<2>(*it)->size();
+    }
+    return size;
 }
 
 } // namespace h5

@@ -22,91 +22,98 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace hpc {
-namespace os {
+namespace hpc
+{
+namespace os
+{
 
-file_descriptor::file_descriptor(int fd) : _fd(fd) {}
-
-file_descriptor::file_descriptor(fs::path const &pathname,
-                                 file_descriptor::flags_type flags)
-    : _fd(-1) {
-  open(pathname, flags);
+file_descriptor::file_descriptor(int fd)
+    : _fd(fd)
+{
 }
 
-file_descriptor::file_descriptor(file_descriptor &&src) noexcept
-    : _fd(src._fd) {
-  src._fd = -1;
+file_descriptor::file_descriptor(fs::path const& pathname, file_descriptor::flags_type flags)
+    : _fd(-1)
+{
+    open(pathname, flags);
+}
+
+file_descriptor::file_descriptor(file_descriptor&& src) noexcept
+    : _fd(src._fd)
+{
+    src._fd = -1;
 }
 
 file_descriptor::~file_descriptor() { close(); }
 
-void file_descriptor::set_fd(int fd) {
-  close();
-  _fd = fd;
+void file_descriptor::set_fd(int fd)
+{
+    close();
+    _fd = fd;
 }
 
-void file_descriptor::open(fs::path const &pathname,
-                           file_descriptor::flags_type flags) {
-  close();
-  _fd = ::open(pathname.string().c_str(), static_cast<int>(flags));
-  EXCEPT(_fd >= 0, "Unable to open file with path: ", pathname);
+void file_descriptor::open(fs::path const& pathname, file_descriptor::flags_type flags)
+{
+    close();
+    _fd = ::open(pathname.string().c_str(), static_cast<int>(flags));
+    EXCEPT(_fd >= 0, "Unable to open file with path: ", pathname);
 }
 
-void file_descriptor::close() {
-  if (_fd >= 0) {
-    INSIST(::close(_fd), == 0);
+void file_descriptor::close()
+{
+    if (_fd >= 0)
+    {
+        INSIST(::close(_fd), == 0);
+        _fd = -1;
+    }
+}
+
+void file_descriptor::release()
+{
+    ASSERT(_fd >= 0, "Cannot release closed file descriptor.");
     _fd = -1;
-  }
 }
 
-void file_descriptor::release() {
-  ASSERT(_fd >= 0, "Cannot release closed file descriptor.");
-  _fd = -1;
-}
-
-void file_descriptor::add_flags(file_descriptor::flags_type flags) {
-  int cur_flags = ::fcntl(_fd, F_GETFL, 0);
-  ASSERT(cur_flags >= 0);
-  cur_flags |= static_cast<int>(flags);
-  INSIST(::fcntl(_fd, F_SETFL, cur_flags), == 0);
+void file_descriptor::add_flags(file_descriptor::flags_type flags)
+{
+    int cur_flags = ::fcntl(_fd, F_GETFL, 0);
+    ASSERT(cur_flags >= 0);
+    cur_flags |= static_cast<int>(flags);
+    INSIST(::fcntl(_fd, F_SETFL, cur_flags), == 0);
 }
 
 int file_descriptor::fd() const { return _fd; }
 
-ssize_t file_descriptor::write(void const *buf, size_t size) const {
-  ASSERT(_fd >= 0, "Invalid file descriptor.");
-  return ::write(_fd, buf, size);
+ssize_t file_descriptor::write(void const* buf, size_t size) const
+{
+    ASSERT(_fd >= 0, "Invalid file descriptor.");
+    return ::write(_fd, buf, size);
 }
 
-ssize_t file_descriptor::write(std::string const &buf) {
-  return write(buf.data(), buf.size());
+ssize_t file_descriptor::write(std::string const& buf) { return write(buf.data(), buf.size()); }
+
+ssize_t file_descriptor::write(std::vector<char> const& buf)
+{
+    return write(buf.data(), buf.size());
 }
 
-ssize_t file_descriptor::write(std::vector<char> const &buf) {
-  return write(buf.data(), buf.size());
+ssize_t file_descriptor::read(void* buf, size_t size) const
+{
+    ASSERT(_fd >= 0, "Invalid file descriptor.");
+    return ::read(_fd, buf, size);
 }
 
-ssize_t file_descriptor::read(void *buf, size_t size) const {
-  ASSERT(_fd >= 0, "Invalid file descriptor.");
-  return ::read(_fd, buf, size);
-}
+ssize_t file_descriptor::read(std::vector<char>& buf) const { return read(buf.data(), buf.size()); }
 
-ssize_t file_descriptor::read(std::vector<char> &buf) const {
-  return read(buf.data(), buf.size());
-}
+bool file_descriptor::operator==(const file_descriptor& op) const { return _fd == op._fd; }
 
-bool file_descriptor::operator==(const file_descriptor &op) const {
-  return _fd == op._fd;
-}
+bool file_descriptor::operator<(const file_descriptor& op) const { return _fd < op._fd; }
 
-bool file_descriptor::operator<(const file_descriptor &op) const {
-  return _fd < op._fd;
-}
-
-file_descriptor &file_descriptor::operator=(file_descriptor &&op) noexcept {
-  _fd = op._fd;
-  op._fd = -1;
-  return *this;
+file_descriptor& file_descriptor::operator=(file_descriptor&& op) noexcept
+{
+    _fd = op._fd;
+    op._fd = -1;
+    return *this;
 }
 
 } // namespace os

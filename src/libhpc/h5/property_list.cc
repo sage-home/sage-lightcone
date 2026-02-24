@@ -17,80 +17,90 @@
 
 #include "property_list.hh"
 
-namespace hpc {
-namespace h5 {
+namespace hpc
+{
+namespace h5
+{
 
-property_list::property_list(hid_tag tag, hid_t id) : _id(id) {}
+property_list::property_list(hid_tag tag, hid_t id)
+    : _id(id)
+{
+}
 
-property_list::property_list(hid_t class_id) : _id(H5P_DEFAULT) {
-  create(class_id);
+property_list::property_list(hid_t class_id)
+    : _id(H5P_DEFAULT)
+{
+    create(class_id);
 }
 
 #ifdef PARALLELHDF5
 
-property_list::property_list(hid_t class_id, mpi::comm const &comm) {
-  create(class_id);
-  set_parallel(comm);
+property_list::property_list(hid_t class_id, mpi::comm const& comm)
+{
+    create(class_id);
+    set_parallel(comm);
 }
 
 #endif
 
-property_list::property_list(property_list const &src) {
-  if (src._id == H5P_DEFAULT)
-    _id = H5P_DEFAULT;
-  else {
-    _id = H5Pcopy(src._id);
-    ASSERT(_id >= 0, "H5Pcopy failed.");
-  }
+property_list::property_list(property_list const& src)
+{
+    if (src._id == H5P_DEFAULT)
+        _id = H5P_DEFAULT;
+    else
+    {
+        _id = H5Pcopy(src._id);
+        ASSERT(_id >= 0, "H5Pcopy failed.");
+    }
 }
 
 property_list::~property_list() { close(); }
 
 hid_t property_list::id() const { return _id; }
 
-void property_list::create(hid_t class_id) {
-  close();
-  _id = H5Pcreate(class_id);
-  INSIST(_id, >= 0);
+void property_list::create(hid_t class_id)
+{
+    close();
+    _id = H5Pcreate(class_id);
+    INSIST(_id, >= 0);
 }
 
-void property_list::close() {
-  if (_id >= 0 && _id != H5P_DEFAULT) {
-    INSIST(H5Pclose(_id), >= 0);
-    _id = H5P_DEFAULT;
-  }
+void property_list::close()
+{
+    if (_id >= 0 && _id != H5P_DEFAULT)
+    {
+        INSIST(H5Pclose(_id), >= 0);
+        _id = H5P_DEFAULT;
+    }
 }
 
-void property_list::set_external(const std::string &name, hsize_t size,
-                                 hsize_t offset) {
-  INSIST(H5Pset_external(_id, name.c_str(), offset, size), >= 0);
+void property_list::set_external(const std::string& name, hsize_t size, hsize_t offset)
+{
+    INSIST(H5Pset_external(_id, name.c_str(), offset, size), >= 0);
 }
 
-void property_list::set_chunk_size(hsize_t size) {
-  INSIST(H5Pset_chunk(_id, 1, &size), >= 0);
+void property_list::set_chunk_size(hsize_t size) { INSIST(H5Pset_chunk(_id, 1, &size), >= 0); }
+
+void property_list::set_deflate(bool state) { INSIST(H5Pset_deflate(_id, 9), >= 0); }
+
+void property_list::set_family(hsize_t size)
+{
+    INSIST(H5Pset_fapl_family(_id, size, H5P_DEFAULT), >= 0);
 }
 
-void property_list::set_deflate(bool state) {
-  INSIST(H5Pset_deflate(_id, 9), >= 0);
-}
-
-void property_list::set_family(hsize_t size) {
-  INSIST(H5Pset_fapl_family(_id, size, H5P_DEFAULT), >= 0);
-}
-
-void property_list::set_preserve(bool state) {
-  INSIST(H5Pset_preserve(_id, (state ? 1 : 0)), >= 0);
+void property_list::set_preserve(bool state)
+{
+    INSIST(H5Pset_preserve(_id, (state ? 1 : 0)), >= 0);
 }
 
 #ifdef PARALLELHDF5
 
-void property_list::set_parallel(mpi::comm const &comm) {
-  INSIST(H5Pset_fapl_mpio(_id, comm.mpi_comm(), MPI_INFO_NULL), >= 0);
+void property_list::set_parallel(mpi::comm const& comm)
+{
+    INSIST(H5Pset_fapl_mpio(_id, comm.mpi_comm(), MPI_INFO_NULL), >= 0);
 }
 
-void property_list::set_collective() {
-  INSIST(H5Pset_dxpl_mpio(_id, H5FD_MPIO_COLLECTIVE), >= 0);
-}
+void property_list::set_collective() { INSIST(H5Pset_dxpl_mpio(_id, H5FD_MPIO_COLLECTIVE), >= 0); }
 
 #endif
 

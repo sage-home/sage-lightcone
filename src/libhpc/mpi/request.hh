@@ -20,43 +20,46 @@
 
 #include "init.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
 class requests;
 
-class request {
-  friend class requests;
+class request
+{
+    friend class requests;
 
 public:
-  request(MPI_Request req = MPI_REQUEST_NULL);
+    request(MPI_Request req = MPI_REQUEST_NULL);
 
-  request(request const &src);
+    request(request const& src);
 
-  ~request();
+    ~request();
 
-  void mpi_request(MPI_Request req);
+    void mpi_request(MPI_Request req);
 
-  MPI_Request const &mpi_request() const;
+    MPI_Request const& mpi_request() const;
 
-  MPI_Request &mod_mpi_request();
+    MPI_Request& mod_mpi_request();
 
-  bool test();
+    bool test();
 
-  void wait();
+    void wait();
 
-  bool operator==(const request &op) const;
+    bool operator==(const request& op) const;
 
-  bool operator==(const MPI_Request op) const;
+    bool operator==(const MPI_Request op) const;
 
-  bool operator!=(const request &op) const;
+    bool operator!=(const request& op) const;
 
-  bool operator!=(const MPI_Request op) const;
+    bool operator!=(const MPI_Request op) const;
 
-  operator bool() const;
+    operator bool() const;
 
 protected:
-  MPI_Request _req;
+    MPI_Request _req;
 };
 } // namespace mpi
 } // namespace hpc

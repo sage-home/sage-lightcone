@@ -20,7 +20,8 @@
 
 #include <boost/filesystem/path.hpp>
 
-namespace hpc {
+namespace hpc
+{
 
 namespace fs = boost::filesystem;
 

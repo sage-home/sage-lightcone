@@ -20,48 +20,52 @@
 #include <boost/thread.hpp>
 #include <map>
 
-namespace hpc {
+namespace hpc
+{
 
-namespace impl {
+namespace impl
+{
 
-std::map<std::pair<std::ostream *, boost::thread::id>, int> curindent;
+std::map<std::pair<std::ostream*, boost::thread::id>, int> curindent;
 boost::mutex indent_mutex;
 
 } // namespace impl
 
-setindent_t setindent(int indent) {
-  setindent_t ind;
-  ind.indent = indent;
-  return ind;
+setindent_t setindent(int indent)
+{
+    setindent_t ind;
+    ind.indent = indent;
+    return ind;
 }
 
-std::ostream &operator<<(std::ostream &strm, setindent_t si) {
-  impl::indent_mutex.lock();
-  int &val =
-      impl::curindent[std::make_pair(&strm, boost::this_thread::get_id())];
-  impl::indent_mutex.unlock();
-  val += si.indent;
-  ASSERT(val >= 0);
-  if (val == 0) {
+std::ostream& operator<<(std::ostream& strm, setindent_t si)
+{
     impl::indent_mutex.lock();
-    impl::curindent.erase(std::make_pair(&strm, boost::this_thread::get_id()));
+    int& val = impl::curindent[std::make_pair(&strm, boost::this_thread::get_id())];
     impl::indent_mutex.unlock();
-  }
-  return strm;
+    val += si.indent;
+    ASSERT(val >= 0);
+    if (val == 0)
+    {
+        impl::indent_mutex.lock();
+        impl::curindent.erase(std::make_pair(&strm, boost::this_thread::get_id()));
+        impl::indent_mutex.unlock();
+    }
+    return strm;
 }
 
-std::ostream &indent(std::ostream &strm) {
-  impl::indent_mutex.lock();
-  std::map<std::pair<std::ostream *, boost::thread::id>, int>::const_iterator
-      it = impl::curindent.find(
-          std::make_pair(&strm, boost::this_thread::get_id()));
-  impl::indent_mutex.unlock();
-  int val = 0;
-  if (it != impl::curindent.end())
-    val = it->second;
-  for (int ii = 0; ii < val; ++ii)
-    strm << " ";
-  return strm;
+std::ostream& indent(std::ostream& strm)
+{
+    impl::indent_mutex.lock();
+    std::map<std::pair<std::ostream*, boost::thread::id>, int>::const_iterator it =
+        impl::curindent.find(std::make_pair(&strm, boost::this_thread::get_id()));
+    impl::indent_mutex.unlock();
+    int val = 0;
+    if (it != impl::curindent.end())
+        val = it->second;
+    for (int ii = 0; ii < val; ++ii)
+        strm << " ";
+    return strm;
 }
 
 } // namespace hpc

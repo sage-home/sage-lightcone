@@ -25,44 +25,48 @@
 #include <iostream>
 #include <string>
 
-namespace hpc {
-namespace debug {
+namespace hpc
+{
+namespace debug
+{
 
 ///
 ///
 ///
-class assertion : public std::exception {
+class assertion : public std::exception
+{
 public:
-  ~assertion() throw();
+    ~assertion() throw();
 
-  assertion &details(const char *expr, const char *file, int line,
+    assertion& details(const char* expr, const char* file, int line,
 #ifndef NSTACKTRACE
-                     const stacktrace &st,
+                       const stacktrace& st,
 #endif
-                     const std::string &msg = std::string()) throw();
+                       const std::string& msg = std::string()) throw();
 
-  virtual const char *what() const throw();
+    virtual const char* what() const throw();
 
-  const std::string &message() const;
-
-protected:
-  void _write_buffer(std::string &buf) throw();
+    const std::string& message() const;
 
 protected:
-  const char *_file;
-  int _line;
-  const char *_expr;
-  std::string _msg, _buf;
+    void _write_buffer(std::string& buf) throw();
+
+protected:
+    const char* _file;
+    int _line;
+    const char* _expr;
+    std::string _msg, _buf;
 #ifndef NSTACKTRACE
-  stacktrace _st;
+    stacktrace _st;
 #endif
 };
 
 } // namespace debug
 
-class exception : public debug::assertion {
+class exception : public debug::assertion
+{
 public:
-  virtual const char *what() const throw();
+    virtual const char* what() const throw();
 };
 
 } // namespace hpc

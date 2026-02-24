@@ -22,38 +22,41 @@
 #include "request.hh"
 #include <vector>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-class requests {
+class requests
+{
 public:
-  typedef typename std::vector<request>::size_type size_type;
+    typedef typename std::vector<request>::size_type size_type;
 
 public:
-  requests(size_type size = 0);
+    requests(size_type size = 0);
 
-  ~requests();
+    ~requests();
 
-  void clear();
+    void clear();
 
-  bool empty() const;
+    bool empty() const;
 
-  void reserve(size_type size);
+    void reserve(size_type size);
 
-  void resize(size_type size);
+    void resize(size_type size);
 
-  size_type size() const;
+    size_type size() const;
 
-  request &append();
+    request& append();
 
-  void wait_all();
+    void wait_all();
 
-  bool test_all();
+    bool test_all();
 
-  request &operator[](size_type idx);
+    request& operator[](size_type idx);
 
 protected:
-  std::vector<request> _reqs;
+    std::vector<request> _reqs;
 };
 
 } // namespace mpi

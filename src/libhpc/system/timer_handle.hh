@@ -20,50 +20,67 @@
 
 #include <boost/move/move.hpp>
 
-namespace hpc {
+namespace hpc
+{
 
-template <class, class> class timer;
+template <class, class>
+class timer;
 
-template <class TimeT, class ClockT> class timer_handle {
-  BOOST_MOVABLE_BUT_NOT_COPYABLE(timer_handle);
+template <class TimeT, class ClockT>
+class timer_handle
+{
+    BOOST_MOVABLE_BUT_NOT_COPYABLE(timer_handle);
 
 public:
-  typedef hpc::timer<TimeT, ClockT> timer_type;
+    typedef hpc::timer<TimeT, ClockT> timer_type;
 
-  enum stop_type { NORMAL, TALLY };
+    enum stop_type
+    {
+        NORMAL,
+        TALLY
+    };
 
 public:
-  timer_handle(timer_type *timer = 0, stop_type stop = NORMAL)
-      : _timer(timer), _stop(stop) {}
-
-  inline timer_handle(BOOST_RV_REF(timer_handle) src)
-      : _timer(src._timer), _stop(src._stop) {
-    src._timer = 0;
-  }
-
-  ~timer_handle() {
-    if (_timer) {
-      switch (_stop) {
-      case NORMAL:
-        _timer->stop();
-        break;
-      case TALLY:
-        _timer->stop_tally();
-        break;
-      };
+    timer_handle(timer_type* timer = 0, stop_type stop = NORMAL)
+        : _timer(timer)
+        , _stop(stop)
+    {
     }
-  }
 
-  inline timer_handle &operator=(BOOST_RV_REF(timer_handle) src) {
-    _timer = src._timer;
-    _stop = src._stop;
-    src._timer = 0;
-    return *this;
-  }
+    inline timer_handle(BOOST_RV_REF(timer_handle) src)
+        : _timer(src._timer)
+        , _stop(src._stop)
+    {
+        src._timer = 0;
+    }
+
+    ~timer_handle()
+    {
+        if (_timer)
+        {
+            switch (_stop)
+            {
+            case NORMAL:
+                _timer->stop();
+                break;
+            case TALLY:
+                _timer->stop_tally();
+                break;
+            };
+        }
+    }
+
+    inline timer_handle& operator=(BOOST_RV_REF(timer_handle) src)
+    {
+        _timer = src._timer;
+        _stop = src._stop;
+        src._timer = 0;
+        return *this;
+    }
 
 protected:
-  timer_type *_timer;
-  stop_type _stop;
+    timer_type* _timer;
+    stop_type _stop;
 };
 
 } // namespace hpc

@@ -18,11 +18,14 @@
 #include "helpers.hh"
 #include "libhpc/system/string.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-std::string rank_string(mpi::comm const &comm, unsigned width) {
-  return index_string(comm.rank() * nchunks() + chunk(), width);
+std::string rank_string(mpi::comm const& comm, unsigned width)
+{
+    return index_string(comm.rank() * nchunks() + chunk(), width);
 }
 
 } // namespace mpi

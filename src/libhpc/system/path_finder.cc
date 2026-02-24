@@ -18,37 +18,42 @@
 #include "path_finder.hh"
 #include <boost/range/adaptor/reversed.hpp>
 
-namespace hpc {
+namespace hpc
+{
 
 path_finder::path_finder() {}
 
-void path_finder::add_root(fs::path const &root) {
+void path_finder::add_root(fs::path const& root)
+{
 #ifdef CXX_0X
-  _roots.emplace_back(root);
+    _roots.emplace_back(root);
 #else
-  _roots.push_back(root);
+    _roots.push_back(root);
 #endif
 }
 
-boost::optional<fs::path> path_finder::find(fs::path const &path) {
-  // If path is absolute handle it separately.
-  if (path.is_absolute()) {
-    if (fs::exists(path))
-      return path;
-    else
-      return boost::none;
-  }
+boost::optional<fs::path> path_finder::find(fs::path const& path)
+{
+    // If path is absolute handle it separately.
+    if (path.is_absolute())
+    {
+        if (fs::exists(path))
+            return path;
+        else
+            return boost::none;
+    }
 
-  // Search for compositions.
-  for (std::list<fs::path>::const_reverse_iterator it = _roots.rbegin();
-       it != _roots.rend(); ++it) {
-    fs::path tmp = *it / path;
-    if (fs::exists(tmp))
-      return tmp;
-  }
-  return boost::none;
+    // Search for compositions.
+    for (std::list<fs::path>::const_reverse_iterator it = _roots.rbegin(); it != _roots.rend();
+         ++it)
+    {
+        fs::path tmp = *it / path;
+        if (fs::exists(tmp))
+            return tmp;
+    }
+    return boost::none;
 }
 
-std::list<fs::path> const &path_finder::roots() const { return _roots; }
+std::list<fs::path> const& path_finder::roots() const { return _roots; }
 
 } // namespace hpc

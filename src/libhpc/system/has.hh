@@ -18,11 +18,13 @@
 #ifndef hpc_system_has_hh
 #define hpc_system_has_hh
 
-namespace hpc {
+namespace hpc
+{
 
 template <class SeqT>
-inline bool has(SeqT const &seq, typename SeqT::key_type const &key) {
-  return seq.find(key) != seq.end();
+inline bool has(SeqT const& seq, typename SeqT::key_type const& key)
+{
+    return seq.find(key) != seq.end();
 }
 
 } // namespace hpc

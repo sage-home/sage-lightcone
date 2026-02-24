@@ -314,11 +314,13 @@ function(init_3rd_party_HDF5 lib_name required_in)
         add_definitions(-DUSE_${lib_name})
         find_package(${lib_name} ${required} COMPONENTS C HL)
 
-        # Check status and print message    
+        # Check status and print message
         check_3rd_party_status( HDF5_FOUND )
 
         # Personalized set-up:
-        include_directories( ${HDF5_INCLUDE_DIRS} )
+        # Use BEFORE to ensure HDF5 include path takes precedence over generic paths
+        # like /opt/homebrew/include which may contain symlinks to parallel HDF5
+        include_directories(BEFORE ${HDF5_INCLUDE_DIRS})
         link_libraries( ${HDF5_C_LIBRARIES} ${HDF5_C_HL_LIBRARIES} )
         add_definitions(${HDF5_DEFINITIONS})
 

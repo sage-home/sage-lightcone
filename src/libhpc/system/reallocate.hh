@@ -21,25 +21,27 @@
 #include "cc_version.hh"
 #include <vector>
 
-namespace hpc {
+namespace hpc
+{
 
 #ifdef CXX_0X
 
 template <class T, class... Args>
-void reallocate(std::vector<T, Args...> &obj,
-                typename std::vector<T, Args...>::size_type size) {
-  std::vector<T, Args...> tmp;
-  obj.swap(tmp);
-  obj.resize(size);
+void reallocate(std::vector<T, Args...>& obj, typename std::vector<T, Args...>::size_type size)
+{
+    std::vector<T, Args...> tmp;
+    obj.swap(tmp);
+    obj.resize(size);
 }
 
 #else
 
 template <class T>
-void reallocate(std::vector<T> &obj, typename std::vector<T>::size_type size) {
-  std::vector<T> tmp;
-  obj.swap(tmp);
-  obj.resize(size);
+void reallocate(std::vector<T>& obj, typename std::vector<T>::size_type size)
+{
+    std::vector<T> tmp;
+    obj.swap(tmp);
+    obj.resize(size);
 }
 
 #endif

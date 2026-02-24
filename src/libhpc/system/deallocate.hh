@@ -30,42 +30,55 @@
 #include <thrust/host_vector.h>
 #endif
 
-namespace hpc {
+namespace hpc
+{
 
-template <class T> void deallocate(std::vector<T> &tgt) {
-  std::vector<T> tmp;
-  tgt.swap(tmp);
+template <class T>
+void deallocate(std::vector<T>& tgt)
+{
+    std::vector<T> tmp;
+    tgt.swap(tmp);
 }
 
-template <class T> void deallocate(std::list<T> &tgt) {
-  std::list<T> tmp;
-  tgt.swap(tmp);
+template <class T>
+void deallocate(std::list<T>& tgt)
+{
+    std::list<T> tmp;
+    tgt.swap(tmp);
 }
 
-template <class T> void deallocate(std::set<T> &tgt) {
-  std::set<T> tmp;
-  tgt.swap(tmp);
+template <class T>
+void deallocate(std::set<T>& tgt)
+{
+    std::set<T> tmp;
+    tgt.swap(tmp);
 }
 
-template <class T, class U> void deallocate(std::map<T, U> &tgt) {
-  std::map<T, U> tmp;
-  tgt.swap(tmp);
+template <class T, class U>
+void deallocate(std::map<T, U>& tgt)
+{
+    std::map<T, U> tmp;
+    tgt.swap(tmp);
 }
 
 #ifdef CXX_0X
 
-template <class T, class U> void deallocate(std::unordered_map<T, U> &tgt) {
-  std::unordered_map<T, U> tmp;
-  tgt.swap(tmp);
+template <class T, class U>
+void deallocate(std::unordered_map<T, U>& tgt)
+{
+    std::unordered_map<T, U> tmp;
+    tgt.swap(tmp);
 }
 
 #endif
 
 #ifdef USE_THRUST
 
-template <class T> void deallocate(thrust::host_vector<T> &tgt) {
-  thrust::host_vector<T> tmp;
-  tgt.swap(tmp);
+template <class T>
+void deallocate(thrust::host_vector<T>& tgt)
+{
+    thrust::host_vector<T> tmp;
+    tgt.swap(tmp);
 }
 
 #endif

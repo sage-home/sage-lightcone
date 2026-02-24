@@ -32,23 +32,23 @@
 
 #include "stacktrace.hh"
 
-#define _ASSERT(expr, type, ...)                                               \
-  ((expr) ? (void)0                                                            \
-          : (throw (type &)type().details(                                     \
-                #expr, __FILE__, __LINE__, ::hpc::debug::stacktrace(),         \
-                ((const ::std::stringstream &)OSTREAM(::std::stringstream(),   \
-                                                      ##__VA_ARGS__))          \
-                    .str())))
+// clang-format off
+#define _ASSERT(expr, type, ...)                                                              \
+    ((expr) ? (void)0                                                                         \
+            : (throw (type&)type().details(                                                   \
+                  #expr, __FILE__, __LINE__, ::hpc::debug::stacktrace(),                      \
+                  ((const ::std::stringstream&)OSTREAM(::std::stringstream(), ##__VA_ARGS__)) \
+                      .str())))
 
 #else // NSTACKTRACE
 
-#define _ASSERT(expr, type, ...)                                               \
-  ((expr) ? (void)0                                                            \
-          : (throw (type &)type().details(                                     \
-                #expr, __FILE__, __LINE__,                                     \
-                ((const ::std::stringstream &)OSTREAM(::std::stringstream(),   \
-                                                      ##__VA_ARGS__))          \
-                    .str())))
+#define _ASSERT(expr, type, ...)                                                              \
+    ((expr) ? (void)0                                                                         \
+            : (throw (type&)type().details(                                                   \
+                  #expr, __FILE__, __LINE__,                                                  \
+                  ((const ::std::stringstream&)OSTREAM(::std::stringstream(), ##__VA_ARGS__)) \
+                      .str())))
+// clang-format on
 
 #endif // NSTACKTRACE
 

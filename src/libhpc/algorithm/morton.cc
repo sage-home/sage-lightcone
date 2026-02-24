@@ -17,7 +17,8 @@
 
 #include "morton.hh"
 
-namespace hpc {
+namespace hpc
+{
 
 //    template<>
 //    uint32_t
@@ -83,20 +84,21 @@ namespace hpc {
 
 // #endif
 
-uint32_t morton_array(boost::array<uint16_t, 2> const &crd) {
+uint32_t morton_array(boost::array<uint16_t, 2> const& crd)
+{
 #ifdef CXX_0X
-  return morton_impl<2, 0, uint16_t, uint16_t>::eval(crd[0], crd[1]);
+    return morton_impl<2, 0, uint16_t, uint16_t>::eval(crd[0], crd[1]);
 #else
-  return morton<2>(crd[0], crd[1]);
+    return morton<2>(crd[0], crd[1]);
 #endif
 }
 
-uint32_t morton_array(boost::array<uint16_t, 3> const &crd) {
+uint32_t morton_array(boost::array<uint16_t, 3> const& crd)
+{
 #ifdef CXX_0X
-  return morton_impl<3, 0, uint16_t, uint16_t, uint16_t>::eval(crd[0], crd[1],
-                                                               crd[2]);
+    return morton_impl<3, 0, uint16_t, uint16_t, uint16_t>::eval(crd[0], crd[1], crd[2]);
 #else
-  return morton<3>(crd[0], crd[1], crd[2]);
+    return morton<3>(crd[0], crd[1], crd[2]);
 #endif
 }
 

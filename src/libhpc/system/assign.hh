@@ -29,35 +29,38 @@
 #include <set>
 #include <vector>
 
-namespace hpc {
+namespace hpc
+{
 
 #ifdef CXX_0X
 
 // Assigning the same class.
 template <
     class T, class U,
-    typename boost::enable_if<
-        boost::is_same<typename boost::remove_reference<T>::type,
-                       typename boost::remove_const<
-                           typename boost::remove_reference<U>::type>::type>,
-        int>::type = 0>
-inline T &assign(T &tgt, U &&src) {
-  return tgt = std::forward<U>(src);
+    typename boost::enable_if<boost::is_same<typename boost::remove_reference<T>::type,
+                                             typename boost::remove_const<
+                                                 typename boost::remove_reference<U>::type>::type>,
+                              int>::type = 0>
+inline T& assign(T& tgt, U&& src)
+{
+    return tgt = std::forward<U>(src);
 }
 
 template <class T, class U>
-std::vector<T> &assign(std::vector<T> &tgt, view<std::vector<U>> &&src) {
-  tgt.resize(src.size());
-  std::copy(src.begin(), src.end(), tgt.begin());
-  return tgt;
+std::vector<T>& assign(std::vector<T>& tgt, view<std::vector<U>>&& src)
+{
+    tgt.resize(src.size());
+    std::copy(src.begin(), src.end(), tgt.begin());
+    return tgt;
 }
 
 template <class T, class U>
-std::vector<T> &assign(std::vector<T> &tgt, std::set<U> &&src) {
-  tgt.resize(src.size());
-  std::copy(src.begin(), src.end(), tgt.begin());
-  hpc::deallocate(src);
-  return tgt;
+std::vector<T>& assign(std::vector<T>& tgt, std::set<U>&& src)
+{
+    tgt.resize(src.size());
+    std::copy(src.begin(), src.end(), tgt.begin());
+    hpc::deallocate(src);
+    return tgt;
 }
 
 ///
@@ -69,49 +72,52 @@ std::vector<T> &assign(std::vector<T> &tgt, std::set<U> &&src) {
 /// @return Reference to target view.
 ///
 template <class T>
-view<std::vector<T>> &assign(view<std::vector<T>> &tgt,
-                             view<std::vector<T>> &&src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T>>& assign(view<std::vector<T>>& tgt, view<std::vector<T>>&& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 template <class T>
-view<std::vector<T> const> &assign(view<std::vector<T> const> &tgt,
-                                   view<std::vector<T>> &&src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T> const>& assign(view<std::vector<T> const>& tgt, view<std::vector<T>>&& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 template <class T>
-view<std::vector<T> const> &assign(view<std::vector<T> const> &tgt,
-                                   view<std::vector<T> const> const &src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T> const>& assign(view<std::vector<T> const>& tgt,
+                                   view<std::vector<T> const> const& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 #endif
 
 /// Non-class types.
 template <class T, class U>
-inline T &
-assign(T &tgt, U const &src,
-       typename boost::disable_if<boost::is_class<T>, int>::type = 0) {
-  tgt = src;
-  return tgt;
+inline T& assign(T& tgt, U const& src,
+                 typename boost::disable_if<boost::is_class<T>, int>::type = 0)
+{
+    tgt = src;
+    return tgt;
 }
 
 template <class T, class U>
-std::vector<T> &assign(std::vector<T> &tgt, view<std::vector<U>> const &src) {
-  tgt.resize(src.size());
-  std::copy(src.begin(), src.end(), tgt.begin());
-  return tgt;
+std::vector<T>& assign(std::vector<T>& tgt, view<std::vector<U>> const& src)
+{
+    tgt.resize(src.size());
+    std::copy(src.begin(), src.end(), tgt.begin());
+    return tgt;
 }
 
 template <class T, class U>
-std::vector<T> &assign(std::vector<T> &tgt, std::set<U> const &src) {
-  tgt.resize(src.size());
-  std::copy(src.begin(), src.end(), tgt.begin());
-  return tgt;
+std::vector<T>& assign(std::vector<T>& tgt, std::set<U> const& src)
+{
+    tgt.resize(src.size());
+    std::copy(src.begin(), src.end(), tgt.begin());
+    return tgt;
 }
 
 ///
@@ -122,17 +128,17 @@ std::vector<T> &assign(std::vector<T> &tgt, std::set<U> const &src) {
 /// @return Reference to target view.
 ///
 template <class T>
-view<std::vector<T>> &assign(view<std::vector<T>> &tgt,
-                             std::vector<T> const &src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T>>& assign(view<std::vector<T>>& tgt, std::vector<T> const& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 template <class T>
-view<std::vector<T> const> &assign(view<std::vector<T> const> &tgt,
-                                   std::vector<T> const &src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T> const>& assign(view<std::vector<T> const>& tgt, std::vector<T> const& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 ///
@@ -143,27 +149,26 @@ view<std::vector<T> const> &assign(view<std::vector<T> const> &tgt,
 /// @return Reference to target view.
 ///
 template <class T>
-view<std::vector<T>> &assign(view<std::vector<T>> &tgt, std::vector<T> &src) {
-  tgt.assign(src);
-  return tgt;
+view<std::vector<T>>& assign(view<std::vector<T>>& tgt, std::vector<T>& src)
+{
+    tgt.assign(src);
+    return tgt;
 }
 
 template <class T, class U, size_t N>
-view<std::vector<T>> &assign(view<std::vector<T>> &tgt,
-                             boost::array<U, N> const &src) {
-  ASSERT(tgt.size() == N, "Incompatible view and array sizes (", tgt.size(),
-         " and ", N, ").");
-  std::copy(src.begin(), src.end(), tgt.begin());
-  return tgt;
+view<std::vector<T>>& assign(view<std::vector<T>>& tgt, boost::array<U, N> const& src)
+{
+    ASSERT(tgt.size() == N, "Incompatible view and array sizes (", tgt.size(), " and ", N, ").");
+    std::copy(src.begin(), src.end(), tgt.begin());
+    return tgt;
 }
 
 template <class T, size_t N, class U>
-boost::array<T, N> &assign(boost::array<T, N> &tgt,
-                           view<std::vector<U>> const &src) {
-  ASSERT(tgt.size() == N, "Incompatible view and array sizes (", tgt.size(),
-         " and ", N, ").");
-  std::copy(src.begin(), src.end(), tgt.begin());
-  return tgt;
+boost::array<T, N>& assign(boost::array<T, N>& tgt, view<std::vector<U>> const& src)
+{
+    ASSERT(tgt.size() == N, "Incompatible view and array sizes (", tgt.size(), " and ", N, ").");
+    std::copy(src.begin(), src.end(), tgt.begin());
+    return tgt;
 }
 } // namespace hpc
 

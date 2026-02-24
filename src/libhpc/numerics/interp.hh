@@ -22,47 +22,59 @@
 #include "libhpc/system/assign.hh"
 #include <vector>
 
-namespace hpc {
-namespace num {
+namespace hpc
+{
+namespace num
+{
 
 ///
 ///
 ///
-template <class T> class interp {
+template <class T>
+class interp
+{
 public:
-  typedef T value_type;
+    typedef T value_type;
 
 public:
-  template <class Seq> void set_abscissa(Seq &&abs) {
-    hpc::assign(_abs, std::forward<Seq>(abs));
-  }
-
-  template <class Seq> void set_values(Seq &&vals) {
-    hpc::assign(_vals, std::forward<Seq>(vals));
-  }
-
-  value_type operator[](const value_type &x) const {
-    ASSERT(_abs.size() == _vals.size(), "Incompatible abscissa and values.");
-
-    auto it = std::lower_bound(_abs.begin(), _abs.end(), x);
-    unsigned low = std::distance(_abs.begin(), it);
-    unsigned upp;
-    if (low == 0)
-      upp = low + 1;
-    else if (low >= _abs.size()) {
-      low = _abs.size() - 2;
-      upp = low + 1;
-    } else {
-      upp = low;
-      low -= 1;
+    template <class Seq>
+    void set_abscissa(Seq&& abs)
+    {
+        hpc::assign(_abs, std::forward<Seq>(abs));
     }
-    value_type fac = (x - _abs[low]) / (_abs[upp] - _abs[low]);
-    return _vals[low] + (_vals[upp] - _vals[low]) * fac;
-  }
+
+    template <class Seq>
+    void set_values(Seq&& vals)
+    {
+        hpc::assign(_vals, std::forward<Seq>(vals));
+    }
+
+    value_type operator[](const value_type& x) const
+    {
+        ASSERT(_abs.size() == _vals.size(), "Incompatible abscissa and values.");
+
+        auto it = std::lower_bound(_abs.begin(), _abs.end(), x);
+        unsigned low = std::distance(_abs.begin(), it);
+        unsigned upp;
+        if (low == 0)
+            upp = low + 1;
+        else if (low >= _abs.size())
+        {
+            low = _abs.size() - 2;
+            upp = low + 1;
+        }
+        else
+        {
+            upp = low;
+            low -= 1;
+        }
+        value_type fac = (x - _abs[low]) / (_abs[upp] - _abs[low]);
+        return _vals[low] + (_vals[upp] - _vals[low]) * fac;
+    }
 
 protected:
-  std::vector<value_type> _abs;
-  std::vector<value_type> _vals;
+    std::vector<value_type> _abs;
+    std::vector<value_type> _vals;
 };
 
 } // namespace num

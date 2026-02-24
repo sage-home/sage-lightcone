@@ -20,33 +20,42 @@
 
 #include <set>
 
-namespace hpc {
+namespace hpc
+{
 
-template <class Seq> bool has_duplicates(Seq const &seq) {
-  std::set<typename Seq::value_type> set;
-  unsigned cnt = 0;
-  for (typename Seq::const_iterator it = seq.begin(); it != seq.end(); ++it) {
-    set.insert(*it);
-    ++cnt;
-  }
-  return set.size() != cnt;
+template <class Seq>
+bool has_duplicates(Seq const& seq)
+{
+    std::set<typename Seq::value_type> set;
+    unsigned cnt = 0;
+    for (typename Seq::const_iterator it = seq.begin(); it != seq.end(); ++it)
+    {
+        set.insert(*it);
+        ++cnt;
+    }
+    return set.size() != cnt;
 }
 
 template <class Seq>
-bool has_element(Seq const &seq, typename Seq::value_type const &elem) {
-  return std::find(seq.begin(), seq.end(), elem) != seq.end();
+bool has_element(Seq const& seq, typename Seq::value_type const& elem)
+{
+    return std::find(seq.begin(), seq.end(), elem) != seq.end();
 }
 
-template <class Seq> bool is_ordered(Seq const &seq) {
-  typename Seq::const_iterator it = seq.begin();
-  if (it != seq.end()) {
-    typename Seq::value_type last = it++;
-    while (it != seq.end()) {
-      if (*it++ <= *last++)
-        return false;
+template <class Seq>
+bool is_ordered(Seq const& seq)
+{
+    typename Seq::const_iterator it = seq.begin();
+    if (it != seq.end())
+    {
+        typename Seq::value_type last = it++;
+        while (it != seq.end())
+        {
+            if (*it++ <= *last++)
+                return false;
+        }
     }
-  }
-  return true;
+    return true;
 }
 
 } // namespace hpc

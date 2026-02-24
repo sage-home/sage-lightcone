@@ -3,11 +3,6 @@ bin/
 build/
 **/build/
 
-# Dependencies build artifacts
-dep/pugixml-1.7/scripts/build/
-dep/pugixml-1.7/scripts/include/
-dep/pugixml-1.7/scripts/lib/
-
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

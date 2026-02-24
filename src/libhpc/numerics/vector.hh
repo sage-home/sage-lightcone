@@ -22,17 +22,23 @@
 
 #include "eigen_vector.hh"
 
-namespace hpc {
-namespace numerics {
+namespace hpc
+{
+namespace numerics
+{
 
 template <class T,
           int Rows = Eigen::Dynamic> // TODO: fix this to be generic
-class vector : public impl::eigen::vector<T, Rows> {
+class vector : public impl::eigen::vector<T, Rows>
+{
 public:
-  typedef impl::eigen::vector<T, Rows> super_type;
+    typedef impl::eigen::vector<T, Rows> super_type;
 
 public:
-  vector() : super_type() {}
+    vector()
+        : super_type()
+    {
+    }
 };
 } // namespace numerics
 } // namespace hpc

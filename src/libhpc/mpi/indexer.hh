@@ -24,63 +24,74 @@
 #include "libhpc/mpi/comm.hh"
 #include "libhpc/system/cc_version.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-template <class IndexT> class indexer : public async::event_handler {
+template <class IndexT>
+class indexer : public async::event_handler
+{
 public:
-  typedef IndexT index_type;
+    typedef IndexT index_type;
 
 public:
-  indexer(int tag, mpi::comm const &comm = mpi::comm::world)
-      : async::event_handler(tag),
+    indexer(int tag, mpi::comm const& comm = mpi::comm::world)
+        : async::event_handler(tag)
+        ,
 #ifdef CXX_0X
-        _base{0},
+        _base{0}
+        ,
 #endif
-        _comm(&comm) {
+        _comm(&comm)
+    {
 #ifndef CXX_0X
-    _base = 0;
+        _base = 0;
 #endif
-  }
-
-  void set_comm(mpi::comm const &comm) { _comm = &comm; }
-
-  mpi::comm const &comm() const { return *_comm; }
-
-  index_type request(index_type const &size) {
-    LOGBLOCKD("Indexer requesting indices: ", size);
-    index_type base;
-    if (_comm->size() > 1) {
-      _comm->send(size, 0, tag());
-      _comm->recv(base, 0, tag());
-    } else {
-      base = _base;
-      _base += size;
     }
-    LOGDLN("Received index base: ", base);
-    return base;
-  }
 
-  bool event(MPI_Status const &stat) {
-    ASSERT(_comm->rank() == 0, "Must be master to handle indexer events.");
-    ASSERT(_comm->size() > 1,
-           "Must be running in parallel to handle indexer events.");
+    void set_comm(mpi::comm const& comm) { _comm = &comm; }
 
-    LOGBLOCKD("Have an incoming index request from: ", stat.MPI_SOURCE);
-    index_type size;
-    _comm->recv(size, stat.MPI_SOURCE, tag());
-    LOGDLN("Requested indices: ", size);
-    _comm->send(_base, stat.MPI_SOURCE, tag());
-    _base += size;
+    mpi::comm const& comm() const { return *_comm; }
 
-    return false;
-  }
+    index_type request(index_type const& size)
+    {
+        LOGBLOCKD("Indexer requesting indices: ", size);
+        index_type base;
+        if (_comm->size() > 1)
+        {
+            _comm->send(size, 0, tag());
+            _comm->recv(base, 0, tag());
+        }
+        else
+        {
+            base = _base;
+            _base += size;
+        }
+        LOGDLN("Received index base: ", base);
+        return base;
+    }
 
-  index_type const &base() const { return _base; }
+    bool event(MPI_Status const& stat)
+    {
+        ASSERT(_comm->rank() == 0, "Must be master to handle indexer events.");
+        ASSERT(_comm->size() > 1, "Must be running in parallel to handle indexer events.");
+
+        LOGBLOCKD("Have an incoming index request from: ", stat.MPI_SOURCE);
+        index_type size;
+        _comm->recv(size, stat.MPI_SOURCE, tag());
+        LOGDLN("Requested indices: ", size);
+        _comm->send(_base, stat.MPI_SOURCE, tag());
+        _base += size;
+
+        return false;
+    }
+
+    index_type const& base() const { return _base; }
 
 protected:
-  index_type _base;
-  mpi::comm const *_comm;
+    index_type _base;
+    mpi::comm const* _comm;
 };
 
 } // namespace mpi

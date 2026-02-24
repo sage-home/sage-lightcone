@@ -18,7 +18,8 @@
 #include "tmpfile.hh"
 #include <stdio.h>
 
-namespace hpc {
+namespace hpc
+{
 
 tmpfile::tmpfile() { _gen_path(); }
 
@@ -26,21 +27,24 @@ tmpfile::tmpfile(std::ios_base::openmode mode) { _gen_path(); }
 
 tmpfile::~tmpfile() { close(); }
 
-void tmpfile::close() {
-  if (!_path.empty() && fs::exists(_path))
-    fs::remove(_path);
+void tmpfile::close()
+{
+    if (!_path.empty() && fs::exists(_path))
+        fs::remove(_path);
 }
 
-fs::path const &tmpfile::filename() const { return _path; }
+fs::path const& tmpfile::filename() const { return _path; }
 
-fs::path const &tmpfile::_gen_path() {
-  char tmp[] = "/tmp/tmpfileXXXXXX";
-  int fd = mkstemp(tmp);
-  if (fd != -1) {
-    ::close(fd);
-  }
-  _path = tmp;
-  return _path;
+fs::path const& tmpfile::_gen_path()
+{
+    char tmp[] = "/tmp/tmpfileXXXXXX";
+    int fd = mkstemp(tmp);
+    if (fd != -1)
+    {
+        ::close(fd);
+    }
+    _path = tmp;
+    return _path;
 }
 
 } // namespace hpc

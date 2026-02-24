@@ -24,57 +24,67 @@
 #include "libhpc/system/math.hh"
 #include <string>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-std::string rank_string(mpi::comm const &comm = mpi::comm::world,
-                        unsigned width = 5);
+std::string rank_string(mpi::comm const& comm = mpi::comm::world, unsigned width = 5);
 
 template <class T>
-hpc::array<T, 2> modulo(T size, mpi::comm const &comm = mpi::comm::world) {
-  return hpc::modulo<T>(size, comm.rank(), comm.size());
+hpc::array<T, 2> modulo(T size, mpi::comm const& comm = mpi::comm::world)
+{
+    return hpc::modulo<T>(size, comm.rank(), comm.size());
 }
 
 template <class T>
-hpc::array<T, 2> moduloChunk(T size, mpi::comm const &comm = mpi::comm::world) {
-  return hpc::modulo<T>(size, comm.rank() * nchunks() + chunk(),
-                        comm.size() * nchunks());
+hpc::array<T, 2> moduloChunk(T size, mpi::comm const& comm = mpi::comm::world)
+{
+    return hpc::modulo<T>(size, comm.rank() * nchunks() + chunk(), comm.size() * nchunks());
 }
 
 template <class T>
-T balanced_local_sizeg(T gsize, mpi::comm const &comm = mpi::comm::world) {
-  return gsize / comm.size() + ((comm.rank() < (gsize % comm.size())) ? 1 : 0);
+T balanced_local_sizeg(T gsize, mpi::comm const& comm = mpi::comm::world)
+{
+    return gsize / comm.size() + ((comm.rank() < (gsize % comm.size())) ? 1 : 0);
 }
 
 template <class T>
-T balanced_local_size(T lsize, mpi::comm const &comm = mpi::comm::world) {
-  return balanced_local_sizeg<T>(comm.all_reduce(lsize), comm);
+T balanced_local_size(T lsize, mpi::comm const& comm = mpi::comm::world)
+{
+    return balanced_local_sizeg<T>(comm.all_reduce(lsize), comm);
 }
 
 template <class T>
-T balanced_left_size(T lsize, mpi::comm const &comm = mpi::comm::world) {
-  T gsize = comm.all_reduce(lsize);
-  if (comm.size() > 1 && comm.size() & 1) {
-    T base = gsize / comm.size();
-    T rem = gsize % comm.size();
-    T size = base * (comm.size() / 2 + 1);
-    T extra = std::min<T>(comm.size() / 2 + 1, rem);
-    return size + extra;
-  } else
-    return gsize / 2 + (gsize & 1);
+T balanced_left_size(T lsize, mpi::comm const& comm = mpi::comm::world)
+{
+    T gsize = comm.all_reduce(lsize);
+    if (comm.size() > 1 && comm.size() & 1)
+    {
+        T base = gsize / comm.size();
+        T rem = gsize % comm.size();
+        T size = base * (comm.size() / 2 + 1);
+        T extra = std::min<T>(comm.size() / 2 + 1, rem);
+        return size + extra;
+    }
+    else
+        return gsize / 2 + (gsize & 1);
 }
 
 template <class T>
-T balanced_right_size(T lsize, mpi::comm const &comm = mpi::comm::world) {
-  return comm.all_reduce(lsize) - balanced_left_size(lsize, comm);
+T balanced_right_size(T lsize, mpi::comm const& comm = mpi::comm::world)
+{
+    return comm.all_reduce(lsize) - balanced_left_size(lsize, comm);
 }
 
-template <class T> int balanced_locate_rank(T n_gelems, int n_ranks, T idx) {
-  T upp = n_gelems / n_ranks, rem = n_gelems % n_ranks;
-  if (idx < rem * (upp + 1))
-    return idx / (upp + 1);
-  else
-    return rem + (idx - rem * (upp + 1)) / upp;
+template <class T>
+int balanced_locate_rank(T n_gelems, int n_ranks, T idx)
+{
+    T upp = n_gelems / n_ranks, rem = n_gelems % n_ranks;
+    if (idx < rem * (upp + 1))
+        return idx / (upp + 1);
+    else
+        return rem + (idx - rem * (upp + 1)) / upp;
 }
 
 } // namespace mpi

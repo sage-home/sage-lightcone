@@ -19,7 +19,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-namespace hpc {
+namespace hpc
+{
 
 long get_process_id() { return getpid(); }
 

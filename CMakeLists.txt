@@ -40,13 +40,15 @@ set( CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/runtime" )
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Set default compilers (must come before project line)
-# For GCC build
-set(CMAKE_C_COMPILER   "gcc")
-set(CMAKE_CXX_COMPILER "g++")
+# Use CACHE without FORCE so that -DCMAKE_C_COMPILER=mpicc on the command line
+# (or in CMAKE_EXTRA_FLAGS) takes precedence over these defaults.
+# A plain set() before project() would shadow the cache and override -D flags.
+set(CMAKE_C_COMPILER   "gcc" CACHE STRING "C compiler")
+set(CMAKE_CXX_COMPILER "g++" CACHE STRING "CXX compiler")
 
 # For Clang build
-#set(CMAKE_C_COMPILER   "clang")
-#set(CMAKE_CXX_COMPILER "clang++")
+#set(CMAKE_C_COMPILER   "clang" CACHE STRING "C compiler")
+#set(CMAKE_CXX_COMPILER "clang++" CACHE STRING "CXX compiler")
 
 # Compiler flags - separate C and C++ flags
 # Note: -march=native and -mtune=native can cause issues on Apple Silicon
@@ -106,7 +108,16 @@ add_definitions(-DBACKEND_KDTREE)
 # Currently progress intermittently waits forever for some threads to join due to broken MPI passing being broken
 # TODO: Fixme
 add_definitions("-DNO_PROGRESS")
-add_definitions("-DPARALLELHDF5")
+if(USE_MPI)
+    add_definitions("-DPARALLELHDF5")
+    add_definitions("-DUSE_MPI")
+endif()
+# When building without MPI but against parallel HDF5 headers (which include mpi.h),
+# mpi_stub.hh needs this define so it pulls in the real mpi.h before defining stubs,
+# preventing typedef redefinition conflicts.
+if(USE_PARALLEL_HDF5_IN_SERIAL)
+    add_definitions("-DUSE_PARALLEL_HDF5_IN_SERIAL")
+endif()
 
 # Set no checkpoint for now as it is broken in testing
 # TODO: Fixme

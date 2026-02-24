@@ -24,41 +24,47 @@
 
 #ifndef NLOG
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
 ///
 ///
 ///
-class stack {
+class stack
+{
 public:
-  typedef std::list<boost::shared_ptr<logger>>::iterator iterator;
+    typedef std::list<boost::shared_ptr<logger>>::iterator iterator;
 
 public:
-  stack();
+    stack();
 
-  ~stack();
+    ~stack();
 
-  void push(logger *log);
+    void push(logger* log);
 
-  void pop();
+    void pop();
 
-  void clear();
+    void clear();
 
-  iterator begin();
+    iterator begin();
 
-  iterator end();
+    iterator end();
 
-  template <class T> stack &operator<<(const T &obj) {
-    for (iterator it = _logs.begin(); it != _logs.end(); ++it) {
-      boost::shared_ptr<logger> &log = *it;
-      *log << obj;
+    template <class T>
+    stack& operator<<(const T& obj)
+    {
+        for (iterator it = _logs.begin(); it != _logs.end(); ++it)
+        {
+            boost::shared_ptr<logger>& log = *it;
+            *log << obj;
+        }
+        return *this;
     }
-    return *this;
-  }
 
 protected:
-  std::list<boost::shared_ptr<logger>> _logs;
+    std::list<boost::shared_ptr<logger>> _logs;
 };
 } // namespace log
 } // namespace hpc

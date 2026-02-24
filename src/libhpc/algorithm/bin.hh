@@ -20,14 +20,17 @@
 
 #include <algorithm>
 
-namespace hpc {
-namespace algorithm {
+namespace hpc
+{
+namespace algorithm
+{
 
 template <class InputIterator>
-unsigned bin(const InputIterator &start, const InputIterator &finish,
-             typename InputIterator::value_type value) {
-  auto it = std::lower_bound(start, finish, value);
-  return it - start;
+unsigned bin(const InputIterator& start, const InputIterator& finish,
+             typename InputIterator::value_type value)
+{
+    auto it = std::lower_bound(start, finish, value);
+    return it - start;
 }
 
 } // namespace algorithm

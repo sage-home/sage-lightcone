@@ -29,32 +29,36 @@
 // #include <mutex>
 #include "libhpc/logging/file.hh"
 
-namespace hpc {
-namespace log {
-namespace thread {
+namespace hpc
+{
+namespace log
+{
+namespace thread
+{
 
 ///
 ///
 ///
-class file : public log::file {
+class file : public log::file
+{
 public:
-  file(std::string const &filename, unsigned min_level = 0);
+    file(std::string const& filename, unsigned min_level = 0);
 
-  virtual ~file();
+    virtual ~file();
 
-  virtual void open();
+    virtual void open();
 
-  virtual void write();
-
-protected:
-  void _open_file();
-
-  void _close_file();
+    virtual void write();
 
 protected:
-  boost::mutex _write;
-  std::set<boost::thread::id> _tids;
-  std::string _base;
+    void _open_file();
+
+    void _close_file();
+
+protected:
+    boost::mutex _write;
+    std::set<boost::thread::id> _tids;
+    std::string _base;
 };
 
 } // namespace thread

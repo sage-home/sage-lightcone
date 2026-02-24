@@ -19,8 +19,10 @@
 
 #if !(defined(MPICH) || defined(MPICH2))
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
 MPI_Datatype _type_map[11];
 }

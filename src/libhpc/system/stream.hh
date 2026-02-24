@@ -35,118 +35,139 @@
 #include <thrust/host_vector.h>
 #endif
 
-namespace hpc {
+namespace hpc
+{
 
-struct setindent_t {
-  int indent;
+struct setindent_t
+{
+    int indent;
 };
 
 setindent_t setindent(int indent);
 
-std::ostream &operator<<(std::ostream &strm, setindent_t si);
+std::ostream& operator<<(std::ostream& strm, setindent_t si);
 
-std::ostream &indent(std::ostream &strm);
+std::ostream& indent(std::ostream& strm);
 
 } // namespace hpc
 
-namespace std {
+namespace std
+{
 
 template <class T, class U>
-std::ostream &operator<<(std::ostream &strm, std::pair<T, U> const &obj) {
-  strm << "(" << obj.first << "," << obj.second << ")";
-  return strm;
+std::ostream& operator<<(std::ostream& strm, std::pair<T, U> const& obj)
+{
+    strm << "(" << obj.first << "," << obj.second << ")";
+    return strm;
 }
 
 template <class T>
-std::ostream &operator<<(std::ostream &strm, std::vector<T> const &obj) {
-  strm << "[";
-  if (!obj.empty()) {
-    typename std::vector<T>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end()) {
-      strm << ", " << *it++;
+std::ostream& operator<<(std::ostream& strm, std::vector<T> const& obj)
+{
+    strm << "[";
+    if (!obj.empty())
+    {
+        typename std::vector<T>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+        {
+            strm << ", " << *it++;
+        }
     }
-  }
-  strm << "]";
-  return strm;
+    strm << "]";
+    return strm;
 }
 
 template <class T>
-std::ostream &operator<<(std::ostream &strm, std::set<T> const &obj) {
-  strm << "{";
-  if (!obj.empty()) {
-    typename std::set<T>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end()) {
-      strm << ", " << *it++;
+std::ostream& operator<<(std::ostream& strm, std::set<T> const& obj)
+{
+    strm << "{";
+    if (!obj.empty())
+    {
+        typename std::set<T>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+        {
+            strm << ", " << *it++;
+        }
     }
-  }
-  strm << "}";
-  return strm;
+    strm << "}";
+    return strm;
 }
 
 template <class Tk, class Tv>
-std::ostream &operator<<(std::ostream &strm, std::map<Tk, Tv> const &obj) {
-  strm << "{";
-  if (!obj.empty()) {
-    typename std::map<Tk, Tv>::const_iterator it = obj.begin();
-    strm << it->first << ": " << it->second;
-    ++it;
-    while (it != obj.end()) {
-      strm << ", " << it->first << ": " << it->second;
-      ++it;
+std::ostream& operator<<(std::ostream& strm, std::map<Tk, Tv> const& obj)
+{
+    strm << "{";
+    if (!obj.empty())
+    {
+        typename std::map<Tk, Tv>::const_iterator it = obj.begin();
+        strm << it->first << ": " << it->second;
+        ++it;
+        while (it != obj.end())
+        {
+            strm << ", " << it->first << ": " << it->second;
+            ++it;
+        }
     }
-  }
-  strm << "}";
-  return strm;
+    strm << "}";
+    return strm;
 }
 
 template <class T>
-std::ostream &operator<<(std::ostream &strm, std::list<T> const &obj) {
-  strm << "[";
-  if (!obj.empty()) {
-    typename std::list<T>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end()) {
-      strm << ", " << *it++;
+std::ostream& operator<<(std::ostream& strm, std::list<T> const& obj)
+{
+    strm << "[";
+    if (!obj.empty())
+    {
+        typename std::list<T>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+        {
+            strm << ", " << *it++;
+        }
     }
-  }
-  strm << "]";
-  return strm;
+    strm << "]";
+    return strm;
 }
 
 #ifdef CXX_0X
 
 template <class T, size_t N>
-std::ostream &operator<<(std::ostream &strm, std::array<T, N> const &obj) {
-  strm << "(";
-  if (N) {
-    typename std::array<T, N>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end())
-      strm << ", " << *it++;
-  }
-  strm << ")";
-  return strm;
+std::ostream& operator<<(std::ostream& strm, std::array<T, N> const& obj)
+{
+    strm << "(";
+    if (N)
+    {
+        typename std::array<T, N>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+            strm << ", " << *it++;
+    }
+    strm << ")";
+    return strm;
 }
 
 #endif
 
 } // namespace std
 
-namespace boost {
+namespace boost
+{
 
 template <class T, size_t N>
-std::ostream &operator<<(std::ostream &strm, boost::array<T, N> const &obj) {
-  strm << "(";
-  if (N) {
-    typename boost::array<T, N>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end())
-      strm << ", " << *it++;
-  }
-  strm << ")";
-  return strm;
+std::ostream& operator<<(std::ostream& strm, boost::array<T, N> const& obj)
+{
+    strm << "(";
+    if (N)
+    {
+        typename boost::array<T, N>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+            strm << ", " << *it++;
+    }
+    strm << ")";
+    return strm;
 }
 
 } // namespace boost
@@ -191,21 +212,24 @@ std::ostream &operator<<(std::ostream &strm, boost::array<T, N> const &obj) {
 
 #ifdef USE_THRUST
 
-namespace thrust {
+namespace thrust
+{
 
 template <class T>
-std::ostream &operator<<(std::ostream &strm,
-                         thrust::host_vector<T> const &obj) {
-  strm << "[";
-  if (!obj.empty()) {
-    typename thrust::host_vector<T>::const_iterator it = obj.begin();
-    strm << *it++;
-    while (it != obj.end()) {
-      strm << ", " << *it++;
+std::ostream& operator<<(std::ostream& strm, thrust::host_vector<T> const& obj)
+{
+    strm << "[";
+    if (!obj.empty())
+    {
+        typename thrust::host_vector<T>::const_iterator it = obj.begin();
+        strm << *it++;
+        while (it != obj.end())
+        {
+            strm << ", " << *it++;
+        }
     }
-  }
-  strm << "]";
-  return strm;
+    strm << "]";
+    return strm;
 }
 
 } // namespace thrust
@@ -214,17 +238,19 @@ std::ostream &operator<<(std::ostream &strm,
 
 #ifdef __CUDACC__
 
-inline std::ostream &operator<<(std::ostream &strm, uint3 const &obj) {
-  return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ")";
+inline std::ostream& operator<<(std::ostream& strm, uint3 const& obj)
+{
+    return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ")";
 }
 
-inline std::ostream &operator<<(std::ostream &strm, double3 const &obj) {
-  return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ")";
+inline std::ostream& operator<<(std::ostream& strm, double3 const& obj)
+{
+    return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ")";
 }
 
-inline std::ostream &operator<<(std::ostream &strm, double4 const &obj) {
-  return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ", " << obj.w
-              << ")";
+inline std::ostream& operator<<(std::ostream& strm, double4 const& obj)
+{
+    return strm << "(" << obj.x << ", " << obj.y << ", " << obj.z << ", " << obj.w << ")";
 }
 
 #endif

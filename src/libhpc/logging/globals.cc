@@ -20,25 +20,29 @@
 #include "globals.hh"
 #include "instrument.hh"
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
 stack _stack;
 
-void push(logger *log) { _stack.push(log); }
+void push(logger* log) { _stack.push(log); }
 
 void pop() { _stack.pop(); }
 
 void clear() { _stack.clear(); }
 
-void push_tag(const std::string &tag) {
-  for (stack::iterator it = _stack.begin(); it != _stack.end(); ++it)
-    (*it)->push_tag(tag);
+void push_tag(const std::string& tag)
+{
+    for (stack::iterator it = _stack.begin(); it != _stack.end(); ++it)
+        (*it)->push_tag(tag);
 }
 
-void pop_tag(const std::string &tag) {
-  for (stack::iterator it = _stack.begin(); it != _stack.end(); ++it)
-    (*it)->pop_tag(tag);
+void pop_tag(const std::string& tag)
+{
+    for (stack::iterator it = _stack.begin(); it != _stack.end(); ++it)
+        (*it)->pop_tag(tag);
 }
 
 } // namespace log
@@ -48,8 +52,10 @@ void pop_tag(const std::string &tag) {
 
 #ifndef NINSTRUMENTATION
 
-namespace hpc {
-namespace logging {
+namespace hpc
+{
+namespace logging
+{
 
 // instrument instr;
 }

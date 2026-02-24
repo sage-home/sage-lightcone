@@ -22,19 +22,20 @@
 #include "libhpc/mpi/comm.hh"
 #include "select.hh"
 
-namespace hpc {
+namespace hpc
+{
 
 template <class Iterator>
-typename Iterator::value_type median(Iterator const &start,
-                                     Iterator const &finish,
-                                     mpi::comm const &comm = mpi::comm::world) {
-  typedef typename Iterator::value_type value_type;
+typename Iterator::value_type median(Iterator const& start, Iterator const& finish,
+                                     mpi::comm const& comm = mpi::comm::world)
+{
+    typedef typename Iterator::value_type value_type;
 
-  // Find the position of the median. Use the MPI balanced left
-  // size value. This keeps everything consistant.
-  long pos = mpi::balanced_left_size(std::distance(start, finish));
+    // Find the position of the median. Use the MPI balanced left
+    // size value. This keeps everything consistant.
+    long pos = mpi::balanced_left_size(std::distance(start, finish));
 
-  return select(start, finish, pos, comm);
+    return select(start, finish, pos, comm);
 }
 
 } // namespace hpc

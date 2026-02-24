@@ -23,19 +23,22 @@
 #include "levels.hh"
 #include "logger.hh"
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
 ///
 ///
 ///
-class stdout : public logger {
+class stdout : public logger
+{
 public:
-  stdout(unsigned min_level = 0, const std::string &tag = std::string());
+    stdout(unsigned min_level = 0, const std::string& tag = std::string());
 
-  virtual ~stdout();
+    virtual ~stdout();
 
-  virtual void write();
+    virtual void write();
 };
 } // namespace log
 } // namespace hpc

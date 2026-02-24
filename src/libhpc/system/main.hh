@@ -25,31 +25,37 @@
 #include "application.hh"
 #include "libhpc/debug/assertions.hh"
 
-namespace hpc {
+namespace hpc
+{
 
-extern hpc::application *global_app;
+extern hpc::application* global_app;
 }
 
 ///
 /// Entry point.
 ///
-int main(int argc, char *argv[]) {
-  typedef HPC_APP_CLASS application_type;
+int main(int argc, char* argv[])
+{
+    typedef HPC_APP_CLASS application_type;
 
-  int ec = 0;
-  try {
-    application_type app(argc, argv);
-    hpc::global_app = &app;
-    app();
-  } catch (hpc::silent_terminate &ex) {
-  }
+    int ec = 0;
+    try
+    {
+        application_type app(argc, argv);
+        hpc::global_app = &app;
+        app();
+    }
+    catch (hpc::silent_terminate& ex)
+    {
+    }
 #ifdef NDEBUG
-  catch (hpc::exception &ex) {
-    std::cerr << "\nERROR: " << ex.what() << "\n\n";
-    ++ec;
-  }
+    catch (hpc::exception& ex)
+    {
+        std::cerr << "\nERROR: " << ex.what() << "\n\n";
+        ++ec;
+    }
 #endif
-  return ec;
+    return ec;
 }
 
 #endif
