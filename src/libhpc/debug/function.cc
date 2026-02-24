@@ -25,26 +25,34 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace hpc {
-namespace debug {
+namespace hpc
+{
+namespace debug
+{
 
-void func_details(void *func_addr, const char **file_name, char **func_name) {
-  Dl_info info;
-  if (dladdr(func_addr, &info)) {
-    *file_name = info.dli_fname;
-    if (info.dli_sname) {
-      int status;
-      char *demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
-      if (status == 0 && demangled)
-        *func_name = demangled;
-      else
-        *func_name = strdup(info.dli_sname);
-    } else
-      *func_name = NULL;
-  } else {
-    *file_name = NULL;
-    *func_name = NULL;
-  }
+void func_details(void* func_addr, const char** file_name, char** func_name)
+{
+    Dl_info info;
+    if (dladdr(func_addr, &info))
+    {
+        *file_name = info.dli_fname;
+        if (info.dli_sname)
+        {
+            int status;
+            char* demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+            if (status == 0 && demangled)
+                *func_name = demangled;
+            else
+                *func_name = strdup(info.dli_sname);
+        }
+        else
+            *func_name = NULL;
+    }
+    else
+    {
+        *file_name = NULL;
+        *func_name = NULL;
+    }
 }
 } // namespace debug
 } // namespace hpc

@@ -29,109 +29,125 @@
 #define O_CLOEXEC 0
 #endif
 
-namespace hpc {
-namespace os {
+namespace hpc
+{
+namespace os
+{
 
-template <class S, class T> ssize_t read(S &strm, po2_ring_buffer<T> &buf) {
-  typename hpc::view<std::vector<T>> chunk = buf.first_vacant_chunk();
-  ssize_t size = strm.read((char *)chunk.data(), chunk.size() * sizeof(T));
-  if (size > 0) {
-    ASSERT(size % sizeof(T) == 0);
-    size /= sizeof(T);
-    if (size == chunk.size()) {
-      chunk = buf.second_vacant_chunk();
-      if (chunk.size()) {
-        ssize_t size2 =
-            strm.read((char *)chunk.data(), chunk.size() * sizeof(T));
-        ASSERT(size2 % sizeof(T) == 0);
-        size2 /= sizeof(T);
-        size += size2;
-      }
+template <class S, class T>
+ssize_t read(S& strm, po2_ring_buffer<T>& buf)
+{
+    typename hpc::view<std::vector<T>> chunk = buf.first_vacant_chunk();
+    ssize_t size = strm.read((char*)chunk.data(), chunk.size() * sizeof(T));
+    if (size > 0)
+    {
+        ASSERT(size % sizeof(T) == 0);
+        size /= sizeof(T);
+        if (size == chunk.size())
+        {
+            chunk = buf.second_vacant_chunk();
+            if (chunk.size())
+            {
+                ssize_t size2 = strm.read((char*)chunk.data(), chunk.size() * sizeof(T));
+                ASSERT(size2 % sizeof(T) == 0);
+                size2 /= sizeof(T);
+                size += size2;
+            }
+        }
+        buf.extend(size);
     }
-    buf.extend(size);
-  }
-  return size;
+    return size;
 }
 
-template <class S> ssize_t write(S &strm, std::string const &buf) {
-  return strm.write(buf.data(), buf.size());
+template <class S>
+ssize_t write(S& strm, std::string const& buf)
+{
+    return strm.write(buf.data(), buf.size());
 }
 
-template <class S> ssize_t write(S &strm, void const *buf, size_t size) {
-  return strm.write(buf, size);
+template <class S>
+ssize_t write(S& strm, void const* buf, size_t size)
+{
+    return strm.write(buf, size);
 }
 
-class file_descriptor {
+class file_descriptor
+{
 public:
-  enum flags_type {
-    NONE = 0,
-    READ_ONLY = O_RDONLY,
-    WRITE_ONLY = O_WRONLY,
-    READ_WRITE = O_RDWR,
-    NONBLOCKING = O_NONBLOCK,
-    ASYNCHRONOUS = O_ASYNC,
-    CLOEXEC = O_CLOEXEC
-  };
+    enum flags_type
+    {
+        NONE = 0,
+        READ_ONLY = O_RDONLY,
+        WRITE_ONLY = O_WRONLY,
+        READ_WRITE = O_RDWR,
+        NONBLOCKING = O_NONBLOCK,
+        ASYNCHRONOUS = O_ASYNC,
+        CLOEXEC = O_CLOEXEC
+    };
 
 public:
-  explicit file_descriptor(int fd = -1);
+    explicit file_descriptor(int fd = -1);
 
-  file_descriptor(fs::path const &pathname, file_descriptor::flags_type flags =
-                                                file_descriptor::READ_ONLY);
+    file_descriptor(fs::path const& pathname,
+                    file_descriptor::flags_type flags = file_descriptor::READ_ONLY);
 
-  file_descriptor(file_descriptor &&src) noexcept;
+    file_descriptor(file_descriptor&& src) noexcept;
 
-  file_descriptor(file_descriptor const &src) = delete;
+    file_descriptor(file_descriptor const& src) = delete;
 
-  ~file_descriptor();
+    ~file_descriptor();
 
-  void set_fd(int fd);
+    void set_fd(int fd);
 
-  void open(fs::path const &pathname,
-            file_descriptor::flags_type flags = file_descriptor::READ_ONLY);
+    void open(fs::path const& pathname,
+              file_descriptor::flags_type flags = file_descriptor::READ_ONLY);
 
-  void close();
+    void close();
 
-  void release();
+    void release();
 
-  void add_flags(file_descriptor::flags_type flags);
+    void add_flags(file_descriptor::flags_type flags);
 
-  int fd() const;
+    int fd() const;
 
-  ssize_t write(void const *buf, size_t size) const;
+    ssize_t write(void const* buf, size_t size) const;
 
-  ssize_t write(std::string const &buf);
+    ssize_t write(std::string const& buf);
 
-  ssize_t write(std::vector<char> const &buf);
+    ssize_t write(std::vector<char> const& buf);
 
-  ssize_t read(void *buf, size_t size) const;
+    ssize_t read(void* buf, size_t size) const;
 
-  ssize_t read(std::vector<char> &buf) const;
+    ssize_t read(std::vector<char>& buf) const;
 
-  template <class T> ssize_t read(po2_ring_buffer<T> &buf) {
-    return os::read<file_descriptor, T>(*this, buf);
-  }
+    template <class T>
+    ssize_t read(po2_ring_buffer<T>& buf)
+    {
+        return os::read<file_descriptor, T>(*this, buf);
+    }
 
-  template <class T> ssize_t write(std::vector<T> &buf) const {
-    return write(buf.data(), buf.size() * sizeof(T));
-  }
+    template <class T>
+    ssize_t write(std::vector<T>& buf) const
+    {
+        return write(buf.data(), buf.size() * sizeof(T));
+    }
 
-  bool operator==(const file_descriptor &op) const;
+    bool operator==(const file_descriptor& op) const;
 
-  bool operator<(const file_descriptor &op) const;
+    bool operator<(const file_descriptor& op) const;
 
-  file_descriptor &operator=(file_descriptor &&op) noexcept;
+    file_descriptor& operator=(file_descriptor&& op) noexcept;
 
-  file_descriptor &operator=(file_descriptor const &op) = delete;
+    file_descriptor& operator=(file_descriptor const& op) = delete;
 
 protected:
-  int _fd;
+    int _fd;
 };
 
 inline file_descriptor::flags_type operator|(file_descriptor::flags_type op_a,
-                                             file_descriptor::flags_type op_b) {
-  return file_descriptor::flags_type(static_cast<int>(op_a) |
-                                     static_cast<int>(op_b));
+                                             file_descriptor::flags_type op_b)
+{
+    return file_descriptor::flags_type(static_cast<int>(op_a) | static_cast<int>(op_b));
 }
 
 } // namespace os

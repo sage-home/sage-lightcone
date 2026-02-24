@@ -23,19 +23,22 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <tuple>
 
-namespace hpc {
+namespace hpc
+{
 
 template <class KeyIter, class ValIter>
-void sort_by_key(KeyIter const &key_begin, KeyIter const &key_end,
-                 ValIter const &val_begin, ValIter const &val_end) {
-  std::sort(make_sort_permute_iter(key_begin, val_begin),
-            make_sort_permute_iter(key_end, val_end),
-            sort_permute_iter_compare<KeyIter, ValIter>());
+void sort_by_key(KeyIter const& key_begin, KeyIter const& key_end, ValIter const& val_begin,
+                 ValIter const& val_end)
+{
+    std::sort(make_sort_permute_iter(key_begin, val_begin),
+              make_sort_permute_iter(key_end, val_end),
+              sort_permute_iter_compare<KeyIter, ValIter>());
 }
 
 template <class KeySeq, class ValSeq>
-void sort_by_key(KeySeq &keys, ValSeq &vals) {
-  sort_by_key(keys.begin(), keys.end(), vals.begin(), vals.end());
+void sort_by_key(KeySeq& keys, ValSeq& vals)
+{
+    sort_by_key(keys.begin(), keys.end(), vals.begin(), vals.end());
 }
 
 } // namespace hpc

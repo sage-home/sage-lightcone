@@ -24,14 +24,21 @@
 // #ifndef OMPI_SKIP_MPICXX
 // #define OMPI_SKIP_MPICXX
 // #endif
-#include <mpi.h>
 
-namespace hpc {
-namespace mpi {
+#if defined(USE_MPI) && USE_MPI
+#include <mpi.h>
+#else
+#include "libhpc/mpi/mpi_stub.hh"
+#endif
+
+namespace hpc
+{
+namespace mpi
+{
 
 void initialise();
 
-void initialise(int &argc, char **&argv);
+void initialise(int& argc, char**& argv);
 
 bool start_chunk(int chunk, int nchunks);
 bool finish_chunk(int chunk, int nchunks);

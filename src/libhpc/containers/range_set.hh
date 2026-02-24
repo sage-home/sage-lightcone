@@ -22,61 +22,70 @@
 #include <list>
 #include <set>
 
-namespace hpc {
+namespace hpc
+{
 
-template <class T> class range_set : public std::set<range<T>> {
+template <class T>
+class range_set : public std::set<range<T>>
+{
 public:
-  typedef std::set<range<T>> super_type;
-  typedef range<T> range_type;
-  typedef typename std::set<std::pair<T, T>>::iterator iterator;
+    typedef std::set<range<T>> super_type;
+    typedef range<T> range_type;
+    typedef typename std::set<std::pair<T, T>>::iterator iterator;
 
-  void insert(const range_type &range) {
-    typedef typename super_type::iterator super_iterator;
-    super_iterator low = this->lower_bound(range);
+    void insert(const range_type& range)
+    {
+        typedef typename super_type::iterator super_iterator;
+        super_iterator low = this->lower_bound(range);
 
-    // If the range is missing, add it in.
-    if (low == this->end()) {
-      super_type::insert(range);
-    }
-
-    // If there was some overlap we will need to split it.
-    else if (*low != range) {
-      super_iterator cur = low;
-      super_iterator upp = this->upper_bound(range);
-      std::list<range_type> new_ranges;
-      vector<range_type> split_ranges;
-      while (cur != upp) {
-        cur->split(range, split_ranges);
-
-        // First iteration takes first and second.
-        if (cur == low) {
-          new_ranges.push_back(split_ranges[0]);
-          if (split_ranges.size() > 0)
-            new_ranges.push_back(split_ranges[1]);
+        // If the range is missing, add it in.
+        if (low == this->end())
+        {
+            super_type::insert(range);
         }
 
-        // Middle iterations take second.
-        else
-          new_ranges.push_back(split_ranges[1]);
+        // If there was some overlap we will need to split it.
+        else if (*low != range)
+        {
+            super_iterator cur = low;
+            super_iterator upp = this->upper_bound(range);
+            std::list<range_type> new_ranges;
+            vector<range_type> split_ranges;
+            while (cur != upp)
+            {
+                cur->split(range, split_ranges);
 
-        ++cur;
-      }
+                // First iteration takes first and second.
+                if (cur == low)
+                {
+                    new_ranges.push_back(split_ranges[0]);
+                    if (split_ranges.size() > 0)
+                        new_ranges.push_back(split_ranges[1]);
+                }
 
-      // Push last section on.
-      new_ranges.push_back(split_ranges.back());
+                // Middle iterations take second.
+                else
+                    new_ranges.push_back(split_ranges[1]);
 
-      // Erase existing ranges.
-      this->erase(low, upp);
+                ++cur;
+            }
 
-      // Insert my new ones.
-      this->insert(new_ranges.begin(), new_ranges.end());
+            // Push last section on.
+            new_ranges.push_back(split_ranges.back());
+
+            // Erase existing ranges.
+            this->erase(low, upp);
+
+            // Insert my new ones.
+            this->insert(new_ranges.begin(), new_ranges.end());
+        }
     }
-  }
 
-  template <class Iterator>
-  void insert(Iterator start, const Iterator &finish) {
-    super_type::insert(start, finish);
-  }
+    template <class Iterator>
+    void insert(Iterator start, const Iterator& finish)
+    {
+        super_type::insert(start, finish);
+    }
 };
 } // namespace hpc
 

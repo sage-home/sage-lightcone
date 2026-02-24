@@ -18,29 +18,33 @@
 #ifndef libhpc_algorithm_reorder_hh
 #define libhpc_algorithm_reorder_hh
 
-namespace hpc {
+namespace hpc
+{
 
 template <class DataIter, class OrderIter>
-void reorder(DataIter data_begin, DataIter const &data_end,
-             OrderIter order_begin) {
-  typedef typename std::iterator_traits<DataIter>::value_type value_type;
-  typedef typename std::iterator_traits<OrderIter>::value_type index_type;
-  typedef typename std::iterator_traits<DataIter>::difference_type diff_type;
+void reorder(DataIter data_begin, DataIter const& data_end, OrderIter order_begin)
+{
+    typedef typename std::iterator_traits<DataIter>::value_type value_type;
+    typedef typename std::iterator_traits<OrderIter>::value_type index_type;
+    typedef typename std::iterator_traits<DataIter>::difference_type diff_type;
 
-  diff_type remaining = data_end - 1 - data_begin;
-  for (index_type s = index_type(), d; remaining > 0; ++s) {
-    for (d = order_begin[s]; d > s; d = order_begin[d])
-      ;
-    if (d == s) {
-      --remaining;
-      value_type temp = data_begin[s];
-      while (d = order_begin[d], d != s) {
-        std::swap(temp, data_begin[d]);
-        --remaining;
-      }
-      data_begin[s] = temp;
+    diff_type remaining = data_end - 1 - data_begin;
+    for (index_type s = index_type(), d; remaining > 0; ++s)
+    {
+        for (d = order_begin[s]; d > s; d = order_begin[d])
+            ;
+        if (d == s)
+        {
+            --remaining;
+            value_type temp = data_begin[s];
+            while (d = order_begin[d], d != s)
+            {
+                std::swap(temp, data_begin[d]);
+                --remaining;
+            }
+            data_begin[s] = temp;
+        }
     }
-  }
 }
 
 } // namespace hpc

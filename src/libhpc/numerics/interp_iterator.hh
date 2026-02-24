@@ -24,91 +24,96 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/preprocessor/stringize.hpp>
 
-namespace hpc {
+namespace hpc
+{
 
 template <class Grid0Iterator, class Grid1Iterator = Grid0Iterator,
           class Value = typename Grid0Iterator::value_type>
 class interp_iterator
-    : public boost::iterator_facade<
-          interp_iterator<Grid0Iterator, Grid1Iterator, Value>, Value,
-          boost::forward_traversal_tag, Value, Value> {
-  friend class boost::iterator_core_access;
+    : public boost::iterator_facade<interp_iterator<Grid0Iterator, Grid1Iterator, Value>, Value,
+                                    boost::forward_traversal_tag, Value, Value>
+{
+    friend class boost::iterator_core_access;
 
 public:
-  typedef Grid0Iterator grid0_iterator_type;
-  typedef Grid1Iterator grid1_iterator_type;
-  typedef Value value_type;
+    typedef Grid0Iterator grid0_iterator_type;
+    typedef Grid1Iterator grid1_iterator_type;
+    typedef Value value_type;
 
-  interp_iterator() {}
+    interp_iterator() {}
 
-  explicit interp_iterator(
-      grid0_iterator_type grid0_start, grid0_iterator_type grid0_finish,
-      grid1_iterator_type grid1_start, grid1_iterator_type grid1_finish,
-      value_type epsilon = std::numeric_limits<value_type>::epsilon())
-      : _epsilon(epsilon) {
-    _grid0_start = grid0_start;
-    _grid0_finish = grid0_finish;
-    _grid1_start = grid1_start;
-    _grid1_finish = grid1_finish;
-    _idxs[0] = _idxs[1] = 0;
-    _select();
-  }
-
-  bool done() const {
-    return _grid0_start == _grid0_finish && _grid1_start == _grid1_finish;
-  }
-
-  int side() const { return _side; }
-
-  // TODO: Don't return a pointer!
-  const boost::array<size_t, 2> &indices() const { return _idxs; }
-
-protected:
-  void increment() {
-    if (_side == 0) {
-      ++_grid0_start;
-      ++_idxs[0];
-    } else if (_side == 1) {
-      ++_grid1_start;
-      ++_idxs[1];
-    } else {
-      ++_grid0_start;
-      ++_grid1_start;
-      ++_idxs[0];
-      ++_idxs[1];
+    explicit interp_iterator(grid0_iterator_type grid0_start, grid0_iterator_type grid0_finish,
+                             grid1_iterator_type grid1_start, grid1_iterator_type grid1_finish,
+                             value_type epsilon = std::numeric_limits<value_type>::epsilon())
+        : _epsilon(epsilon)
+    {
+        _grid0_start = grid0_start;
+        _grid0_finish = grid0_finish;
+        _grid1_start = grid1_start;
+        _grid1_finish = grid1_finish;
+        _idxs[0] = _idxs[1] = 0;
+        _select();
     }
-    _select();
-  }
 
-  value_type dereference() const {
-    return (_side == 0) ? *_grid0_start : *_grid1_start;
-  }
+    bool done() const { return _grid0_start == _grid0_finish && _grid1_start == _grid1_finish; }
 
-  bool equal(const interp_iterator &other) const {
-    ASSERT(0);
-    return false;
-  }
+    int side() const { return _side; }
+
+    // TODO: Don't return a pointer!
+    const boost::array<size_t, 2>& indices() const { return _idxs; }
 
 protected:
-  void _select() {
-    if (_grid0_start == _grid0_finish)
-      _side = 1;
-    else if (_grid1_start == _grid1_finish)
-      _side = 0;
-    else if (approx<value_type>(*_grid0_start, *_grid1_start, _epsilon))
-      _side = 2;
-    else if (*_grid0_start < *_grid1_start)
-      _side = 0;
-    else
-      _side = 1;
-  }
+    void increment()
+    {
+        if (_side == 0)
+        {
+            ++_grid0_start;
+            ++_idxs[0];
+        }
+        else if (_side == 1)
+        {
+            ++_grid1_start;
+            ++_idxs[1];
+        }
+        else
+        {
+            ++_grid0_start;
+            ++_grid1_start;
+            ++_idxs[0];
+            ++_idxs[1];
+        }
+        _select();
+    }
+
+    value_type dereference() const { return (_side == 0) ? *_grid0_start : *_grid1_start; }
+
+    bool equal(const interp_iterator& other) const
+    {
+        ASSERT(0);
+        return false;
+    }
 
 protected:
-  int _side;
-  boost::array<size_t, 2> _idxs;
-  grid0_iterator_type _grid0_start, _grid0_finish;
-  grid1_iterator_type _grid1_start, _grid1_finish;
-  value_type _epsilon;
+    void _select()
+    {
+        if (_grid0_start == _grid0_finish)
+            _side = 1;
+        else if (_grid1_start == _grid1_finish)
+            _side = 0;
+        else if (approx<value_type>(*_grid0_start, *_grid1_start, _epsilon))
+            _side = 2;
+        else if (*_grid0_start < *_grid1_start)
+            _side = 0;
+        else
+            _side = 1;
+    }
+
+protected:
+    int _side;
+    boost::array<size_t, 2> _idxs;
+    grid0_iterator_type _grid0_start, _grid0_finish;
+    grid1_iterator_type _grid1_start, _grid1_finish;
+    value_type _epsilon;
 };
 
 template <class Grid0Iterator, class Grid1Iterator,
@@ -116,9 +121,10 @@ template <class Grid0Iterator, class Grid1Iterator,
 interp_iterator<Grid0Iterator, Grid1Iterator, Value>
 make_interp_iterator(Grid0Iterator grid0_start, Grid0Iterator grid0_finish,
                      Grid1Iterator grid1_start, Grid1Iterator grid1_finish,
-                     Value epsilon = std::numeric_limits<Value>::epsilon()) {
-  return interp_iterator<Grid0Iterator, Grid1Iterator, Value>(
-      grid0_start, grid0_finish, grid1_start, grid1_finish, epsilon);
+                     Value epsilon = std::numeric_limits<Value>::epsilon())
+{
+    return interp_iterator<Grid0Iterator, Grid1Iterator, Value>(grid0_start, grid0_finish,
+                                                                grid1_start, grid1_finish, epsilon);
 }
 
 } // namespace hpc

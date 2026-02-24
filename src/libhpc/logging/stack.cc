@@ -19,27 +19,32 @@
 
 #include "stack.hh"
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
 stack::stack() {}
 
 stack::~stack() {}
 
-void stack::push(logger *log) {
-  log->open();
-  _logs.push_back(boost::shared_ptr<logger>(log));
+void stack::push(logger* log)
+{
+    log->open();
+    _logs.push_back(boost::shared_ptr<logger>(log));
 }
 
-void stack::pop() {
-  _logs.back()->close();
-  _logs.pop_back();
+void stack::pop()
+{
+    _logs.back()->close();
+    _logs.pop_back();
 }
 
-void stack::clear() {
-  for (stack::iterator it = _logs.begin(); it != _logs.end(); ++it)
-    (*it)->close();
-  _logs.clear();
+void stack::clear()
+{
+    for (stack::iterator it = _logs.begin(); it != _logs.end(); ++it)
+        (*it)->close();
+    _logs.clear();
 }
 
 stack::iterator stack::begin() { return _logs.begin(); }

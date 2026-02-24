@@ -23,44 +23,46 @@
 #include <list>
 #include <string>
 
-namespace hpc {
+namespace hpc
+{
 
-class multimatch {
+class multimatch
+{
 public:
-  multimatch();
+    multimatch();
 
-  void clear();
+    void clear();
 
-  void add_match(std::string const &str);
+    void add_match(std::string const& str);
 
-  ///
-  /// Note: Expecting matches to be in descending order of
-  ///       length.
-  ///
-  template <class Iterator> void add_matches(Iterator first, Iterator last) {
-    while (first != last)
-      _matches.push_back(*first++);
-  }
+    ///
+    /// Note: Expecting matches to be in descending order of
+    ///       length.
+    ///
+    template <class Iterator>
+    void add_matches(Iterator first, Iterator last)
+    {
+        while (first != last)
+            _matches.push_back(*first++);
+    }
 
-  void compile();
+    void compile();
 
-  boost::optional<size_t> match(std::string const &str,
-                                boost::smatch &match) const;
+    boost::optional<size_t> match(std::string const& str, boost::smatch& match) const;
 
-  boost::optional<size_t> match(std::string const &str) const;
+    boost::optional<size_t> match(std::string const& str) const;
 
-  boost::optional<size_t> search(std::string const &str,
-                                 boost::smatch &match) const;
+    boost::optional<size_t> search(std::string const& str, boost::smatch& match) const;
 
-  boost::optional<size_t> search(std::string const &str) const;
-
-protected:
-  size_t _last_capture(boost::smatch &match) const;
+    boost::optional<size_t> search(std::string const& str) const;
 
 protected:
-  std::list<std::string> _matches;
-  boost::regex _re;
-  bool _ready;
+    size_t _last_capture(boost::smatch& match) const;
+
+protected:
+    std::list<std::string> _matches;
+    boost::regex _re;
+    bool _ready;
 };
 }; // namespace hpc
 

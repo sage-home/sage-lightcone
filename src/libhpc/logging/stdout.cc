@@ -20,17 +20,22 @@
 #include "stdout.hh"
 #include <iostream>
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
-stdout::stdout(unsigned min_level, const std::string &tag)
-    : logger(min_level, tag) {}
+stdout::stdout(unsigned min_level, const std::string& tag)
+    : logger(min_level, tag)
+{
+}
 
 stdout::~stdout() {}
 
-void stdout::write() {
-  std::cout << buffer().str();
-  std::cout.flush();
+void stdout::write()
+{
+    std::cout << buffer().str();
+    std::cout.flush();
 }
 
 } // namespace log

@@ -28,31 +28,35 @@
 #include <sstream>
 #include <typeinfo>
 
-namespace hpc {
-namespace logging {
-namespace omp {
+namespace hpc
+{
+namespace logging
+{
+namespace omp
+{
 
 ///
 ///
 ///
-class file : public logging::file {
+class file : public logging::file
+{
 public:
-  file(const std::string &filename, unsigned min_level = 0);
+    file(const std::string& filename, unsigned min_level = 0);
 
-  virtual ~file();
+    virtual ~file();
 
-  virtual void open();
+    virtual void open();
 
-  virtual void write();
-
-protected:
-  void _open_file();
-
-  void _close_file();
+    virtual void write();
 
 protected:
-  std::set<unsigned> _tids;
-  std::string _base;
+    void _open_file();
+
+    void _close_file();
+
+protected:
+    std::set<unsigned> _tids;
+    std::string _base;
 };
 } // namespace omp
 } // namespace logging

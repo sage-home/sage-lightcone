@@ -4,7 +4,8 @@
 #include "simulation.hh"
 #include <libhpc/system/timer.hh>
 
-namespace tao {
+namespace tao
+{
 
 typedef double real_type;
 

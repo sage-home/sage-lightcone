@@ -20,22 +20,25 @@
 
 #include "libhpc/system/application.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-class application : public hpc::application {
+class application : public hpc::application
+{
 public:
-  application(int argc, char *argv[], std::string const &info = std::string());
+    application(int argc, char* argv[], std::string const& info = std::string());
 
-  virtual ~application();
+    virtual ~application();
 
-  int rank() const;
+    int rank() const;
 
-  int size() const;
+    int size() const;
 
 protected:
-  int _rank;
-  int _size;
+    int _rank;
+    int _size;
 };
 
 } // namespace mpi

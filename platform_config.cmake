@@ -70,33 +70,77 @@ if(APPLE AND NOT SKIP_MACOS_DEP_CHECK)
     # Check 2: Required Homebrew packages
     # --------------------------------------------------------------------------
 
-    # HDF5 with MPI support (critical - must be hdf5-mpi, not plain hdf5)
-    execute_process(
-        COMMAND brew list hdf5-mpi
-        RESULT_VARIABLE HDF5_MPI_RESULT
-        OUTPUT_QUIET
-        ERROR_QUIET
-    )
-    execute_process(
-        COMMAND brew list hdf5
-        RESULT_VARIABLE HDF5_PLAIN_RESULT
-        OUTPUT_QUIET
-        ERROR_QUIET
-    )
-    if(NOT HDF5_MPI_RESULT EQUAL 0)
-        if(HDF5_PLAIN_RESULT EQUAL 0)
-            message(STATUS "  [WRONG] HDF5 found but without MPI support!")
-            message(STATUS "          You have 'hdf5' but need 'hdf5-mpi' for parallel I/O.")
-            list(APPEND MACOS_MISSING_DEPS "hdf5-mpi")
-            set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew uninstall hdf5  # Remove non-MPI version first")
-            set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew install hdf5-mpi  # HDF5 with MPI support (required for parallel I/O)")
+    # Check if we are doing a serial build (USE_MPI != yes)
+    if(NOT "$ENV{USE_MPI}" STREQUAL "yes")
+        message(STATUS "Checking for HDF5 (USE_MPI!=yes)...")
+        execute_process(
+            COMMAND brew list hdf5
+            RESULT_VARIABLE HDF5_PLAIN_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT HDF5_PLAIN_RESULT EQUAL 0)
+             # Check if we have parallel HDF5 installed instead - checking hdf5-mpi
+             execute_process(
+                COMMAND brew list hdf5-mpi
+                RESULT_VARIABLE HDF5_MPI_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+             )
+             if(HDF5_MPI_RESULT EQUAL 0)
+                 message(STATUS "  [OK] HDF5-MPI (parallel HDF5 used as serial)")
+             else()
+                 message(STATUS "  [MISSING] HDF5 (serial or parallel)")
+                 list(APPEND MACOS_MISSING_DEPS "hdf5")
+                 set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew install hdf5 (or hdf5-mpi)")
+             endif()
         else()
-            message(STATUS "  [MISSING] HDF5-MPI")
-            list(APPEND MACOS_MISSING_DEPS "hdf5-mpi")
-            set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew install hdf5-mpi  # HDF5 with MPI support (required for parallel I/O)")
+             message(STATUS "  [OK] HDF5 (serial)")
         endif()
     else()
-        message(STATUS "  [OK] HDF5-MPI (parallel HDF5)")
+        # Default: HDF5 with MPI support (critical - must be hdf5-mpi, not plain hdf5)
+        execute_process(
+            COMMAND brew list hdf5-mpi
+            RESULT_VARIABLE HDF5_MPI_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT HDF5_MPI_RESULT EQUAL 0)
+            # Check if user has serial hdf5 installed instead
+            execute_process(
+                COMMAND brew list hdf5
+                RESULT_VARIABLE HDF5_PLAIN_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )
+            if(HDF5_PLAIN_RESULT EQUAL 0)
+                message(STATUS "  [WRONG] HDF5 found but without MPI support!")
+                message(STATUS "          You have 'hdf5' but need 'hdf5-mpi' for parallel I/O.")
+                list(APPEND MACOS_MISSING_DEPS "hdf5-mpi")
+                set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew uninstall hdf5  # Remove non-MPI version first")
+                set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew install hdf5-mpi  # HDF5 with MPI support (required for parallel I/O)")
+            else()
+                message(STATUS "  [MISSING] HDF5-MPI")
+                list(APPEND MACOS_MISSING_DEPS "hdf5-mpi")
+                set(MACOS_INSTALL_COMMANDS "${MACOS_INSTALL_COMMANDS}\n  brew install hdf5-mpi  # HDF5 with MPI support (required for parallel I/O)")
+            endif()
+        else()
+            message(STATUS "  [OK] HDF5-MPI (parallel HDF5)")
+        endif()
+
+        # Check OpenMPI (usually installed with hdf5-mpi, but good to verify)
+        execute_process(
+            COMMAND brew list open-mpi
+            RESULT_VARIABLE OPENMPI_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )
+        if(NOT OPENMPI_RESULT EQUAL 0)
+             message(STATUS "  [MISSING] OpenMPI")
+             # It's usually a dep of hdf5-mpi, so this might be redundant
+        else()
+             message(STATUS "  [OK] OpenMPI")
+        endif()
     endif()
 
     # OpenMPI

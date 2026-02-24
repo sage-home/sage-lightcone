@@ -21,34 +21,42 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-namespace hpc {
-namespace log {
-namespace thread {
+namespace hpc
+{
+namespace log
+{
+namespace thread
+{
 
-file::file(std::string const &filename, unsigned min_level)
-    : log::file(filename, min_level), _base(filename) {}
+file::file(std::string const& filename, unsigned min_level)
+    : log::file(filename, min_level)
+    , _base(filename)
+{
+}
 
 file::~file() {}
 
-void file::open() {
-  _tids.clear();
-  _get_new_line() = true;
+void file::open()
+{
+    _tids.clear();
+    _get_new_line() = true;
 }
 
-void file::write() {
-  // Open the file right now.
-  boost::thread::id tid = boost::this_thread::get_id();
-  std::stringstream ss;
-  ss << _base << tid;
-  std::string fn = ss.str();
-  _write.lock();
-  if (_tids.insert(tid).second)
-    remove(fn.c_str());
-  _write.unlock();
-  std::ofstream file(fn.c_str(), std::ios::app);
+void file::write()
+{
+    // Open the file right now.
+    boost::thread::id tid = boost::this_thread::get_id();
+    std::stringstream ss;
+    ss << _base << tid;
+    std::string fn = ss.str();
+    _write.lock();
+    if (_tids.insert(tid).second)
+        remove(fn.c_str());
+    _write.unlock();
+    std::ofstream file(fn.c_str(), std::ios::app);
 
-  // Output.
-  file << buffer().str();
+    // Output.
+    file << buffer().str();
 }
 
 void file::_open_file() {}

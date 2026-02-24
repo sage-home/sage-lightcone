@@ -20,35 +20,37 @@
 
 #include "location.hh"
 
-namespace hpc {
-namespace h5 {
+namespace hpc
+{
+namespace h5
+{
 
-class group : public location {
+class group : public location
+{
 public:
-  static void split_groups(const std::string &name,
-                           std::vector<std::string> &groups);
+    static void split_groups(const std::string& name, std::vector<std::string>& groups);
 
-  static void split_groups(const std::string &name, std::string &groups);
+    static void split_groups(const std::string& name, std::string& groups);
 
-  static void create_intermediate(const std::string &name);
+    static void create_intermediate(const std::string& name);
 
-  group();
+    group();
 
-  group(location &loc, const std::string &name);
+    group(location& loc, const std::string& name);
 
-  group(group &&src);
+    group(group&& src);
 
-  ~group();
+    ~group();
 
-  void set_id(hid_t id);
+    void set_id(hid_t id);
 
-  void create(location &loc, const std::string &name);
+    void create(location& loc, const std::string& name);
 
-  void open(location const &loc, std::string const &name);
+    void open(location const& loc, std::string const& name);
 
-  void close();
+    void close();
 
-  hsize_t size() const;
+    hsize_t size() const;
 };
 
 } // namespace h5

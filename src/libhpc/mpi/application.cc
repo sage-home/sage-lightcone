@@ -19,13 +19,16 @@
 #include "comm.hh"
 #include "init.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-application::application(int argc, char *argv[], std::string const &info)
-    : hpc::application(argc, argv, info) {
-  _rank = mpi::comm::world.rank();
-  _size = mpi::comm::world.size();
+application::application(int argc, char* argv[], std::string const& info)
+    : hpc::application(argc, argv, info)
+{
+    _rank = mpi::comm::world.rank();
+    _size = mpi::comm::world.size();
 }
 
 application::~application() {}

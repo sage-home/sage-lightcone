@@ -16,41 +16,46 @@
 // along with libhpc.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "host.hh"
+#include "init.hh" // Replaces <mpi.h> to use stubs when needed
 #include "libhpc/logging.hh"
 #include "libhpc/system/stream.hh"
-#include <mpi.h>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
-std::string get_host() {
-  std::vector<char> name(MPI_MAX_PROCESSOR_NAME);
-  int len;
-  MPI_Get_processor_name(name.data(), &len);
-  name.resize(len);
-  return std::string(name.begin(), name.end());
+std::string get_host()
+{
+    std::vector<char> name(MPI_MAX_PROCESSOR_NAME);
+    int len;
+    MPI_Get_processor_name(name.data(), &len);
+    name.resize(len);
+    return std::string(name.begin(), name.end());
 }
 
-std::set<int> make_host_ranks(mpi::comm const &comm) {
-  LOGBLOCKD("Constructing host ranks.");
+std::set<int> make_host_ranks(mpi::comm const& comm)
+{
+    LOGBLOCKD("Constructing host ranks.");
 
-  // Get the hardware name.
-  std::vector<char> name(MPI_MAX_PROCESSOR_NAME);
-  int len;
-  MPI_Get_processor_name(name.data(), &len);
-  name.resize(len);
-  LOGDLN("Host name: ", std::string(name.begin(), name.end()));
+    // Get the hardware name.
+    std::vector<char> name(MPI_MAX_PROCESSOR_NAME);
+    int len;
+    MPI_Get_processor_name(name.data(), &len);
+    name.resize(len);
+    LOGDLN("Host name: ", std::string(name.begin(), name.end()));
 
-  // Iterate over all ranks for broadcasting.
-  std::set<int> ranks;
-  for (int ii = 0; ii < comm.size(); ++ii) {
-    std::vector<char> rem_name = comm.bcast<char>(name, ii);
-    if (rem_name == name)
-      ranks.insert(ii);
-  }
-  LOGDLN("Ranks: ", ranks);
+    // Iterate over all ranks for broadcasting.
+    std::set<int> ranks;
+    for (int ii = 0; ii < comm.size(); ++ii)
+    {
+        std::vector<char> rem_name = comm.bcast<char>(name, ii);
+        if (rem_name == name)
+            ranks.insert(ii);
+    }
+    LOGDLN("Ranks: ", ranks);
 
-  return ranks;
+    return ranks;
 }
 
 } // namespace mpi

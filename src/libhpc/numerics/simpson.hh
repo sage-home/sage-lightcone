@@ -18,35 +18,37 @@
 #ifndef libhpc_numerics_simpson_hh
 #define libhpc_numerics_simpson_hh
 
-namespace hpc {
-namespace num {
+namespace hpc
+{
+namespace num
+{
 
 template <class Function>
-typename Function::value_type
-simpson(Function func, typename Function::value_type lower,
-        typename Function::value_type upper, unsigned points) {
-  typedef typename Function::value_type value_type;
+typename Function::value_type simpson(Function func, typename Function::value_type lower,
+                                      typename Function::value_type upper, unsigned points)
+{
+    typedef typename Function::value_type value_type;
 
-  ASSERT(upper >= lower);
-  ASSERT(points > 1);
+    ASSERT(upper >= lower);
+    ASSERT(points > 1);
 
-  value_type width = upper - lower;
-  value_type dx = width / (value_type)(points - 1);
+    value_type width = upper - lower;
+    value_type dx = width / (value_type)(points - 1);
 
-  value_type part = 0.0;
-  for (unsigned ii = 1; ii < points - 1; ii += 2)
-    part += func(lower + ((value_type)ii) * dx);
-  value_type sum = 4.0 * part;
+    value_type part = 0.0;
+    for (unsigned ii = 1; ii < points - 1; ii += 2)
+        part += func(lower + ((value_type)ii) * dx);
+    value_type sum = 4.0 * part;
 
-  part = 0.0;
-  for (unsigned ii = 2; ii < points - 1; ii += 2)
-    part += func(lower + ((value_type)ii) * dx);
-  sum += 2.0 * part;
+    part = 0.0;
+    for (unsigned ii = 2; ii < points - 1; ii += 2)
+        part += func(lower + ((value_type)ii) * dx);
+    sum += 2.0 * part;
 
-  sum += func(lower) + func(upper);
-  sum *= dx / 3.0;
+    sum += func(lower) + func(upper);
+    sum *= dx / 3.0;
 
-  return sum;
+    return sum;
 }
 
 } // namespace num

@@ -22,77 +22,87 @@
 #include <memory>
 #include <vector>
 
-namespace hpc {
-namespace numerics {
+namespace hpc
+{
+namespace numerics
+{
 
-template <class T = double> class histogram_axis {
+template <class T = double>
+class histogram_axis
+{
 public:
-  typedef T value_type;
+    typedef T value_type;
 
 public:
-  histogram_axis() : _rng{0, 0} {}
+    histogram_axis()
+        : _rng{0, 0}
+    {
+    }
 
-  histogram_axis(unsigned nbins, boost::array<value_type, 2> const &rng) {
-    resize(nbins, rng);
-  }
+    histogram_axis(unsigned nbins, boost::array<value_type, 2> const& rng) { resize(nbins, rng); }
 
-  void resize(unsigned nbins, boost::array<value_type, 2> const &rng) {
-    _nbins = nbins;
-    _rng = rng;
-    if (nbins > 0)
-      _edges.resize(nbins - 1);
-    else
-      _edges.resize(0);
-    for (unsigned ii = 0; ii < nbins - 1; ++ii)
-      _edges[ii] = (double)rng[0] +
-                   ((double)(ii + 1)) * ((rng[1] - rng[0]) / (double)nbins);
-  }
+    void resize(unsigned nbins, boost::array<value_type, 2> const& rng)
+    {
+        _nbins = nbins;
+        _rng = rng;
+        if (nbins > 0)
+            _edges.resize(nbins - 1);
+        else
+            _edges.resize(0);
+        for (unsigned ii = 0; ii < nbins - 1; ++ii)
+            _edges[ii] = (double)rng[0] + ((double)(ii + 1)) * ((rng[1] - rng[0]) / (double)nbins);
+    }
 
-  unsigned size() const { return _nbins; }
+    unsigned size() const { return _nbins; }
 
-  unsigned bin(value_type const &x) const {
-    auto lb = std::lower_bound(_edges.begin(), _edges.end(), x);
-    return lb - _edges.begin();
-  }
+    unsigned bin(value_type const& x) const
+    {
+        auto lb = std::lower_bound(_edges.begin(), _edges.end(), x);
+        return lb - _edges.begin();
+    }
 
 protected:
-  unsigned _nbins;
-  boost::array<value_type, 2> _rng;
-  std::vector<value_type> _edges;
+    unsigned _nbins;
+    boost::array<value_type, 2> _rng;
+    std::vector<value_type> _edges;
 };
 
-template <class T = double> class histogram {
+template <class T = double>
+class histogram
+{
 public:
-  typedef T value_type;
-  typedef histogram_axis<value_type> axis_type;
+    typedef T value_type;
+    typedef histogram_axis<value_type> axis_type;
 
 public:
-  histogram() {}
+    histogram() {}
 
-  histogram(unsigned nbins, boost::array<value_type, 2> const &rng) {
-    resize(nbins, rng);
-  }
+    histogram(unsigned nbins, boost::array<value_type, 2> const& rng) { resize(nbins, rng); }
 
-  histogram(std::shared_ptr<axis_type> &axis)
-      : _axis(axis), _bins(axis->size()) {}
+    histogram(std::shared_ptr<axis_type>& axis)
+        : _axis(axis)
+        , _bins(axis->size())
+    {
+    }
 
-  std::shared_ptr<axis_type> &axis() { return _axis; }
+    std::shared_ptr<axis_type>& axis() { return _axis; }
 
-  void resize(unsigned nbins, boost::array<value_type, 2> const &rng) {
-    _axis.reset(new axis_type(nbins, rng));
-    _bins.resize(nbins);
-    reset();
-  }
+    void resize(unsigned nbins, boost::array<value_type, 2> const& rng)
+    {
+        _axis.reset(new axis_type(nbins, rng));
+        _bins.resize(nbins);
+        reset();
+    }
 
-  void reset() { std::fill(_bins.begin(), _bins.end(), 0.0); }
+    void reset() { std::fill(_bins.begin(), _bins.end(), 0.0); }
 
-  void add_sample(value_type x) { ++_bins[_axis->bin(x)]; }
+    void add_sample(value_type x) { ++_bins[_axis->bin(x)]; }
 
-  std::vector<unsigned> const &bins() const { return _bins; }
+    std::vector<unsigned> const& bins() const { return _bins; }
 
 protected:
-  std::shared_ptr<axis_type> _axis;
-  std::vector<unsigned> _bins;
+    std::shared_ptr<axis_type> _axis;
+    std::vector<unsigned> _bins;
 };
 
 } // namespace numerics

@@ -42,7 +42,7 @@ variables:
   # Check if HDF5 is already built (from cache)
   # Check for both library and compiler wrapper to ensure complete installation
   - |
-    if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ] || [ ! -f $HDF5_PREFIX/bin/h5cc ]; then
+    if [ ! -f $HDF5_PREFIX/lib/libhdf5.so ] || [ ! -f $HDF5_PREFIX/bin/h5pcc ]; then
       echo "Building HDF5 ${HDF5_VERSION} from source with MPI support..."
       cd /tmp
       wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz
@@ -80,44 +80,24 @@ build:
     # Check HDF5 configuration
     - h5cc -show || echo "h5cc not found"
     - h5pcc -show || echo "h5pcc not found"
-    - /usr/local/bin/h5dump --version || echo "h5dump not found"
   script:
-    # Set environment variables for MPI compilers and HDF5
-    - export CC=mpicc
-    - export CXX=mpicxx
+    # Set HDF5 environment so build_platform_aware.sh can find it
     - export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
     - export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
     - export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
     - export PATH=$HDF5_ROOT/bin:$PATH
-
-    # Clean up any old CMake cache files
-    - find . -name CMakeCache.txt -exec rm -f {} \;
-
-    # Build PugiXML dependency first
-    - echo "Building PugiXML..."
-    - cd dep/pugixml-1.7/scripts
-    - mkdir -p build
-    - cd build
-    - cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
-    - make -j$MAKE_JOBS
-    - make install
-    - cd ../../../..
-
-    # Build main project
-    - echo "Building main project..."
-    - cmake -B="./bin" -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
-    - cd bin
-    - make clean
-    - make -j$MAKE_JOBS
+    # Set up Python virtual environment (required by setup.sh)
+    - python3 -m venv .venv
+    - source .venv/bin/activate
+    - pip install -r requirements.txt
+    # Build using the platform-aware script with MPI enabled
+    - USE_MPI=yes ./build_platform_aware.sh
   artifacts:
     paths:
       - bin/cli_lightcone
       - bin/sage2kdtree
       - bin/sage2kdtree_four
-      - bin/sage2h5
-      - bin/sageh5toh5
-      - bin/sageimport
-      - bin/dstreeinit
+      - bin/sage
       - bin/*.a
     expire_in: 1 week
   cache:
@@ -127,7 +107,6 @@ build:
       policy: pull-push
     - key: build-cache-$CI_COMMIT_REF_SLUG
       paths:
-        - dep/pugixml-1.7/scripts/build/
         - bin/
       policy: pull-push
 
@@ -145,15 +124,23 @@ test_cli_validation:
       python3 -m venv .venv
       source .venv/bin/activate
       pip install -r requirements.txt
-      ls -la bin/cli_lightcone || { echo "ERROR: cli_lightcone not found in artifacts"; exit 1; }
+      echo "=== Working directory: $(pwd) ==="
+      echo "=== bin/ directory contents: ==="
+      ls -la bin/ 2>&1 || echo "bin/ directory not found"
+      ls -la bin/cli_lightcone || { echo "ERROR: cli_lightcone not found in artifacts or cache"; exit 1; }
       tests/test_cli_validation.sh
   dependencies:
     - build
   cache:
-    key: hdf5-cache
-    paths:
-      - hdf5-install/
-    policy: pull
+    - key: hdf5-cache
+      paths:
+        - hdf5-install/
+      policy: pull
+    # Pull the build cache as a secondary source for bin/ alongside the artifact download
+    - key: build-cache-$CI_COMMIT_REF_SLUG
+      paths:
+        - bin/
+      policy: pull
   only:
     - main
     - merge_requests
@@ -233,16 +220,8 @@ build_release:
     - export PATH=$HDF5_ROOT/bin:$PATH
 
     - find . -name CMakeCache.txt -exec rm -f {} \;
-    - echo "Building PugiXML (Release)..."
-    - cd dep/pugixml-1.7/scripts
-    - mkdir -p build_release
-    - cd build_release
-    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=.. -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx ..
-    - make -j$MAKE_JOBS
-    - make install
-    - cd ../../../..
     - echo "Building main project (Release)..."
-    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DPUGIXML_HOME=./dep/pugixml-1.7 -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
+    - cmake -B="./bin_release" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=mpicc -DCMAKE_CXX_COMPILER=mpicxx -DHDF5_ROOT=$HDF5_ROOT .
     - cd bin_release
     - make clean
     - make -j$MAKE_JOBS

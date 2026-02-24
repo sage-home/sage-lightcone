@@ -18,7 +18,8 @@
 #ifndef libhpc_system_id_hh
 #define libhpc_system_id_hh
 
-namespace hpc {
+namespace hpc
+{
 
 long get_process_id();
 }

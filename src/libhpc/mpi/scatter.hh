@@ -21,54 +21,60 @@
 #include "comm.hh"
 #include "datatype.hh"
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
 class surjection;
 
-class scatter {
+class scatter
+{
 public:
-  scatter();
+    scatter();
 
-  scatter(surjection const &srj, datatype const &type);
+    scatter(surjection const& srj, datatype const& type);
 
-  template <class IdxsT>
-  scatter(unsigned n_gelems, IdxsT const &idxs, datatype const &type,
-          mpi::comm const &comm = mpi::comm::world) {
-    construct(n_gelems, idxs, type, comm);
-  }
+    template <class IdxsT>
+    scatter(unsigned n_gelems, IdxsT const& idxs, datatype const& type,
+            mpi::comm const& comm = mpi::comm::world)
+    {
+        construct(n_gelems, idxs, type, comm);
+    }
 
-  scatter(scatter &&src);
+    scatter(scatter&& src);
 
-  void clear();
+    void clear();
 
-  void construct(surjection const &srj, datatype const &type);
+    void construct(surjection const& srj, datatype const& type);
 
-  template <class IdxsT>
-  void construct(unsigned n_gelems, IdxsT const &idxs, datatype const &type,
-                 mpi::comm const &comm = mpi::comm::world) {
-    // COMMENTED-OUT BY GBP TO PREVENT A BUILD ERROR: variable has incomplete
-    // type 'hpc::mpi::surjection' surjection srj( n_gelems, idxs, comm );
-    // construct( srj, type );
-  }
+    template <class IdxsT>
+    void construct(unsigned n_gelems, IdxsT const& idxs, datatype const& type,
+                   mpi::comm const& comm = mpi::comm::world)
+    {
+        // COMMENTED-OUT BY GBP TO PREVENT A BUILD ERROR: variable has incomplete
+        // type 'hpc::mpi::surjection' surjection srj( n_gelems, idxs, comm );
+        // construct( srj, type );
+    }
 
-  template <class SrcT, class DstT>
-  inline void transfer(SrcT const &src, DstT &&dst) {
-    _transfer<SrcT, DstT>(src, std::forward<DstT>(dst));
-  }
-
-protected:
-  template <class SrcT, class DstT>
-  void _transfer(SrcT const &src, typename type_traits<DstT>::reference dst) {
-    _comm->alltoallw(src.data(), _ones.data(), _zeros.data(), _out_types.data(),
-                     dst.data(), _ones.data(), _zeros.data(),
-                     _inc_types.data());
-  }
+    template <class SrcT, class DstT>
+    inline void transfer(SrcT const& src, DstT&& dst)
+    {
+        _transfer<SrcT, DstT>(src, std::forward<DstT>(dst));
+    }
 
 protected:
-  std::vector<mpi::datatype> _inc_types, _out_types;
-  std::vector<int> _zeros, _ones;
-  mpi::comm const *_comm;
+    template <class SrcT, class DstT>
+    void _transfer(SrcT const& src, typename type_traits<DstT>::reference dst)
+    {
+        _comm->alltoallw(src.data(), _ones.data(), _zeros.data(), _out_types.data(), dst.data(),
+                         _ones.data(), _zeros.data(), _inc_types.data());
+    }
+
+protected:
+    std::vector<mpi::datatype> _inc_types, _out_types;
+    std::vector<int> _zeros, _ones;
+    mpi::comm const* _comm;
 };
 
 } // namespace mpi

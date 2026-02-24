@@ -22,12 +22,14 @@
 #include <set>
 #include <string>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
 std::string get_host();
 
-std::set<int> make_host_ranks(mpi::comm const &comm = mpi::comm::world);
+std::set<int> make_host_ranks(mpi::comm const& comm = mpi::comm::world);
 
 } // namespace mpi
 } // namespace hpc

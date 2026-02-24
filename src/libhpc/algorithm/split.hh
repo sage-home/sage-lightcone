@@ -18,12 +18,15 @@
 #ifndef libhpc_algorithm_farmer_hh
 #define libhpc_algorithm_farmer_hh
 
-namespace hpc {
+namespace hpc
+{
 
-template <class Iter> Iter split(Iter start, Iter const &finish) {
-  while (start != finish && *start != ',')
-    ++start;
-  return start;
+template <class Iter>
+Iter split(Iter start, Iter const& finish)
+{
+    while (start != finish && *start != ',')
+        ++start;
+    return start;
 }
 
 } // namespace hpc

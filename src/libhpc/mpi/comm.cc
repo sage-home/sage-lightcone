@@ -19,158 +19,176 @@
 #include "insist.hh"
 #include <boost/range/algorithm.hpp>
 
-namespace hpc {
-namespace mpi {
+namespace hpc
+{
+namespace mpi
+{
 
 mpi::comm const comm::null(MPI_COMM_NULL);
 mpi::comm const comm::self(MPI_COMM_SELF);
 mpi::comm const comm::world(MPI_COMM_WORLD);
 
-comm::comm(MPI_Comm comm) : _comm(comm) {}
+comm::comm(MPI_Comm comm)
+    : _comm(comm)
+{
+}
 
-comm::comm(mpi::comm const &comm) {
-  if (comm._comm != MPI_COMM_NULL)
-    MPI_INSIST(MPI_Comm_dup(comm._comm, &this->_comm));
-  else
-    this->_comm = MPI_COMM_NULL;
+comm::comm(mpi::comm const& comm)
+{
+    if (comm._comm != MPI_COMM_NULL)
+        MPI_INSIST(MPI_Comm_dup(comm._comm, &this->_comm));
+    else
+        this->_comm = MPI_COMM_NULL;
 }
 
 comm::~comm() { clear(); }
 
-void comm::clear() {
-  if (this->_comm != MPI_COMM_WORLD && this->_comm != MPI_COMM_NULL &&
-      this->_comm != MPI_COMM_SELF) {
-    MPI_INSIST(MPI_Comm_free(&this->_comm));
-    this->_comm = MPI_COMM_NULL;
-  }
+void comm::clear()
+{
+    if (this->_comm != MPI_COMM_WORLD && this->_comm != MPI_COMM_NULL &&
+        this->_comm != MPI_COMM_SELF)
+    {
+        MPI_INSIST(MPI_Comm_free(&this->_comm));
+        this->_comm = MPI_COMM_NULL;
+    }
 }
 
-void comm::mpi_comm(MPI_Comm comm) {
-  this->clear();
-  this->_comm = comm;
+void comm::mpi_comm(MPI_Comm comm)
+{
+    this->clear();
+    this->_comm = comm;
 }
 
-const MPI_Comm &comm::mpi_comm() const { return this->_comm; }
+const MPI_Comm& comm::mpi_comm() const { return this->_comm; }
 
-int comm::rank() const {
-  int rank;
-  MPI_INSIST(MPI_Comm_rank(this->_comm, &rank));
-  return rank;
+int comm::rank() const
+{
+    int rank;
+    MPI_INSIST(MPI_Comm_rank(this->_comm, &rank));
+    return rank;
 }
 
-int comm::size() const {
-  int size;
-  MPI_INSIST(MPI_Comm_size(this->_comm, &size));
-  return size;
+int comm::size() const
+{
+    int size;
+    MPI_INSIST(MPI_Comm_size(this->_comm, &size));
+    return size;
 }
 
-int comm::translate_rank(int rank, const mpi::comm &other) const {
-  MPI_Group my_group, other_group;
-  MPI_INSIST(MPI_Comm_group(this->_comm, &my_group));
-  MPI_INSIST(MPI_Comm_group(other._comm, &other_group));
-  int other_rank;
-  MPI_INSIST(
-      MPI_Group_translate_ranks(my_group, 1, &rank, other_group, &other_rank));
-  MPI_INSIST(MPI_Group_free(&my_group));
-  MPI_INSIST(MPI_Group_free(&other_group));
-  return other_rank;
+int comm::translate_rank(int rank, const mpi::comm& other) const
+{
+    MPI_Group my_group, other_group;
+    MPI_INSIST(MPI_Comm_group(this->_comm, &my_group));
+    MPI_INSIST(MPI_Comm_group(other._comm, &other_group));
+    int other_rank;
+    MPI_INSIST(MPI_Group_translate_ranks(my_group, 1, &rank, other_group, &other_rank));
+    MPI_INSIST(MPI_Group_free(&my_group));
+    MPI_INSIST(MPI_Group_free(&other_group));
+    return other_rank;
 }
 
-mpi::comm comm::create_excl(int rank) const {
-  MPI_Group group, new_group;
-  MPI_INSIST(MPI_Comm_group(this->_comm, &group));
-  MPI_INSIST(MPI_Group_excl(group, 1, &rank, &new_group));
-  MPI_Comm _new_comm;
-  MPI_INSIST(MPI_Comm_create(this->_comm, new_group, &_new_comm));
-  return mpi::comm(_new_comm);
+mpi::comm comm::create_excl(int rank) const
+{
+    MPI_Group group, new_group;
+    MPI_INSIST(MPI_Comm_group(this->_comm, &group));
+    MPI_INSIST(MPI_Group_excl(group, 1, &rank, &new_group));
+    MPI_Comm _new_comm;
+    MPI_INSIST(MPI_Comm_create(this->_comm, new_group, &_new_comm));
+    return mpi::comm(_new_comm);
 }
 
-void comm::create_range_incl(int first, int last, mpi::comm &new_comm) {
-  MPI_Group group, new_group;
-  MPI_INSIST(MPI_Comm_group(this->_comm, &group));
-  int range[3] = {first, last, 1};
-  MPI_INSIST(MPI_Group_range_incl(group, 1, (int (*)[3])range, &new_group));
+void comm::create_range_incl(int first, int last, mpi::comm& new_comm)
+{
+    MPI_Group group, new_group;
+    MPI_INSIST(MPI_Comm_group(this->_comm, &group));
+    int range[3] = {first, last, 1};
+    // clang-format off
+    MPI_INSIST(MPI_Group_range_incl(group, 1, (int (*)[3])range, &new_group));
+    // clang-format on
 
-  // I can free the original comm's group handle now.
-  MPI_INSIST(MPI_Group_free(&group));
+    // I can free the original comm's group handle now.
+    MPI_INSIST(MPI_Group_free(&group));
 
-  MPI_Comm _new_comm;
-  MPI_INSIST(MPI_Comm_create(this->_comm, new_group, &_new_comm));
+    MPI_Comm _new_comm;
+    MPI_INSIST(MPI_Comm_create(this->_comm, new_group, &_new_comm));
 
-  // Free the new group handle.
-  MPI_INSIST(MPI_Group_free(&new_group));
+    // Free the new group handle.
+    MPI_INSIST(MPI_Group_free(&new_group));
 
-  if (_new_comm != MPI_COMM_NULL)
-    new_comm.mpi_comm(_new_comm);
+    if (_new_comm != MPI_COMM_NULL)
+        new_comm.mpi_comm(_new_comm);
 }
 
-mpi::comm comm::split(int color, int key) const {
-  MPI_Comm _new_comm;
-  MPI_Comm_split(_comm, color, key, &_new_comm);
-  return mpi::comm(_new_comm);
+mpi::comm comm::split(int color, int key) const
+{
+    MPI_Comm _new_comm;
+    MPI_Comm_split(_comm, color, key, &_new_comm);
+    return mpi::comm(_new_comm);
 }
 
-void comm::send(const void *out, const datatype &type, int to, int count,
-                int tag) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(
-      MPI_Send((void *)out, count, type.mpi_datatype(), to, tag, this->_comm));
+void comm::send(const void* out, const datatype& type, int to, int count, int tag) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(MPI_Send((void*)out, count, type.mpi_datatype(), to, tag, this->_comm));
 }
 
-void comm::isend(const void *out, const datatype &type, int to, request &req,
-                 int count, int tag) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(MPI_Isend((void *)out, count, type.mpi_datatype(), to, tag,
-                       this->_comm, &req.mod_mpi_request()));
+void comm::isend(const void* out, const datatype& type, int to, request& req, int count,
+                 int tag) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(MPI_Isend((void*)out, count, type.mpi_datatype(), to, tag, this->_comm,
+                         &req.mod_mpi_request()));
 }
 
-void comm::issend(const void *out, const datatype &type, int to, request &req,
-                  int count, int tag) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(MPI_Issend((void *)out, count, type.mpi_datatype(), to, tag,
-                        this->_comm, &req.mod_mpi_request()));
+void comm::issend(const void* out, const datatype& type, int to, request& req, int count,
+                  int tag) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(MPI_Issend((void*)out, count, type.mpi_datatype(), to, tag, this->_comm,
+                          &req.mod_mpi_request()));
 }
 
-void comm::recv(void *inc, const datatype &type, int from, int count,
-                int tag) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(MPI_Recv(inc, count, type.mpi_datatype(), from, tag, this->_comm,
-                      MPI_STATUS_IGNORE));
+void comm::recv(void* inc, const datatype& type, int from, int count, int tag) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(
+        MPI_Recv(inc, count, type.mpi_datatype(), from, tag, this->_comm, MPI_STATUS_IGNORE));
 }
 
-void comm::irecv(void *inc, const datatype &type, int from, request &req,
-                 int count, int tag) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(MPI_Irecv(inc, count, type.mpi_datatype(), from, tag, this->_comm,
-                       &req.mod_mpi_request()));
+void comm::irecv(void* inc, const datatype& type, int from, request& req, int count, int tag) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(
+        MPI_Irecv(inc, count, type.mpi_datatype(), from, tag, this->_comm, &req.mod_mpi_request()));
 }
 
-void comm::sendrecv(void *out_data, int out_cnt, mpi::datatype const &out_type,
-                    int dst, int out_tag, void *inc_data, int inc_cnt,
-                    mpi::datatype const &inc_type, int src, int inc_tag) const {
-  MPI_INSIST(MPI_Sendrecv(out_data, out_cnt, out_type.mpi_datatype(), dst,
-                          out_tag, inc_data, inc_cnt, inc_type.mpi_datatype(),
-                          src, inc_tag, _comm, 0));
+void comm::sendrecv(void* out_data, int out_cnt, mpi::datatype const& out_type, int dst,
+                    int out_tag, void* inc_data, int inc_cnt, mpi::datatype const& inc_type,
+                    int src, int inc_tag) const
+{
+    MPI_INSIST(MPI_Sendrecv(out_data, out_cnt, out_type.mpi_datatype(), dst, out_tag, inc_data,
+                            inc_cnt, inc_type.mpi_datatype(), src, inc_tag, _comm, 0));
 }
 
-void comm::exchange(void *out_data, int out_cnt, mpi::datatype const &out_type,
-                    void *inc_data, int inc_cnt, mpi::datatype const &inc_type,
-                    int partner, int tag) const {
-  sendrecv(out_data, out_cnt, out_type, partner, tag, inc_data, inc_cnt,
-           inc_type, partner, tag);
+void comm::exchange(void* out_data, int out_cnt, mpi::datatype const& out_type, void* inc_data,
+                    int inc_cnt, mpi::datatype const& inc_type, int partner, int tag) const
+{
+    sendrecv(out_data, out_cnt, out_type, partner, tag, inc_data, inc_cnt, inc_type, partner, tag);
 }
 
-void comm::bcast(void *data, const datatype &type, int root, int count) const {
-  ASSERT(count >= 0);
-  MPI_INSIST(MPI_Bcast(data, count, type.mpi_datatype(), root, this->_comm));
+void comm::bcast(void* data, const datatype& type, int root, int count) const
+{
+    ASSERT(count >= 0);
+    MPI_INSIST(MPI_Bcast(data, count, type.mpi_datatype(), root, this->_comm));
 }
 
-void comm::bcast(std::string &str, int root) const {
-  int size = str.size();
-  this->bcast(size, root);
-  if (this->rank() != root)
-    str.resize(size);
-  MPI_INSIST(MPI_Bcast((void *)str.c_str(), size, MPI_CHAR, root, this->_comm));
+void comm::bcast(std::string& str, int root) const
+{
+    int size = str.size();
+    this->bcast(size, root);
+    if (this->rank() != root)
+        str.resize(size);
+    MPI_INSIST(MPI_Bcast((void*)str.c_str(), size, MPI_CHAR, root, this->_comm));
 }
 
 void comm::barrier() const { MPI_INSIST(MPI_Barrier(this->_comm)); }
@@ -193,56 +211,55 @@ void comm::barrier() const { MPI_INSIST(MPI_Barrier(this->_comm)); }
 //    }
 // }
 
-void comm::probe(MPI_Status &stat, int from, int tag) const {
-  int flag;
-  MPI_INSIST(MPI_Probe(from, tag, _comm, &stat));
+void comm::probe(MPI_Status& stat, int from, int tag) const
+{
+    int flag;
+    MPI_INSIST(MPI_Probe(from, tag, _comm, &stat));
 }
 
-bool comm::iprobe(MPI_Status &stat, int from, int tag) const {
-  int flag;
-  MPI_INSIST(MPI_Iprobe(from, tag, this->_comm, &flag, &stat));
-  return flag ? true : false;
+bool comm::iprobe(MPI_Status& stat, int from, int tag) const
+{
+    int flag;
+    MPI_INSIST(MPI_Iprobe(from, tag, this->_comm, &flag, &stat));
+    return flag ? true : false;
 }
 
-bool comm::iprobe(int from, int tag) const {
-  MPI_Status stat;
-  return this->iprobe(stat, from, tag);
+bool comm::iprobe(int from, int tag) const
+{
+    MPI_Status stat;
+    return this->iprobe(stat, from, tag);
 }
 
 void comm::abort(int ec) const { MPI_Abort(_comm, ec); }
 
-void comm::alltoallw(void const *out_data, int const *out_cnts,
-                     int const *out_displs, datatype const *out_types,
-                     void *inc_data, int const *inc_cnts, int const *inc_displs,
-                     datatype const *inc_types) const {
-  MPI_INSIST(MPI_Alltoallw((void *)out_data, (int *)out_cnts, (int *)out_displs,
-                           (MPI_Datatype *)out_types, inc_data, (int *)inc_cnts,
-                           (int *)inc_displs, (MPI_Datatype *)inc_types,
-                           _comm));
+void comm::alltoallw(void const* out_data, int const* out_cnts, int const* out_displs,
+                     datatype const* out_types, void* inc_data, int const* inc_cnts,
+                     int const* inc_displs, datatype const* inc_types) const
+{
+    MPI_INSIST(MPI_Alltoallw((void*)out_data, (int*)out_cnts, (int*)out_displs,
+                             (MPI_Datatype*)out_types, inc_data, (int*)inc_cnts, (int*)inc_displs,
+                             (MPI_Datatype*)inc_types, _comm));
 }
 
-bool comm::operator==(const comm &comm) const {
-  return this->_comm == comm._comm;
-}
+bool comm::operator==(const comm& comm) const { return this->_comm == comm._comm; }
 
 bool comm::operator==(MPI_Comm comm) const { return this->_comm == comm; }
 
-bool comm::operator!=(const comm &comm) const {
-  return this->_comm != comm._comm;
-}
+bool comm::operator!=(const comm& comm) const { return this->_comm != comm._comm; }
 
 bool comm::operator!=(MPI_Comm comm) const { return this->_comm != comm; }
 
-std::ostream &operator<<(std::ostream &strm, mpi::comm const &obj) {
-  if (obj.mpi_comm() == MPI_COMM_WORLD)
-    strm << "MPI_COMM_WORLD";
-  else if (obj.mpi_comm() == MPI_COMM_SELF)
-    strm << "MPI_COMM_SELF";
-  else if (obj.mpi_comm() == MPI_COMM_NULL)
-    strm << "MPI_COMM_NULL";
-  else
-    strm << "custom communicator";
-  return strm;
+std::ostream& operator<<(std::ostream& strm, mpi::comm const& obj)
+{
+    if (obj.mpi_comm() == MPI_COMM_WORLD)
+        strm << "MPI_COMM_WORLD";
+    else if (obj.mpi_comm() == MPI_COMM_SELF)
+        strm << "MPI_COMM_SELF";
+    else if (obj.mpi_comm() == MPI_COMM_NULL)
+        strm << "MPI_COMM_NULL";
+    else
+        strm << "custom communicator";
+    return strm;
 }
 
 } // namespace mpi

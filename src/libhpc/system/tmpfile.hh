@@ -21,39 +21,44 @@
 #include <boost/filesystem.hpp>
 #include <boost/move/move.hpp>
 
-namespace hpc {
+namespace hpc
+{
 namespace fs = boost::filesystem;
 
-class tmpfile {
-  BOOST_MOVABLE_BUT_NOT_COPYABLE(tmpfile);
+class tmpfile
+{
+    BOOST_MOVABLE_BUT_NOT_COPYABLE(tmpfile);
 
 public:
-  tmpfile();
+    tmpfile();
 
-  tmpfile(std::ios_base::openmode mode);
+    tmpfile(std::ios_base::openmode mode);
 
-  inline tmpfile(BOOST_RV_REF(tmpfile) src) : _path(src._path) {
-    src._path.clear();
-  }
+    inline tmpfile(BOOST_RV_REF(tmpfile) src)
+        : _path(src._path)
+    {
+        src._path.clear();
+    }
 
-  ~tmpfile();
+    ~tmpfile();
 
-  inline tmpfile &operator=(BOOST_RV_REF(tmpfile) src) {
-    close();
-    _path = src._path;
-    src._path.clear();
-    return *this;
-  }
+    inline tmpfile& operator=(BOOST_RV_REF(tmpfile) src)
+    {
+        close();
+        _path = src._path;
+        src._path.clear();
+        return *this;
+    }
 
-  void close();
+    void close();
 
-  fs::path const &filename() const;
+    fs::path const& filename() const;
 
 protected:
-  fs::path const &_gen_path();
+    fs::path const& _gen_path();
 
 protected:
-  fs::path _path;
+    fs::path _path;
 };
 
 } // namespace hpc

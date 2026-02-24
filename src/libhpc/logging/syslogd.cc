@@ -20,10 +20,16 @@
 #include "syslogd.hh"
 #include <syslog.h>
 
-namespace hpc {
-namespace log {
+namespace hpc
+{
+namespace log
+{
 
-syslogd::syslogd(const std::string &name) : logger(), _name(name) {}
+syslogd::syslogd(const std::string& name)
+    : logger()
+    , _name(name)
+{
+}
 
 syslogd::~syslogd() {}
 

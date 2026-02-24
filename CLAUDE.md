@@ -18,7 +18,6 @@ Use the platform-aware build script that automatically detects macOS vs HPC/Linu
 
 This script:
 - Detects platform and loads appropriate environment (setup_mac.sh or setup.sh)
-- Builds PugiXML dependency first
 - Builds main CMake project in Debug mode
 - Builds SAGE executable from sage-model submodule
 - Places executables in `bin/`

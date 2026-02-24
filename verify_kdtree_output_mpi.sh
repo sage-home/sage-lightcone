@@ -9,6 +9,9 @@ exec > >(tee -i ${LOG_FILE}) 2>&1
 # Validation script for sage2kdtree refactoring
 # Compares output of new 'sage2kdtree' vs legacy-copy 'sage2kdtree_four'
 
+# Force MPI mode
+export USE_MPI=yes
+
 # 1. Setup Environment
 echo "Detecting platform..."
 if [[ "$OSTYPE" == "darwin"* ]]; then

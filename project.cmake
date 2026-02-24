@@ -47,6 +47,9 @@ macro(project_options_and_dependencies)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     set_3rd_party_required("Threads")
 
+    option(USE_MPI "Use MPI" ON)
+    message(STATUS "MPI Usage: ${USE_MPI}")
+
     # Non-system libraries
     # Note: boost_system is header-only in Boost 1.69+ so not listed as a component
     set(BOOST_COMPONENTS "")
@@ -58,8 +61,9 @@ macro(project_options_and_dependencies)
     list(APPEND BOOST_COMPONENTS "unit_test_framework")
 
     set_3rd_party_required("Boost" ${BOOST_COMPONENTS})
-    set_3rd_party_required("MPI")
-    set_3rd_party_required("PugiXML")
+    if(USE_MPI)
+        set_3rd_party_required("MPI")
+    endif()
     set_3rd_party_required("HDF5")
     set_3rd_party_required("GSL")
 

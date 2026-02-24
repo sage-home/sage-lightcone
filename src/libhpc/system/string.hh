@@ -25,24 +25,31 @@
 #include <sstream>
 #include <string>
 
-namespace hpc {
+namespace hpc
+{
 
-template <class T> std::string index_string(T idx, unsigned width = 5) {
-  std::stringstream ss;
-  ss << std::setfill('0') << std::setw(width) << idx;
-  return ss.str();
+template <class T>
+std::string index_string(T idx, unsigned width = 5)
+{
+    std::stringstream ss;
+    ss << std::setfill('0') << std::setw(width) << idx;
+    return ss.str();
 }
 
-inline void to_lower(std::string &str) {
-  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+inline void to_lower(std::string& str)
+{
+    std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 }
 
-inline std::string to_lower_copy(std::string const &str) {
-  return boost::algorithm::to_lower_copy(str);
+inline std::string to_lower_copy(std::string const& str)
+{
+    return boost::algorithm::to_lower_copy(str);
 }
 
-template <class T> inline std::string to_string(T val) {
-  return boost::lexical_cast<std::string>(val);
+template <class T>
+inline std::string to_string(T val)
+{
+    return boost::lexical_cast<std::string>(val);
 }
 
 } // namespace hpc
