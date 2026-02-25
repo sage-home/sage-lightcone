@@ -367,7 +367,6 @@ protected:
                 // Note: Without XML, we can't filter by group. All fields from /data
                 // are used.
                 _qry.add_output_field(field_name);
-                LOGILN("CLI.Adding field ", field_name);
             }
 
             // Also add calculated fields by default
@@ -375,7 +374,6 @@ protected:
             for (const auto& field : calculated_fields)
             {
                 _qry.add_output_field(field);
-                LOGILN("CLI.Adding calculated field ", field);
             }
         }
         else
@@ -393,7 +391,6 @@ protected:
                 if (calculated_fields.count(field_lower) > 0)
                 {
                     _qry.add_output_field(field);
-                    LOGILN("CLI.Adding calculated field ", field);
                     return;
                 }
 
@@ -405,7 +402,6 @@ protected:
                     return;
                 }
                 _qry.add_output_field(field);
-                LOGILN("CLI.Adding field ", field);
             };
 
             for (auto const& field_arg : global_cli_dict._output_fields)

@@ -140,7 +140,7 @@ These principles guide all design decisions and implementation choices in Sage-l
 ### Maintainability
 - **Modularity**: Clear separation of concerns with well-defined interfaces.
 - **Documentation**: Comprehensive documentation for developers and users.
-- **Code Quality**: Professional coding standards with consistent style.
+- **Code Quality**: Professional coding standards with consistent style.  Adherence to formatting style as defined in ".clang-format"
 - **Testing**: Automated testing covering all major functionality.
 
 ### Reliability

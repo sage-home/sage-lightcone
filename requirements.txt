@@ -1,3 +1,4 @@
 sage-analysis>=0.2.4
 cffi
 h5py
+mpi4py

@@ -62,7 +62,6 @@ list(APPEND SRCFILES "kdapplication.cc" )
 # eg. list(APPEND EXEFILES "file" )
 list(APPEND EXEFILES "cli_lightcone.cc" )
 list(APPEND EXEFILES "sage2kdtree.cc" )
-list(APPEND EXEFILES "sage2kdtree_four.cc" )
 
 # Add data files
 # eg. list(APPEND DATAFILES "file" )

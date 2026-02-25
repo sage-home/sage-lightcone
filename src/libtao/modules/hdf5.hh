@@ -456,7 +456,6 @@ public:
                 _fields.push_back(field_name);
                 _labels.push_back(field_name); // Use field name as label
                 field_labels.push_back(field_name);
-                LOGILN("CLI.Adding field ", field_name, " with label ", field_name);
             }
 
             // Also add calculated fields by default
@@ -481,7 +480,6 @@ public:
                     _fields.push_back(field_name);
                     _labels.push_back(field_name);
                     field_labels.push_back(field_name);
-                    LOGILN("CLI.Adding calculated field ", field_name);
                 }
             }
         }
@@ -490,7 +488,6 @@ public:
             LOGILN("Using output fields specified in the command line.");
             for (auto const& field : global_cli_dict._output_fields)
             {
-                LOGILN("CLI.Adding field ", field);
                 _fields.push_back(field);
                 _labels.push_back(field);
             }
@@ -499,6 +496,14 @@ public:
         // Note: Alias handling (X, Y, Z, COLOUR) has been removed with XML sidecar
         // removal Note: XML sidecar metadata creation has been removed - using HDF5
         // attributes instead
+
+        // Ensure the full parent directory of the output file exists,
+        // in case --outfile contains a path component (e.g. "subdir/out.h5").
+        {
+            boost::filesystem::path parent = boost::filesystem::path(_fn).parent_path();
+            if (!parent.empty() && !boost::filesystem::exists(parent))
+                boost::filesystem::create_directories(parent);
+        }
 
         // Open the file. Truncate if we are not reloading.
         _file.open(_fn, H5F_ACC_TRUNC);
@@ -648,7 +653,13 @@ public:
                 _dsets.push_back(std::unique_ptr<hpc::h5::dataset>(dset));
 
                 // Copy HDF5 attributes from input kdtree file
-                if (!_input_kdtree_file.empty())
+                // Skip calculated fields - they don't exist as datasets in the input file
+                std::string field_lower_check = field;
+                std::transform(field_lower_check.begin(), field_lower_check.end(),
+                               field_lower_check.begin(), ::tolower);
+                bool is_calculated = calculated_fields_metadata.count(field_lower_check) > 0;
+
+                if (!_input_kdtree_file.empty() && !is_calculated)
                 {
                     hid_t input_file_id =
                         H5Fopen(_input_kdtree_file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);

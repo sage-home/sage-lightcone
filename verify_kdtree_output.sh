@@ -5,8 +5,14 @@ set -e
 LOG_FILE="verify_kdtree_output.txt"
 exec > >(tee -i ${LOG_FILE}) 2>&1
 
-# Validation script for sage2kdtree refactoring
-# Compares output of new 'sage2kdtree' vs legacy-copy 'sage2kdtree_four'
+# Ensure we are running from the script directory and starting from a clean state
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd "$DIR" || exit 1
+rm -rf validation_output
+rm -rf ./tests/sage-model-tests/lightcone_3d_SnapNum.png
+rm -rf ./tests/sage-model-tests/output_sage_hdf5_one_step_benchmark
+
+./tests/sage-model-tests/run_setup_verify_kdtree_workflow.sh
 
 # 1. Setup Environment
 echo "Detecting platform..."
@@ -67,30 +73,17 @@ start_new=$SECONDS
 duration_new=$(( SECONDS - start_new ))
 echo "NEW sage2kdtree took ${duration_new} seconds."
 
-# 5. Run Legacy Code (sage2kdtree_four)
-echo "=========================================================="
-echo "Running LEGACY sage2kdtree_four (the baseline)..."
-echo "=========================================================="
-start_legacy=$SECONDS
-./bin/sage2kdtree_four \
-    -s ${INPUT_SAGE_DIR} \
-    -p ${PARAM_FILE} \
-    -a ${ALIST_FILE} \
-    -o ${VALIDATION_DIR}/kdtree_baseline.h5 \
-    --ppc 1000 \
-    -v 1
-duration_legacy=$(( SECONDS - start_legacy ))
-echo "LEGACY sage2kdtree_four took ${duration_legacy} seconds."
+# Run cli_lightcone to generate lightcone_3d_SnapNum.png for visual verification
+echo "========== PHASE 3: Running cli_lightcone =========="
+./bin/cli_lightcone \
+    --dataset ${VALIDATION_DIR}/kdtree_test.h5 \
+    --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
+    --outdir ${VALIDATION_DIR} --outfile lightcone.h5
+    #--outdir ${OUTPUTDIR} --outfields ra dec redshift_cosmological redshift_observed sfr --outfile $RAWNAME-lightcone.h5
 
-# 6. Compare Outputs
-echo ""
-echo "=========================================================="
-echo "Comparing outputs with python script..."
-echo "=========================================================="
-echo "Timings Summary:"
-echo "  NEW (sage2kdtree):       ${duration_new}s"
-echo "  LEGACY (sage2kdtree_four): ${duration_legacy}s"
-echo "=========================================================="
 
+# 5: Plot (not benchmarked - visualization only)
+echo "========== PHASE 4: Plotting =========="
 source .venv/bin/activate
-python3 verify_kdtree.py ${VALIDATION_DIR}/kdtree_baseline.h5 ${VALIDATION_DIR}/kdtree_test.h5
+# Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
+python3 ./src/plot_lightcone.py ${VALIDATION_DIR}/lightcone.h5 SnapNum

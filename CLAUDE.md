@@ -22,14 +22,6 @@ This script:
 - Builds SAGE executable from sage-model submodule
 - Places executables in `bin/`
 
-### Manual Building
-
-For HPC environments (nt.swin.edu.au):
-```bash
-source ./setup.sh
-./run_build.sh
-```
-
 ### CMake Configuration
 
 - **Default C++ Standard**: C++17 (configurable via `-DCMAKE_CXX_STANDARD=XX`)
