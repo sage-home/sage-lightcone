@@ -52,7 +52,7 @@ KdApplication::KdApplication(int argc, char* argv[])
         "output file name")(
         "outfields",
         hpc::po::value<std::vector<std::string>>(&_global_cli_dict._output_fields)->multitoken(),
-        "fields to output")(
+        "fields to output (unquoted and space separated)")(
         "outdir", hpc::po::value<std::string>(&_global_cli_dict._outdir)->default_value("output"),
         "directory for output files")
 
@@ -230,8 +230,16 @@ void KdApplication::operator()()
     boost::optional<boost::property_tree::ptree> checkpoint;
 
     // Initialise all the modules.
-    for (auto module : _fact)
-        module->initialise(_global_cli_dict, checkpoint);
+    try
+    {
+        for (auto module : _fact)
+            module->initialise(_global_cli_dict, checkpoint);
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        exit(1);
+    }
 
     // Mark the beginning of the run.
     LOG_PUSH_TAG("progress");

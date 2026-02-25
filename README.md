@@ -7,11 +7,9 @@ These are modules designed to carry out the workflow of converting sage binary o
 ## Dependencies
 
  * Boost - A set of efficient C++ extensions.
- * MPI - Message Passing Interface implementation. Tested with OpenMPI.
  * HDF5 - Hierarchical Data Format libraries. Currently tested with version 1.14.0.
-    (Must be compiled with OpenMPI or compilation errors will be encountered)
  * GSL - The GNU Scientific Library.
- * PugiXML - A C++ XML parsing library.
+ * MPI - Message Passing Interface implementation. Tested with OpenMPI. (Optional)
 
 ## Set up: Clone repository with submodules
 
@@ -22,16 +20,9 @@ cd tao-lightcone-cli
 
 ## Building
 
-On the HPC system at nt.swin.edu.au the build should be done as follows:
+On the HPC system at nt.swin.edu.au or on MacOS the build should be done as follows:
 
 ```bash
-source setup.sh
-./build_platform_aware.sh
-```
-and on your own macOS M3 laptop the build should be done as follows:
-
-```bash
-source setup_mac.sh
 ./build_platform_aware.sh
 ```
 
@@ -43,27 +34,22 @@ after which the executables will be under the bin director.
 ```bash
 ./verify_kdtree_output.sh
 ```
-This end to end test runs and compares the lightcones from two previously validated workflows.  One using the currently most performant sage2dkdtree and the other using an earlier but slower version of the sage2kdtree process.
+This end to end test runs the following processes based on the mini-millennium test dataset.
+1. sage with the "sage_hdf5" option. The "sage_hdf5" output option is mandatory.
+2. sage2kdtree which converts the sage_hdf5 output from sage to a KD-tree indexed for lightcone extraction.
+3. cli_lightcone which extracts lightcones from the KD-tree indexed hdf5 dataset.
  
 
 ## Building on other environments
 
 To build in other environments refer to the .gitlab-ci.yml on how this is done within a CI/CD framework. The science modules use cmake as a build system. As with any package
 that has numerous dependencies, we recommend installing as many of them
-as possible using your system's package management software. Note that the source to a compatible puxixml library is already included under the dep directory.
+as possible using your system's package management software.
 
 ## Testing
 
+The verify_kdtree_output.sh run the end to end test including first building using build_platform_ware.sh if necessary,
 The script test_cli_validation.sh will test that the build has succeeded and that a suite of validation tests correctly inform the user of errors in the command line arguments.
-
-## Installing
-
-```bash
-cd bin
-make install
-```
-
-The script lightcone.sh is installed under the runtime directory and allows a user to easily run the cli-lightcone tool on nt.swin.edu.au (for members of the oz114 project) ensuring that the right modules are loaded first.
 
 # Structure of HDF5 format simulations with KD-TREE indexing
 
@@ -87,6 +73,7 @@ snapshot_redshifts       Dataset {64/Inf}
 
 ```
 mini-millennium-public-sage-sed-kdtree.h5
+|-- SageOutputHeader -> Copied from sage output's Header group
 ├── cosmology/
 │   ├── box_size
 │   ├── hubble_constant  
