@@ -409,11 +409,52 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
     std::vector<hpc::fs::path> sage_files;
     if (hpc::fs::is_directory(_sage_dir))
     {
+        // Collect files matching SAGE output pattern: model_N.hdf5 where N >= 0
+        // This whitelist approach prevents processing of:
+        // - Master link files (model.hdf5)
+        // - Intermediate output files (*-bysnap.h5, *-kdtree.h5, etc.)
+        // - Any other HDF5 files in the directory
         for (const auto& entry : hpc::fs::directory_iterator(_sage_dir))
         {
-            if (entry.path().extension() == ".hdf5" || entry.path().extension() == ".h5")
+            std::string filename = entry.path().filename().string();
+            std::string extension = entry.path().extension().string();
+
+            // Must have .hdf5 or .h5 extension
+            if (extension != ".hdf5" && extension != ".h5")
+                continue;
+
+            // Must match pattern: model_N.hdf5 where N is a non-negative integer
+            // Examples: model_0.hdf5, model_1.hdf5, model_42.hdf5
+            std::string stem = entry.path().stem().string();
+            if (stem.length() >= 7 && stem.substr(0, 6) == "model_")
             {
-                sage_files.push_back(entry.path());
+                // Check if remaining characters are all digits
+                std::string suffix = stem.substr(6);
+                bool all_digits =
+                    !suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit);
+
+                if (all_digits)
+                {
+                    sage_files.push_back(entry.path());
+                }
+                else if (_verb >= 2 && _comm->rank() == 0)
+                {
+                    std::cout << "  → Skipping non-SAGE file: \"" << filename
+                              << "\" (expected model_N.hdf5 format)" << std::endl;
+                }
+            }
+            else if (_verb >= 2 && _comm->rank() == 0)
+            {
+                // Verbose logging for filtered files
+                if (stem == "model")
+                {
+                    std::cout << "  → Skipping master file: \"" << filename << "\"" << std::endl;
+                }
+                else
+                {
+                    std::cout << "  → Skipping non-SAGE file: \"" << filename
+                              << "\" (expected model_N.hdf5 format)" << std::endl;
+                }
             }
         }
     }
@@ -421,69 +462,6 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
     {
         sage_files.push_back(_sage_dir);
     }
-
-    // Filter out master link files (files containing /Core_N groups where N >= 0)
-    // These are typically wrapper files that link to the actual content files,
-    // and including them duplicates data processing or misleads metadata handling
-    // (e.g. they might have num_trees_this_file=0).
-    auto it_remove =
-        std::remove_if(sage_files.begin(), sage_files.end(), [&](const hpc::fs::path& p) {
-            bool is_link_file = false;
-            try
-            {
-                // Open file for read using raw HDF5 API for minimal overhead and
-                // errors Using explicit error suppression would be better but simple
-                // try-catch avoids crashing on bad files (which we probably want to
-                // keep to fail later?) We only want to filter valid HDF5 files that
-                // look like link files.
-
-                // Disable error printing temporarily
-                H5E_auto2_t old_func;
-                void* old_client_data;
-                H5Eget_auto2(H5E_DEFAULT, &old_func, &old_client_data);
-                H5Eset_auto2(H5E_DEFAULT, NULL, NULL);
-
-                hid_t fid = H5Fopen(p.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
-
-                if (fid >= 0)
-                {
-                    H5G_info_t ginfo;
-                    if (H5Gget_info(fid, &ginfo) >= 0)
-                    {
-                        for (hsize_t i = 0; i < ginfo.nlinks; ++i)
-                        {
-                            char name[256];
-                            ssize_t size = H5Lget_name_by_idx(fid, ".", H5_INDEX_NAME, H5_ITER_INC,
-                                                              i, name, 256, H5P_DEFAULT);
-                            if (size > 0)
-                            {
-                                // Check if name starts with "Core_" and follows with a digit
-                                if (strncmp(name, "Core_", 5) == 0 && std::isdigit(name[5]))
-                                {
-                                    is_link_file = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    H5Fclose(fid);
-                }
-
-                // Restore error printing
-                H5Eset_auto2(H5E_DEFAULT, old_func, old_client_data);
-            }
-            catch (...)
-            {
-                // If we can't open/inspect, we don't filter it out
-            }
-
-            if (is_link_file && _verb >= 1 && _comm->rank() == 0)
-            {
-                std::cout << "  → Ignoring master link file: " << p.filename() << std::endl;
-            }
-            return is_link_file;
-        });
-    sage_files.erase(it_remove, sage_files.end());
 
     std::sort(sage_files.begin(), sage_files.end());
 
@@ -632,6 +610,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
         unsigned long long local_gals = 0;
         std::vector<std::shared_ptr<hpc::h5::file>> open_files;
         std::vector<int> valid_file_indices;
+        std::string representative_field; // Track which field was used for counting
 
         for (int i = my_start; i < my_end; ++i)
         {
@@ -662,9 +641,22 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                     if (!count_ds_name.empty())
                     {
                         hpc::h5::dataset d = g.dataset(count_ds_name);
-                        local_gals += d.dataspace().size();
+                        hsize_t this_count = d.dataspace().size();
+                        local_gals += this_count;
                         open_files.push_back(f);
                         valid_file_indices.push_back(i);
+
+                        if (representative_field.empty())
+                        {
+                            representative_field = count_ds_name;
+                        }
+
+                        if (_verb >= 3 && rank == 0)
+                        {
+                            std::cout << "      File " << i << ": counted " << this_count
+                                      << " galaxies from field '" << count_ds_name << "'"
+                                      << std::endl;
+                        }
                     }
                 }
             }
@@ -687,8 +679,12 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
 
         if (_verb >= 2 && rank == 0)
         {
-            std::cout << "    Processing " << group_out << " (" << total_gals << " gals)"
-                      << std::endl;
+            std::cout << "    Processing " << group_out << " (" << total_gals << " gals)";
+            if (!representative_field.empty())
+            {
+                std::cout << " [counted from '" << representative_field << "']";
+            }
+            std::cout << std::endl;
         }
 
         hpc::h5::group out_group;
@@ -734,6 +730,36 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
 
         for (const auto& fname : fields)
         {
+            // Skip array fields (only process 1D scalar fields)
+            // Array fields like SfrBulgeSTEPS have shape (n_galaxies, n_timesteps)
+            // We only want fields with shape (n_galaxies,)
+            bool is_array_field = false;
+            if (rank == global_info_rank)
+            {
+                hpc::h5::group g;
+                g.open(*open_files[0], group_in);
+                hpc::h5::dataset ds = g.dataset(fname);
+                hpc::h5::dataspace sp = ds.dataspace();
+                int ndims = sp.simple_extent_num_dims();
+
+                // Only process 1D fields (ndims == 1)
+                if (ndims != 1)
+                {
+                    is_array_field = true;
+                    if (_verb >= 1)
+                    {
+                        std::cout << "    → Skipping array field: " << fname << " (ndims=" << ndims
+                                  << ")" << std::endl;
+                    }
+                }
+            }
+
+            int skip_field = is_array_field ? 1 : 0;
+            MPI_Bcast(&skip_field, 1, MPI_INT, global_info_rank, _comm->mpi_comm());
+
+            if (skip_field)
+                continue;
+
             hpc::h5::datatype type = hpc::h5::datatype::native_float;
 
             int type_code = 0;
@@ -774,6 +800,34 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                     {
                         hpc::h5::dataset src = g.dataset(fname);
                         hsize_t count = src.dataspace().size();
+
+                        // DEBUG: Verify dataset size matches expectation
+                        hpc::h5::dataspace check_space = dset.dataspace();
+                        hsize_t actual_dataset_size = check_space.size();
+
+                        if (_verb >= 2 && rank == 0)
+                        {
+                            std::cout << "    DEBUG: " << group_out << "/" << fname << std::endl;
+                            std::cout << "      total_gals=" << total_gals
+                                      << ", actual_dataset_size=" << actual_dataset_size
+                                      << ", count=" << count
+                                      << ", current_offset=" << current_offset
+                                      << ", offset+count=" << (current_offset + count) << std::endl;
+                        }
+
+                        if (current_offset + count > actual_dataset_size)
+                        {
+                            std::cerr << "ERROR: Write would exceed dataset bounds!" << std::endl;
+                            std::cerr << "  Snapshot: " << group_out << std::endl;
+                            std::cerr << "  Field: " << fname << std::endl;
+                            std::cerr << "  Dataset size: " << actual_dataset_size << std::endl;
+                            std::cerr << "  Requested total_gals: " << total_gals << std::endl;
+                            std::cerr << "  Write offset: " << current_offset << std::endl;
+                            std::cerr << "  Write count: " << count << std::endl;
+                            std::cerr << "  offset + count: " << (current_offset + count)
+                                      << std::endl;
+                            throw std::runtime_error("Dataset size mismatch detected");
+                        }
 
                         size_t el_size = H5Tget_size(type.id());
                         std::vector<char> buf(count * el_size);

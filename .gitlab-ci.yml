@@ -119,10 +119,15 @@ test_cli_validation:
     - |
       export HDF5_ROOT=$CI_PROJECT_DIR/hdf5-install
       export LD_LIBRARY_PATH=$HDF5_ROOT/lib:$LD_LIBRARY_PATH
+      export PKG_CONFIG_PATH=$HDF5_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
       export PATH=$HDF5_ROOT/bin:$PATH
       python3 -m venv .venv
       source .venv/bin/activate
       pip install -r requirements.txt
+      if [ ! -x bin/cli_lightcone ]; then
+        echo "cli_lightcone missing; running local build..."
+        USE_MPI=yes ./build_platform_aware.sh
+      fi
       echo "=== Working directory: $(pwd) ==="
       echo "=== bin/ directory contents: ==="
       ls -la bin/ 2>&1 || echo "bin/ directory not found"

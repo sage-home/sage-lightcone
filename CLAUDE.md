@@ -96,14 +96,20 @@ Tests command-line argument validation for cli_lightcone.
 model_X.hdf5
 ├── Header/              # Cosmology parameters
 ├── Snap_0/              # Columnar datasets per snapshot
-│   ├── BlackHoleMass
+│   ├── BlackHoleMass    # 1D scalar fields: shape (n_galaxies,)
 │   ├── BulgeMass
 │   ├── Posx, Posy, Posz
 │   ├── SAGETreeIndex
+│   ├── SfrBulgeSTEPS    # 2D array fields: shape (n_galaxies, n_timesteps) - NOT YET SUPPORTED
+│   ├── SfrDiskSTEPS     # 2D array fields: shape (n_galaxies, n_timesteps) - NOT YET SUPPORTED
 │   └── ... (50+ fields)
 ├── Snap_1/
 └── TreeInfo/
 ```
+
+**Field Types**:
+- **1D scalar fields** (shape `(n_galaxies,)`): One value per galaxy. Examples: `StellarMass`, `Posx`, `ColdGas`. **Currently supported**.
+- **2D array fields** (shape `(n_galaxies, n_timesteps)`): Time-series data with multiple values per galaxy. Examples: `SfrBulgeSTEPS`, `SfrDiskSTEPS`. **Currently skipped** - see Known Issues.
 
 #### Intermediate HDF5 (Output of sage2h5/sageh5toh5)
 ```
@@ -240,11 +246,13 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
 - Direct `sageh5tokdtree` conversion (bypassing intermediate steps)
 - Proper subsize calculation from SAGE HDF5
 - Validation against binary workflow baseline
+- **Array field support**: Currently only 1D scalar fields are processed. Multi-dimensional array fields (e.g., `SfrBulgeSTEPS`, `SfrDiskSTEPS`) with shape `(n_galaxies, n_timesteps)` are skipped. Future work needed to flatten or properly handle these time-series fields.
 
 ### Known Issues
 - Release mode (`-DNDEBUG`) breaks at runtime - use Debug builds only
 - Progress tracking disabled due to MPI thread joining issues
 - Checkpointing currently disabled
+- **Array fields not supported**: Multi-dimensional fields (ndims > 1) are currently skipped during conversion. This includes time-series fields like `SfrBulgeSTEPS` and `SfrDiskSTEPS` that store values at multiple timesteps. Only 1D scalar fields (one value per galaxy) are processed.
 
 ## Code Style & Conventions
 
