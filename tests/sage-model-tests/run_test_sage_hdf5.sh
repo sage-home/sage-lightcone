@@ -1,12 +1,17 @@
 #!/bin/bash
 
 # Parse command line arguments
+BUILD_CENTRAL_GALAXY_INDEX=0
 FORCE_REBUILD=0
 for arg in "$@"; do
     case $arg in
         --rebuild)
             FORCE_REBUILD=1
             echo "Force rebuild requested"
+            ;;
+        --centralgalaxies)
+            BUILD_CENTRAL_GALAXY_INDEX=1
+            echo "Central galaxies index build requested"
             ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
@@ -91,7 +96,10 @@ if [ $NEED_REBUILD -eq 1 ]; then
 fi
 
 export RAWNAME=myhdf5millennium
-export OUTPUTDIR=output_sage_hdf5_one_step
+export OUTPUTDIR=output_test_sage_hdf5
+export VALIDATIONDIR=validate_test_sage_hdf5
+# keep the validation directory separate from the output directory to avoid accidentally deleting it during cleanup
+mkdir -p ${VALIDATIONDIR}
 
 # Clean up previous test outputs, but preserve downloaded tree files
 rm -rf output
@@ -166,21 +174,34 @@ mkdir -p output/millennium/
 ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
 mv output ${OUTPUTDIR}
 
-echo "Create kdtree in one step"
-
-${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
-
-# echo "Creating kdtree indexed HDF5..."
-# ${MY_ROOT}/bin/sageh5toh5 -m convert -v 2 -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-depthfirstordered.h5
-# ${MY_ROOT}/bin/sageimport --settings ${OUTPUTDIR}/${RAWNAME}-depthfirstordered_import_settings.xml
-# ${MY_ROOT}/bin/dstreeinit --mode kdtree --tree ${OUTPUTDIR}/out_$RAWNAME-depthfirstordered.h5 --sage ${OUTPUTDIR}/$RAWNAME-bysnap.h5 --output ${OUTPUTDIR}/$RAWNAME-kdtree.h5
-
-echo "Test by creating a lightcone and plotting SnapNum..."
-#${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 10 --ramin 0 --ramax 30 --zmin 0 --zmax 0.5 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+echo "Create kdtree in one step, then generate lightcone and plot SnapNum..."
 source ${MY_ROOT}/.venv/bin/activate
-# Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
-python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum
+
+if [ $BUILD_CENTRAL_GALAXY_INDEX -eq 1 ]; then
+    echo ******* Building with central galaxy index included *******
+    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2 --centralgalaxies
+    echo "Test by creating a lightcone and plotting SnapNum..."
+    ${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5 --centralgalaxies
+    cp ${OUTPUTDIR}/${RAWNAME}-lightcone.h5 ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5 SnapNum
+    cp lightcone_3d_SnapNum.png ${VALIDATIONDIR}/$RAWNAME-lightcone-snapnum-centralgalaxies.png
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5 redshift_cosmological
+    cp lightcone_3d_redshift_cosmological.png ${VALIDATIONDIR}/$RAWNAME-lightcone-redshift-centralgalaxies.png
+else
+#   Build with central galaxy index
+#   export DEFAULT_MODE=--centralgalaxies
+#    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
+#   Build without central galaxy index (should be faster to build and query, but larger file size)
+    export DEFAULT_MODE=
+    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2 ${DEFAULT_MODE}
+    echo "Test by creating a lightcone and plotting SnapNum..."
+    ${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+    cp ${OUTPUTDIR}/${RAWNAME}-lightcone.h5 ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5 SnapNum
+    cp lightcone_3d_SnapNum.png ${VALIDATIONDIR}/$RAWNAME-lightcone-snapnum.png
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5 redshift_cosmological
+    cp lightcone_3d_redshift_cosmological.png ${VALIDATIONDIR}/$RAWNAME-lightcone-redshift.png
+fi
 
 # Clean up
 rm -f log.00000

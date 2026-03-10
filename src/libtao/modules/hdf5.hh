@@ -44,7 +44,9 @@ static const std::map<std::string, FieldMetadata> calculated_fields_metadata = {
     {"ra", {"Right Ascension", "degrees"}},
     {"dec", {"Declination", "degrees"}},
     {"distance", {"Comoving distance from observer", "Mpc/h"}},
-    {"sfr", {"Total Star Formation Rate (disk + bulge)", "Msun/yr"}}};
+    {"sfr", {"Total Star Formation Rate (disk + bulge)", "Msun/yr"}},
+    {"central_spatial_index",
+     {"Absolute snapshot index of host central galaxy; -1 for centrals", "dimensionless"}}};
 
 // Helper to copy SageOutputHeader from source to dest file
 static void copy_sage_header(const std::string& src_path, hid_t dst_file_id)
@@ -475,6 +477,10 @@ public:
                     }
                 }
 
+                // Skip central_spatial_index unless central galaxies mode is active
+                if (field_name == "central_spatial_index" && !global_cli_dict._central_galaxies)
+                    continue;
+
                 if (!exists)
                 {
                     _fields.push_back(field_name);
@@ -490,6 +496,25 @@ public:
             {
                 _fields.push_back(field);
                 _labels.push_back(field);
+            }
+        }
+
+        // In central galaxies mode, always add central_spatial_index field
+        if (global_cli_dict._central_galaxies)
+        {
+            bool exists = false;
+            for (const auto& f : _fields)
+            {
+                if (f == "central_spatial_index")
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists)
+            {
+                _fields.push_back("central_spatial_index");
+                _labels.push_back("central_spatial_index");
             }
         }
 

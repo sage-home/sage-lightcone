@@ -39,28 +39,33 @@ This script:
 ### Workflow Executables (in bin/)
 
 1. **sage** - SAGE semi-analytic galaxy formation model (from sage-model submodule)
-2. **sage2h5** - Converts SAGE binary output to intermediate HDF5 format
-3. **sageh5toh5** - Converts SAGE HDF5 output to intermediate HDF5 format (modern workflow)
-4. **sageimport** - Python-based import tool (processes intermediate HDF5)
-5. **dstreeinit** - Creates KD-tree indexed HDF5 from depth-first ordered galaxy data
-6. **cli_lightcone** - Extracts lightcones from KD-tree indexed HDF5 files
-7. **sageh5tokdtree** - Direct SAGE HDF5 to KD-tree conversion (future/experimental)
+2. **sage2kdtree** - Direct SAGE HDF5 to KD-tree conversion (**primary workflow** — 4-phase pure C++)
+3. **cli_lightcone** - Extracts lightcones from KD-tree indexed HDF5 files
+4. **sage2h5** - Converts SAGE binary output to intermediate HDF5 format (legacy)
+5. **sageh5toh5** - Converts SAGE HDF5 output to intermediate HDF5 format (legacy, superseded)
+6. **sageimport** - Python-based import tool (legacy, superseded)
+7. **dstreeinit** - Creates KD-tree indexed HDF5 from depth-first ordered galaxy data (legacy, superseded)
 
 ### Workflow Comparison
 
-**Legacy Binary Workflow**:
+**Legacy Binary Workflow** (baseline reference only):
 ```
 SAGE (binary) → sage2h5 → sageimport → dstreeinit → cli_lightcone
 ```
 
-**Modern HDF5 Workflow**:
+**Old HDF5 Workflow** (superseded):
 ```
 SAGE (HDF5) → sageh5toh5 → sageimport → dstreeinit → cli_lightcone
 ```
 
-**Target Workflow** (experimental):
+**Current Workflow** (operational):
 ```
-SAGE (HDF5) → sageh5tokdtree → cli_lightcone
+SAGE (HDF5) → sage2kdtree → cli_lightcone
+```
+
+**Central Galaxies Workflow** (operational, feature branch):
+```
+SAGE (HDF5) → sage2kdtree --centralgalaxies → cli_lightcone --centralgalaxies
 ```
 
 ## Testing
@@ -69,15 +74,17 @@ SAGE (HDF5) → sageh5tokdtree → cli_lightcone
 
 ```bash
 cd tests/sage-model-tests
-./run_test_hdf5.sh        # Test HDF5 workflow
-./run_test_binary.sh      # Test binary workflow (baseline)
+./run_test_sage_hdf5.sh                        # Primary: sage2kdtree workflow
+./run_test_sage_hdf5.sh --centralgalaxies      # With central galaxies feature
+./run_test_hdf5.sh                             # Legacy HDF5 workflow (reference)
+./run_test_binary.sh                           # Legacy binary workflow (baseline)
 ```
 
 These scripts:
 - Run SAGE model with Mini-Millennium simulation
-- Convert outputs to KD-tree indexed format
-- Extract test lightcone
-- Plot snapnum verification
+- Convert outputs to KD-tree indexed format via `sage2kdtree`
+- Extract test lightcone via `cli_lightcone`
+- Plot SnapNum and redshift verification plots
 
 ### Validation Testing
 
@@ -85,7 +92,28 @@ These scripts:
 ./tests/test_cli_validation.sh
 ```
 
-Tests command-line argument validation for cli_lightcone.
+Tests command-line argument validation for `cli_lightcone`.
+
+### Satellite Validation
+
+Full central/satellite analysis for the `--centralgalaxies` feature is documented in:
+```
+plans/VALIDATE_SATELLITE.md
+```
+
+Key findings (Mini-Millennium, ra/dec/z ∈ [0,1]):
+
+| Run | Total | Inside | Outside | T0 | T1+ |
+|-----|-------|--------|---------|----|----|
+| baseline (default) | 211,344 | 211,344 | 0 | 185,107 | 26,237 |
+| `--centralgalaxies` | 211,283 | 211,278 | 5 | 185,107 | 26,176 |
+| `--cg --includeorphansatellites` | 211,698 | 211,344 | 354 | 185,107 | 26,237 |
+
+- Tile transformation is correct: same tile applied to satellites as their central
+- Max within-tile central–satellite distance: 0.83 Mpc/h — physically plausible
+- Baseline and `--cg --orphans` have identical inside sets (185,107 T0 + 26,237 T1)
+- Baseline produces zero outside-cone galaxies; `--cg --orphans` allows 354 CSR
+  satellites outside (by design — those satellites' centrals are in-cone)
 
 ## Architecture
 
@@ -185,9 +213,17 @@ See **[FIELD_NAMING.md](FIELD_NAMING.md)** for the complete list of:
 ```bash
 cd tests/sage-model-tests
 source ../../setup_mac.sh  # or setup.sh for HPC
-../../bin/cli_lightcone --dataset output_sage_hdf5/myhdf5millennium-kdtree.h5 \
+
+# Standard lightcone
+../../bin/cli_lightcone --dataset output_sage_hdf5_one_step/myhdf5millennium-kdtree-onestep.h5 \
   --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
-  --outdir output_sage_hdf5 --outfile test-lightcone.h5
+  --outdir output_sage_hdf5_one_step --outfile test-lightcone.h5
+
+# With central galaxies feature
+../../bin/cli_lightcone --dataset output_sage_hdf5_one_step/myhdf5millennium-kdtree-onestep.h5 \
+  --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
+  --centralgalaxies \
+  --outdir output_sage_hdf5_one_step --outfile test-lightcone-centralgalaxies.h5
 ```
 
 ### Inspect HDF5 files
@@ -237,10 +273,48 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
 
 ## Current Development Status
 
-### Completed
-- `sageh5toh5` tool for HDF5 input workflow
-- Platform-aware build system
-- End-to-end test scripts for both binary and HDF5 workflows
+### Completed (see `plans/SAGE_PLAN_SAGEH5_TO_KDTREE.md`)
+- `sage2kdtree` consolidated 4-phase pure C++ pipeline (operational, ~95% of vision)
+  - Phase 1: SAGE HDF5 → depth-first ordered
+  - Phase 2: traversal metadata (BFS/DFS orders, globaltreeid, subtree_count)
+  - Phase 3: tree order → snapshot order (columnar per-snapshot groups)
+  - Phase 4: KD-tree spatial indexing → final `*-kdtree.h5`
+- Columnar storage throughout all intermediate phases
+- Dynamic field discovery from SAGE HDF5 at runtime
+- Input validation with clear error messages
+- Lustre performance fixes (`H5D_FILL_TIME_NEVER`, batch I/O)
+- Field name preservation: SAGE CamelCase flows through unchanged
+- Platform-aware build system (`build_platform_aware.sh`)
+- End-to-end test scripts for all workflows
+
+### Completed (see `plans/CENTRAL_GALAXIES_INDEXING.md`)
+- `--centralgalaxies` flag for `sage2kdtree`: builds CSR satellite lookup index
+  alongside the normal KD-tree output (`centralgalaxies/snapshotNNN/` groups)
+- `--centralgalaxies` flag for `cli_lightcone`: emits satellites automatically for
+  every central that enters the cone, with same tile transformation applied
+- `--includeorphansatellites` flag: also emits satellites whose central is not in cone
+- `central_spatial_index` output field (absolute KD-tree index of host central; -1 for centrals)
+- Graceful degradation when index absent; non-regression when flag not set
+- Bug fix: `central_spatial_index` no longer included in output field list when
+  `--centralgalaxies` is not active (was causing crash)
+- **Baseline epoch coupling** (always-on): baseline mode now always loads the CSR index
+  and couples each satellite's epoch to its central's epoch. Satellites whose central is
+  in-cone are suppressed from the normal stream and re-emitted via CSR; others pass
+  through unchanged. This ensures central–satellite pairs always share the same snapshot.
+- **Baseline cone filter**: CSR satellites emitted in baseline mode are post-filtered
+  against the cone bounds (ra/dec/distance) so no galaxy lands outside the query volume.
+  `--centralgalaxies` mode intentionally bypasses this filter.
+- Validated end-to-end with Mini-Millennium dataset (see `plans/VALIDATE_SATELLITE.md`)
+
+### Remaining (plans/CENTRAL_GALAXIES_INDEXING.md — To Validate)
+- [ ] Verify `central_spatial_index` values are correct for all satellites in output
+- [ ] Test edge cases: snapshots with zero satellites, orphan galaxies
+- [ ] Confirm MPI behaviour: `_write_central_galaxy_index()` is rank-0-only; verify
+  `_sat_offs`/`_sat_list` loading is consistent across ranks in parallel runs
+
+### Remaining (plans/SAGE_PLAN_SAGEH5_TO_KDTREE.md — Optional Polish)
+- [ ] Unit tests for critical functions (depth-first ordering, subsize, KD-tree partitioning)
+- [ ] Memory profiling at phase boundaries
 
 ### In Progress (see SAGE_PLAN_SAGEH5_TO_KDTREE.md)
 - Direct `sageh5tokdtree` conversion (bypassing intermediate steps)
@@ -249,9 +323,11 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
 - **Array field support**: Currently only 1D scalar fields are processed. Multi-dimensional array fields (e.g., `SfrBulgeSTEPS`, `SfrDiskSTEPS`) with shape `(n_galaxies, n_timesteps)` are skipped. Future work needed to flatten or properly handle these time-series fields.
 
 ### Known Issues
-- Release mode (`-DNDEBUG`) breaks at runtime - use Debug builds only
+- Release mode (`-DNDEBUG`) breaks at runtime — use Debug builds only
 - Progress tracking disabled due to MPI thread joining issues
 - Checkpointing currently disabled
+- `_fetch_satellites()` issues individual point reads per field per satellite (performance
+  only — correctness unaffected); future optimisation: sort and batch contiguous ranges
 - **Array fields not supported**: Multi-dimensional fields (ndims > 1) are currently skipped during conversion. This includes time-series fields like `SfrBulgeSTEPS` and `SfrDiskSTEPS` that store values at multiple timesteps. Only 1D scalar fields (one value per galaxy) are processed.
 
 ## Code Style & Conventions

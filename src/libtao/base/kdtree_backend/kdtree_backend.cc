@@ -54,7 +54,10 @@ kdtree_backend::kdtree_backend(hpc::fs::path const& fn, hpc::mpi::comm const& co
 // so subtree_count is not needed as a separate field in data/
 void kdtree_backend::add_conditional_fields(query<real_type>& qry)
 {
-    // No additional fields needed - subsize comes from lightcone/data compound
+    if (_central_galaxies_mode)
+    {
+        qry.add_output_field("central_spatial_index");
+    }
 }
 
 hpc::mpi::comm const& kdtree_backend::comm() const { return *_comm; }
@@ -73,6 +76,8 @@ void kdtree_backend::connect(const cli_dict& global_cli_dict)
     std::cerr << "DEBUG: kdtree_backend::connect() called" << std::endl;
     std::string fn = global_cli_dict._dataset;
     _field_types.clear();
+    _central_galaxies_mode = global_cli_dict._central_galaxies;
+    _include_orphan_satellites_mode = global_cli_dict._central_galaxies;
 
     // Open HDF5 file and read field information
     this->open(fn);
@@ -132,6 +137,17 @@ void kdtree_backend::connect(const cli_dict& global_cli_dict)
     this->_field_types.emplace("distance", batch<real_type>::DOUBLE);
     this->_field_types.emplace("sfr", batch<real_type>::DOUBLE);
 
+    if (_central_galaxies_mode)
+    {
+        this->_field_types.emplace("central_spatial_index", batch<real_type>::LONG_LONG);
+        if (!_has_central_index)
+        {
+            std::cerr << "Warning: --centralgalaxies specified but input file has no "
+                         "central galaxy index. Run sage2kdtree --centralgalaxies to build it."
+                      << std::endl;
+        }
+    }
+
 #ifndef NDEBUG
     // In debug mode we add some custom types (using SAGE CamelCase).
     this->_field_map["original_x"] = "Posx";
@@ -182,6 +198,15 @@ void kdtree_backend::open(hpc::fs::path const& fn)
 
     _file.open(fn.native(), H5F_ACC_RDONLY);
     _snap = std::numeric_limits<unsigned>::max();
+
+    // Check for central galaxy index attribute
+    _has_central_index = (H5Aexists(_file.id(), "has_central_galaxy_index") > 0);
+
+    // Load snapshot_displs for central galaxies satellite lookup
+    if (_file.has_link("snapshot_displs"))
+    {
+        _snap_displs = _file.read<std::vector<unsigned long long>>("snapshot_displs");
+    }
 
     _lc_mem_type.compound(sizeof(lightcone_data));
     _lc_mem_type.insert(hpc::h5::datatype::native_double, "x", 0);
@@ -491,6 +516,61 @@ void kdtree_backend::load_snapshot(unsigned snap)
         // LOGILN("Kdtree loaded - Total cells: ", _kdt.n_cells());
         // LOGILN("Kdtree loaded - Bounds size: ", _kdt.bounds().size());
         // LOGILN("Kdtree loaded - Splits size: ", _kdt.splits().size());
+
+        // Load central galaxies satellite index if available
+        if (_has_central_index)
+        {
+            // The centralgalaxies group uses "snapshot###" (not "lightcone/snapshot###")
+            std::ostringstream cg_ss;
+            cg_ss << "centralgalaxies/snapshot" << hpc::index_string(snap, 3);
+            std::string cg_path = cg_ss.str();
+
+            _sat_offs.clear();
+            _sat_list.clear();
+
+            std::string offs_path = cg_path + "/satellite_offsets";
+            std::string list_path = cg_path + "/satellite_list";
+
+            if (_file.has_link(offs_path))
+            {
+                hpc::h5::dataset offs_ds = _file.dataset(offs_path);
+                hpc::h5::dataspace offs_sp = offs_ds.dataspace();
+                std::vector<hsize_t> dims(1);
+                offs_sp.simple_extent_dims<std::vector<hsize_t>>(dims);
+                _sat_offs.resize(dims[0]);
+                offs_ds.read(_sat_offs.data(), hpc::h5::datatype::native_ullong, dims[0], 0);
+            }
+
+            if (_file.has_link(list_path))
+            {
+                hpc::h5::dataset list_ds = _file.dataset(list_path);
+                hpc::h5::dataspace list_sp = list_ds.dataspace();
+                std::vector<hsize_t> dims(1);
+                list_sp.simple_extent_dims<std::vector<hsize_t>>(dims);
+                if (dims[0] > 0)
+                {
+                    _sat_list.resize(dims[0]);
+                    list_ds.read(_sat_list.data(), hpc::h5::datatype::native_ullong, dims[0], 0);
+                }
+            }
+
+            // Build reverse map (satellite abs_idx -> central abs_idx)
+            if (!_sat_offs.empty())
+            {
+                _sat_to_central.clear();
+                unsigned long long snap_displ =
+                    (snap < _snap_displs.size()) ? _snap_displs[snap] : 0ULL;
+                for (unsigned long long ci = 0; ci + 1 < _sat_offs.size(); ++ci)
+                {
+                    unsigned long long sat_start = _sat_offs[ci];
+                    unsigned long long sat_end = _sat_offs[ci + 1];
+                    for (unsigned long long k = sat_start; k < sat_end; ++k)
+                    {
+                        _sat_to_central[snap_displ + _sat_list[k]] = snap_displ + ci;
+                    }
+                }
+            }
+        }
 
         _snap = snap;
     }

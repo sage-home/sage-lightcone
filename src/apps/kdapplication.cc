@@ -56,8 +56,11 @@ KdApplication::KdApplication(int argc, char* argv[])
         "outdir", hpc::po::value<std::string>(&_global_cli_dict._outdir)->default_value("output"),
         "directory for output files")
 
-        ("verbose,v", "verbose output")("debug", "debug output")("version",
-                                                                 "print version number and exit");
+        ("centralgalaxies",
+         hpc::po::bool_switch(&_global_cli_dict._central_galaxies)->default_value(false),
+         "Central galaxies mode: include all satellites when their central is in lightcone")(
+            "verbose,v",
+            "verbose output")("debug", "debug output")("version", "print version number and exit");
 
     // Parse options.
     parse_options(argc, argv);
@@ -104,6 +107,7 @@ KdApplication::KdApplication(int argc, char* argv[])
         std::cout << "filtermax=" << _global_cli_dict._filter_max << std::endl;
         std::cout << "outfile=" << _global_cli_dict._outfile << std::endl;
         std::cout << "outdir=" << _global_cli_dict._outdir << std::endl;
+        std::cout << "centralgalaxies=" << _global_cli_dict._central_galaxies << std::endl;
     }
     if (_global_cli_dict._rng_seed == 0)
     {
