@@ -26,6 +26,7 @@ struct cli_dict
     std::string _outfile;
     std::vector<std::string> _output_fields;
     std::string _outdir;
+    bool _central_galaxies = false;
 };
 
 } // namespace tao

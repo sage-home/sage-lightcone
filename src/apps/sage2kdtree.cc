@@ -293,6 +293,9 @@ private:
                                                data_permuter> const& bp,
                        std::array<std::vector<double>, 3> const& crds, unsigned long long displ);
     void _write_empty_kdtree(hpc::h5::file& file, int snap_num);
+    void _write_central_galaxy_index(hpc::h5::file& file, std::string const& snap_name,
+                                     hpc::h5::file& out_file,
+                                     std::vector<unsigned long long> const& idxs);
 
     //==========================================================================
     // Utility Methods
@@ -315,8 +318,9 @@ private:
     hpc::fs::path _enhanced_fn;   // Phase 2 output
     hpc::fs::path _bysnap_fn;     // Phase 3 output
 
-    unsigned _ppc; // Particles per cell for KD-tree
-    int _verb;     // Verbosity level
+    unsigned _ppc;                      // Particles per cell for KD-tree
+    int _verb;                          // Verbosity level
+    bool _build_central_galaxies_index; // Build CSR satellite index
 
     // Cosmology parameters (loaded in Phase 1)
     double _box_size;
@@ -345,6 +349,7 @@ sage2kdtree_application::sage2kdtree_application(int argc, char* argv[])
     , _omega_m(0)
     , _ppc(1000)
     , _verb(1)
+    , _build_central_galaxies_index(false)
 {
 
     // Setup command-line options
@@ -357,7 +362,10 @@ sage2kdtree_application::sage2kdtree_application(int argc, char* argv[])
         "Output KD-tree HDF5 file")("ppc", hpc::po::value<unsigned>(&_ppc)->default_value(1000),
                                     "Particles per cell for KD-tree")(
         "verbose,v", hpc::po::value<int>(&_verb)->default_value(1),
-        "Verbosity level (0=quiet, 1=progress, 2=info, 3=debug)");
+        "Verbosity level (0=quiet, 1=progress, 2=info, 3=debug)")(
+        "centralgalaxies",
+        hpc::po::bool_switch(&_build_central_galaxies_index)->default_value(false),
+        "Build central galaxies satellite lookup index");
 
     // Allow positional arguments
     positional_options().add("sage", 1);
@@ -1823,6 +1831,23 @@ void sage2kdtree_application::phase4_build_kdtree_index()
 
     _comm->barrier();
 
+    // Write has_central_galaxy_index attribute on root group (rank 0 only)
+    if (_build_central_galaxies_index && _comm->rank() == 0)
+    {
+        int flag = 1;
+        hid_t space = H5Screate(H5S_SCALAR);
+        hid_t attr = H5Acreate2(out_file.id(), "has_central_galaxy_index", H5T_NATIVE_INT, space,
+                                H5P_DEFAULT, H5P_DEFAULT);
+        if (attr >= 0)
+        {
+            H5Awrite(attr, H5T_NATIVE_INT, &flag);
+            H5Aclose(attr);
+        }
+        H5Sclose(space);
+    }
+
+    _comm->barrier();
+
     if (_verb >= 1 && _comm->rank() == 0)
     {
         std::cout << "  Phase 4 complete: " << _output_fn << std::endl;
@@ -1880,6 +1905,10 @@ void sage2kdtree_application::_process_snapshot(hpc::h5::file& file, std::string
 
     // Write KD-tree structure
     _write_kdtree(out_file, name, kdt, bp, crds, displ);
+
+    // Optionally write central galaxy satellite index
+    if (_build_central_galaxies_index)
+        _write_central_galaxy_index(file, name, out_file, idxs);
 
     displ += n_gals;
 }
@@ -2160,6 +2189,139 @@ void sage2kdtree_application::_write_empty_kdtree(hpc::h5::file& file, int snap_
     {
         std::vector<unsigned long long> offs(1, 0); // 64-bit unsigned
         file.write(path + "/cell_offs", offs);
+    }
+}
+
+//==============================================================================
+// Central Galaxy Index Builder
+//==============================================================================
+
+void sage2kdtree_application::_write_central_galaxy_index(
+    hpc::h5::file& file, std::string const& snap_name, hpc::h5::file& out_file,
+    std::vector<unsigned long long> const& idxs)
+{
+    // Only rank 0 writes
+    if (_comm->rank() != 0)
+        return;
+
+    unsigned long long n_gals = idxs.size();
+    if (n_gals == 0)
+        return;
+
+    // Build inverse permutation: original_to_spatial[original_idx] = spatial_idx
+    std::vector<unsigned long long> original_to_spatial(n_gals);
+    for (unsigned long long j = 0; j < n_gals; ++j)
+        original_to_spatial[idxs[j]] = j;
+
+    // Read GalaxyIndex field (opaque identifier, not an array index)
+    std::vector<long long> gi_data(n_gals);
+    {
+        std::string gi_path = snap_name + "/GalaxyIndex";
+        if (!file.has_link(gi_path))
+            gi_path = snap_name + "/galaxyindex";
+        if (file.has_link(gi_path))
+        {
+            hpc::h5::dataset ds = file.dataset(gi_path);
+            ds.read(gi_data.data(), hpc::h5::datatype::native_llong, n_gals, 0);
+        }
+        else
+        {
+            if (_verb >= 1)
+                std::cerr << "Warning: GalaxyIndex field not found in " << snap_name
+                          << ", skipping central galaxy index" << std::endl;
+            return;
+        }
+    }
+
+    // Read CentralGalaxyIndex field (holds GalaxyIndex value of host central)
+    std::vector<long long> cgi_data(n_gals);
+    {
+        std::string cgi_path = snap_name + "/CentralGalaxyIndex";
+        if (!file.has_link(cgi_path))
+            cgi_path = snap_name + "/centralgalaxyindex";
+        if (file.has_link(cgi_path))
+        {
+            hpc::h5::dataset ds = file.dataset(cgi_path);
+            ds.read(cgi_data.data(), hpc::h5::datatype::native_llong, n_gals, 0);
+        }
+        else
+        {
+            if (_verb >= 1)
+                std::cerr << "Warning: CentralGalaxyIndex field not found in " << snap_name
+                          << ", skipping central galaxy index" << std::endl;
+            return;
+        }
+    }
+
+    // Build GalaxyIndex → row map (GalaxyIndex is an opaque identifier, not an array index)
+    std::unordered_map<long long, unsigned long long> gi_to_row;
+    gi_to_row.reserve(n_gals);
+    for (unsigned long long k = 0; k < n_gals; ++k)
+        gi_to_row[gi_data[k]] = k;
+
+    // Build satellite buckets: satellite_bucket[central_spatial_idx] = list of satellite spatial
+    // idxs A galaxy is a satellite when GalaxyIndex != CentralGalaxyIndex. Its host central has
+    // GalaxyIndex == CentralGalaxyIndex (central points to itself).
+    std::vector<std::vector<unsigned long long>> satellite_bucket(n_gals);
+    for (unsigned long long j = 0; j < n_gals; ++j)
+    {
+        unsigned long long orig_j = idxs[j];
+        if (gi_data[orig_j] != cgi_data[orig_j]) // satellite: GalaxyIndex != CentralGalaxyIndex
+        {
+            auto it = gi_to_row.find(cgi_data[orig_j]);
+            if (it != gi_to_row.end())
+            {
+                unsigned long long central_orig_row = it->second;
+                unsigned long long central_spatial_idx = original_to_spatial[central_orig_row];
+                satellite_bucket[central_spatial_idx].push_back(j);
+            }
+        }
+    }
+
+    // Build CSR arrays
+    std::vector<unsigned long long> satellite_offsets(n_gals + 1);
+    std::vector<unsigned long long> satellite_list;
+    satellite_offsets[0] = 0;
+    for (unsigned long long i = 0; i < n_gals; ++i)
+    {
+        satellite_offsets[i + 1] = satellite_offsets[i] + satellite_bucket[i].size();
+        for (auto sat_idx : satellite_bucket[i])
+            satellite_list.push_back(sat_idx);
+    }
+
+    // Write to output file under centralgalaxies/snapshot###/
+    // snap_name is e.g. "snapshot063"
+    std::string cg_path = "centralgalaxies/" + snap_name;
+
+    // Write satellite_offsets (n_gals+1 entries)
+    {
+        hpc::h5::dataspace sp(n_gals + 1);
+        hpc::h5::dataset ds(out_file, cg_path + "/satellite_offsets",
+                            hpc::h5::datatype::native_ullong, sp, hpc::h5::property_list());
+        ds.write(satellite_offsets.data(), hpc::h5::datatype::native_ullong, n_gals + 1, 0);
+    }
+
+    // Write satellite_list (n_satellites entries)
+    unsigned long long n_sats = satellite_list.size();
+    if (n_sats == 0)
+    {
+        // Write empty dataset
+        hpc::h5::dataspace sp(0);
+        hpc::h5::dataset ds(out_file, cg_path + "/satellite_list", hpc::h5::datatype::native_ullong,
+                            sp, hpc::h5::property_list());
+    }
+    else
+    {
+        hpc::h5::dataspace sp(n_sats);
+        hpc::h5::dataset ds(out_file, cg_path + "/satellite_list", hpc::h5::datatype::native_ullong,
+                            sp, hpc::h5::property_list());
+        ds.write(satellite_list.data(), hpc::h5::datatype::native_ullong, n_sats, 0);
+    }
+
+    if (_verb >= 2)
+    {
+        std::cout << "    Central galaxy index: " << snap_name << " - " << n_sats << " satellites"
+                  << std::endl;
     }
 }
 

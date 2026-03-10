@@ -11,6 +11,7 @@
 #include <libhpc/algorithm/kdtree.hh>
 #include <libhpc/h5/file.hh>
 #include <libhpc/system/filesystem.hh>
+#include <unordered_map>
 
 // extern int iiii;
 namespace tao
@@ -135,7 +136,7 @@ public:
 
     virtual tao::simulation const* load_simulation();
 
-    virtual void add_conditional_fields(query<real_type>& qry);
+    virtual void add_conditional_fields(query<real_type>& qry) override;
 
     void load_snapshot(unsigned snap);
 
@@ -180,6 +181,18 @@ public:
     unsigned get_kdtree_leafs() const;
     std::string debug_kdtree_info() const;
 
+    // Central galaxies index accessors
+    std::vector<unsigned long long> const& sat_offs() const { return _sat_offs; }
+    std::vector<unsigned long long> const& sat_list() const { return _sat_list; }
+    std::vector<unsigned long long> const& snap_displs() const { return _snap_displs; }
+    bool has_central_index() const { return _has_central_index; }
+    bool central_galaxies_mode() const { return _central_galaxies_mode; }
+    bool include_orphan_satellites_mode() const { return _include_orphan_satellites_mode; }
+    std::unordered_map<unsigned long long, unsigned long long> const& sat_to_central() const
+    {
+        return _sat_to_central;
+    }
+
 protected:
     std::string _fn;
     hpc::h5::file _file;
@@ -190,6 +203,16 @@ protected:
     std::vector<unsigned long long> _cell_offs;
     hpc::h5::datatype _lc_mem_type;
     hpc::mpi::comm const* _comm;
+
+    // Central galaxies satellite index (loaded per snapshot)
+    std::vector<unsigned long long> _sat_offs;
+    std::vector<unsigned long long> _sat_list;
+    // Snapshot displacement array (loaded once in open())
+    std::vector<unsigned long long> _snap_displs;
+    bool _has_central_index = false;
+    bool _central_galaxies_mode = false;
+    bool _include_orphan_satellites_mode = false;
+    std::unordered_map<unsigned long long, unsigned long long> _sat_to_central;
 };
 
 template <class DomainT>
@@ -285,6 +308,12 @@ public:
 
     void operator++()
     {
+        // If we have pending CSR satellites, flush them first
+        if (_in_sat_flush)
+        {
+            _fetch();
+            return;
+        }
         if (_todo == 0)
         {
             if (!done())
@@ -302,6 +331,8 @@ public:
     bool done() const
     {
         // return !(_it != _be->kdtree().end() && _ii%_n_ranks != _rank);
+        if (_in_sat_flush)
+            return false;
         return _it == _kdt->end();
     }
 
@@ -455,6 +486,13 @@ protected:
     }
     void _fetch()
     {
+        // Flush pending satellite batches (CSR epoch coupling)
+        if (_in_sat_flush)
+        {
+            _fetch_satellites();
+            return;
+        }
+
         // Fetch actual data
         if (_todo == 0)
             return;
@@ -541,11 +579,15 @@ protected:
 
         _calc_fields();
 
+        // Satellite epoch coupling: always run when CSR index is available
+        if (_be->has_central_index())
+            _collect_satellites(off, count);
+
         _todo -= count;
         _done_so_far += count;
     }
 
-    void _calc_fields()
+    void _calc_fields(bool satellite_mode = false)
     {
         if (_lc)
         { // TODO Better way to decide the context (this is, avoid when
@@ -651,17 +693,14 @@ protected:
                         min[0] = pos_x[ii];
                         min[1] = pos_y[ii];
                         min[2] = pos_z[ii];
-                        bool btest = ecs_box_collision(ecs_min, ecs_max, min, min);
-                        // if (galaxyindex[ii]==27044853000000652L)
-                        //{
-                        // LOGILN( "CHECK IT: ", galaxyindex[ii],"=off=",off );
-                        // LOGILN( "pos ", min[0]," ",min[1]," ",min[2]);
-                        // LOGILN( "in? ", btest);
-                        //}
-                        if (!btest)
+                        if (!satellite_mode)
                         {
-                            _bat->mask(ii);
-                            continue;
+                            bool btest = ecs_box_collision(ecs_min, ecs_max, min, min);
+                            if (!btest)
+                            {
+                                _bat->mask(ii);
+                                continue;
+                            }
                         }
                     }
 
@@ -740,6 +779,274 @@ protected:
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Central galaxies mode helpers
+    // -------------------------------------------------------------------------
+
+    // After _calc_fields(), for centrals: collect satellite abs_idxs,
+    // Satellite epoch coupling.
+    //
+    // Default (no --centralgalaxies): Type>0 satellites are kept in the normal stream
+    // UNLESS their central is in the cone at this snapshot, in which case they are
+    // suppressed and re-emitted via CSR at the central's epoch (bypassing the
+    // satellite's own distance-shell filter).  Satellites whose central is not in the
+    // cone pass through unchanged on the normal stream.
+    //
+    // With --centralgalaxies: ALL Type>0 are suppressed from the normal stream.
+    // Satellites whose central is in the cone are re-emitted via CSR.
+    // With --includeorphansatellites: satellites whose central is NOT in the cone are
+    // additionally re-emitted with central_spatial_index=-1.
+    void _collect_satellites(unsigned long long off, unsigned count)
+    {
+        if (!_bat->has_field("type"))
+            return;
+        auto type_v = _bat->template scalar<long long>("type");
+
+        unsigned long long snap_displ =
+            (_snap < _be->snap_displs().size()) ? _be->snap_displs()[_snap] : 0ULL;
+
+        bool cg_mode = _be->central_galaxies_mode();
+        bool orphan_mode = _be->include_orphan_satellites_mode();
+
+        for (unsigned i = 0; i < count; ++i)
+        {
+            long long t = type_v[i];
+            if (t != 0)
+            {
+                // Determine whether the satellite's central is in the cone at this snap.
+                bool central_in_cone = false;
+                bool found_in_map = false;
+                if (!_bat->masked(i))
+                {
+                    unsigned long long abs_idx = off + i;
+                    const auto& s2c = _be->sat_to_central();
+                    auto it = s2c.find(abs_idx);
+                    if (it != s2c.end())
+                    {
+                        found_in_map = true;
+                        unsigned long long central_abs_idx = it->second;
+                        double cx, cy, cz;
+                        _be->kdtree_file()
+                            .dataset("data/Posx")
+                            .read(&cx, hpc::h5::datatype::native_double, 1, central_abs_idx);
+                        _be->kdtree_file()
+                            .dataset("data/Posy")
+                            .read(&cy, hpc::h5::datatype::native_double, 1, central_abs_idx);
+                        _be->kdtree_file()
+                            .dataset("data/Posz")
+                            .read(&cz, hpc::h5::datatype::native_double, 1, central_abs_idx);
+
+                        // Apply the same rotation+translation as _calc_fields() to
+                        // determine if the central will be emitted in this tile's cone.
+                        // tile::contains() ignores rotation/translation (has a TODO), so
+                        // we must replicate _calc_fields() logic to avoid false positives.
+                        if (_lc)
+                        {
+                            int ix = _dom.rotation()[0];
+                            int iy = _dom.rotation()[1];
+                            int iz = _dom.rotation()[2];
+                            double raw[3] = {cx, cy, cz};
+                            double box_size = _lc->simulation()->box_size();
+
+                            double px = raw[ix];
+                            if (px + _dom.translation()[ix] < box_size)
+                                px += _dom.translation()[ix];
+                            else
+                            {
+                                px -= box_size;
+                                px += _dom.translation()[ix];
+                            }
+                            px += (_dom.min()[0] - _dom.origin()[0]);
+
+                            double py = raw[iy];
+                            if (py + _dom.translation()[iy] < box_size)
+                                py += _dom.translation()[iy];
+                            else
+                            {
+                                py -= box_size;
+                                py += _dom.translation()[iy];
+                            }
+                            py += (_dom.min()[1] - _dom.origin()[1]);
+
+                            double pz = raw[iz];
+                            if (pz + _dom.translation()[iz] < box_size)
+                                pz += _dom.translation()[iz];
+                            else
+                            {
+                                pz -= box_size;
+                                pz += _dom.translation()[iz];
+                            }
+                            pz += (_dom.min()[2] - _dom.origin()[2]);
+
+                            std::array<real_type, 3> ecs_min, ecs_max, pt;
+                            ecs_min[0] = _lc->min_ra();
+                            ecs_max[0] = _lc->max_ra();
+                            ecs_min[1] = _lc->min_dec();
+                            ecs_max[1] = _lc->max_dec();
+                            ecs_min[2] = _lc->min_dist(_snap);
+                            ecs_max[2] = _lc->max_dist(_snap);
+                            pt[0] = px;
+                            pt[1] = py;
+                            pt[2] = pz;
+                            central_in_cone = ecs_box_collision(ecs_min, ecs_max, pt, pt);
+                        }
+                        else
+                        {
+                            std::array<real_type, 3> crd_arr = {cx, cy, cz};
+                            central_in_cone = _dom.contains(crd_arr, _snap);
+                        }
+                    }
+                }
+
+                // Decide whether to suppress this satellite from the normal stream.
+                bool suppress = false;
+                if (central_in_cone)
+                {
+                    // Central is in cone: suppress satellite; CSR will re-emit it at
+                    // the central's epoch (same snapshot, consistent in time).
+                    suppress = true;
+                }
+                else if (cg_mode)
+                {
+                    // --centralgalaxies: suppress ALL Type>0 from normal stream.
+                    // --includeorphansatellites keeps unmasked ones as orphans.
+                    if (!(orphan_mode && !_bat->masked(i) && found_in_map))
+                        suppress = true;
+                }
+                // Otherwise (no cg_mode, central not in cone): keep on normal stream.
+
+                if (suppress)
+                    _bat->mask(i);
+            }
+            else if (!_bat->masked(i))
+            {
+                // Central galaxy inside cone: collect its satellites
+                unsigned long long snap_rel = (off + i) - snap_displ;
+                const auto& sat_offs = _be->sat_offs();
+                const auto& sat_list = _be->sat_list();
+                if (snap_rel + 1 < sat_offs.size())
+                {
+                    unsigned long long sat_start = sat_offs[snap_rel];
+                    unsigned long long sat_end = sat_offs[snap_rel + 1];
+                    for (unsigned long long k = sat_start; k < sat_end; ++k)
+                    {
+                        _pending_sats.push_back(snap_displ + sat_list[k]);
+                        _pending_sat_centrals.push_back(off + i);
+                    }
+                }
+            }
+        }
+
+        // Set central_spatial_index = -1 for all galaxies in this batch
+        // (centrals and any unmasked orphan satellites both use -1)
+        if (_bat->has_field("central_spatial_index"))
+        {
+            auto csi = _bat->template scalar<long long>("central_spatial_index");
+            for (unsigned i = 0; i < count; ++i)
+                csi[i] = -1LL;
+        }
+
+        if (!_pending_sats.empty() && _pending_sat_pos < _pending_sats.size())
+            _in_sat_flush = true;
+    }
+
+    // Emit next batch of pending satellites.
+    void _fetch_satellites()
+    {
+        unsigned long long available = _pending_sats.size() - _pending_sat_pos;
+        if (available == 0)
+        {
+            _in_sat_flush = false;
+            _pending_sats.clear();
+            _pending_sat_centrals.clear();
+            _pending_sat_pos = 0;
+            _bat->set_size(0);
+            return;
+        }
+
+        unsigned count = (unsigned)std::min(available, (unsigned long long)_bat->max_size());
+        _bat->set_size(count);
+
+        // Discover field names from data/ group
+        hpc::h5::group data = _be->kdtree_file().group("data");
+        std::vector<std::string> fields;
+        H5Lvisit(data.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, getFields, &fields);
+
+        for (unsigned i = 0; i < count; ++i)
+        {
+            unsigned long long sat_abs_idx = _pending_sats[_pending_sat_pos + i];
+
+            for (const std::string& field : fields)
+            {
+                std::string field_lower = field;
+                std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(),
+                               ::tolower);
+                if (!_bat->has_field(field_lower))
+                    continue;
+
+                auto ds = _be->kdtree_file().dataset("data/" + field);
+                switch (static_cast<tao::batch<real_type>::field_value_type>(
+                    _bat->get_field_type(field_lower)))
+                {
+                case tao::batch<real_type>::DOUBLE: {
+                    auto v = _bat->template scalar<double>(field_lower);
+                    ds.read(v.data() + i, hpc::h5::datatype::native_double, 1, sat_abs_idx);
+                    break;
+                }
+                case tao::batch<real_type>::LONG_LONG: {
+                    auto v = _bat->template scalar<long long>(field_lower);
+                    ds.read(v.data() + i, hpc::h5::datatype::native_llong, 1, sat_abs_idx);
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+
+            // Set central_spatial_index for this satellite
+            if (_bat->has_field("central_spatial_index"))
+            {
+                auto csi = _bat->template scalar<long long>("central_spatial_index");
+                csi[i] = static_cast<long long>(_pending_sat_centrals[_pending_sat_pos + i]);
+            }
+        }
+
+        // Apply position transformation (same tile/rotation context, but no cone filter)
+        _calc_fields(true /* satellite_mode */);
+
+        // In baseline mode (no --centralgalaxies), filter CSR satellites that land
+        // outside the cone bounds.  --centralgalaxies intentionally allows them through.
+        if (!_be->central_galaxies_mode() && _lc)
+        {
+            real_type ra_min = to_degrees(_lc->min_ra());
+            real_type ra_max = to_degrees(_lc->max_ra());
+            real_type dec_min = to_degrees(_lc->min_dec());
+            real_type dec_max = to_degrees(_lc->max_dec());
+            real_type d_min = _lc->min_dist();
+            real_type d_max = _lc->max_dist();
+            auto ra_v = _bat->template scalar<real_type>("ra");
+            auto dec_v = _bat->template scalar<real_type>("dec");
+            auto dist_v = _bat->template scalar<real_type>("distance");
+            for (unsigned i = 0; i < _bat->size(); ++i)
+            {
+                if (_bat->masked(i))
+                    continue;
+                if (ra_v[i] < ra_min || ra_v[i] > ra_max || dec_v[i] < dec_min ||
+                    dec_v[i] > dec_max || dist_v[i] < d_min || dist_v[i] > d_max)
+                    _bat->mask(i);
+            }
+        }
+
+        _pending_sat_pos += count;
+        if (_pending_sat_pos >= _pending_sats.size())
+        {
+            _in_sat_flush = false;
+            _pending_sats.clear();
+            _pending_sat_centrals.clear();
+            _pending_sat_pos = 0;
+        }
+    }
+
 protected:
     kdtree_backend const* _be;
     hpc::kdtree<real_type> const* _kdt;
@@ -757,6 +1064,12 @@ protected:
     unsigned _done_so_far;
     const lightcone* _lc;
     int _count;
+
+    // Central galaxies mode state
+    std::vector<unsigned long long> _pending_sats; // absolute file indices of pending satellites
+    std::vector<unsigned long long> _pending_sat_centrals; // corresponding central abs indices
+    unsigned long long _pending_sat_pos = 0;               // position in pending lists
+    bool _in_sat_flush = false;                            // currently flushing satellite buffer
 };
 
 } // namespace backends
