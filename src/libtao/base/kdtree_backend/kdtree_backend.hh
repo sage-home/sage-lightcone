@@ -668,6 +668,32 @@ protected:
                     }
                     pos_z[ii] += (_dom.min()[2] - _dom.origin()[2]);
 
+                    // In satellite mode, apply minimum-image convention (MIC) in the
+                    // transformed frame: shift the satellite to the periodic image
+                    // nearest to its central galaxy (whose transformed position was
+                    // stored in _pending_sat_central_raw_pos by _collect_satellites).
+                    if (satellite_mode && !_pending_sat_central_raw_pos.empty())
+                    {
+                        double bsz = _lc->simulation()->box_size();
+                        double half_bsz = bsz * 0.5;
+                        const auto& cp = _pending_sat_central_raw_pos[_pending_sat_pos + ii];
+                        double dx = pos_x[ii] - cp[0];
+                        double dy = pos_y[ii] - cp[1];
+                        double dz = pos_z[ii] - cp[2];
+                        if (dx > half_bsz)
+                            pos_x[ii] -= bsz;
+                        else if (dx < -half_bsz)
+                            pos_x[ii] += bsz;
+                        if (dy > half_bsz)
+                            pos_y[ii] -= bsz;
+                        else if (dy < -half_bsz)
+                            pos_y[ii] += bsz;
+                        if (dz > half_bsz)
+                            pos_z[ii] -= bsz;
+                        else if (dz < -half_bsz)
+                            pos_z[ii] += bsz;
+                    }
+
                     // std::cout<<"x,y,z="<<pos_x[ii]<<","<<pos_y[ii]<<","<<pos_z[ii]<<"="<<gid[ii]<<"
                     // "<<disk_sfr[ii]<<" "<<vel_x[ii]<<" "<<vel_y[ii]<<"
                     // "<<vel_z[ii]<<std::endl;
@@ -930,10 +956,71 @@ protected:
                 {
                     unsigned long long sat_start = sat_offs[snap_rel];
                     unsigned long long sat_end = sat_offs[snap_rel + 1];
-                    for (unsigned long long k = sat_start; k < sat_end; ++k)
+                    if (sat_start < sat_end)
                     {
-                        _pending_sats.push_back(snap_displ + sat_list[k]);
-                        _pending_sat_centrals.push_back(off + i);
+                        unsigned long long central_abs_idx = off + i;
+                        double cx = 0.0, cy = 0.0, cz = 0.0;
+                        _be->kdtree_file()
+                            .dataset("data/Posx")
+                            .read(&cx, hpc::h5::datatype::native_double, 1, central_abs_idx);
+                        _be->kdtree_file()
+                            .dataset("data/Posy")
+                            .read(&cy, hpc::h5::datatype::native_double, 1, central_abs_idx);
+                        _be->kdtree_file()
+                            .dataset("data/Posz")
+                            .read(&cz, hpc::h5::datatype::native_double, 1, central_abs_idx);
+
+                        // Compute the central's TRANSFORMED position (same rotation +
+                        // translation + origin shift as _calc_fields) so that MIC can
+                        // be applied in the correct frame inside _calc_fields().
+                        std::array<double, 3> central_xfm = {cx, cy, cz};
+                        if (_lc)
+                        {
+                            int rix = _dom.rotation()[0];
+                            int riy = _dom.rotation()[1];
+                            int riz = _dom.rotation()[2];
+                            double raw[3] = {cx, cy, cz};
+                            double bsz = _lc->simulation()->box_size();
+
+                            double px = raw[rix];
+                            if (px + _dom.translation()[rix] < bsz)
+                                px += _dom.translation()[rix];
+                            else
+                            {
+                                px -= bsz;
+                                px += _dom.translation()[rix];
+                            }
+                            px += (_dom.min()[0] - _dom.origin()[0]);
+
+                            double py = raw[riy];
+                            if (py + _dom.translation()[riy] < bsz)
+                                py += _dom.translation()[riy];
+                            else
+                            {
+                                py -= bsz;
+                                py += _dom.translation()[riy];
+                            }
+                            py += (_dom.min()[1] - _dom.origin()[1]);
+
+                            double pz = raw[riz];
+                            if (pz + _dom.translation()[riz] < bsz)
+                                pz += _dom.translation()[riz];
+                            else
+                            {
+                                pz -= bsz;
+                                pz += _dom.translation()[riz];
+                            }
+                            pz += (_dom.min()[2] - _dom.origin()[2]);
+
+                            central_xfm = {px, py, pz};
+                        }
+
+                        for (unsigned long long k = sat_start; k < sat_end; ++k)
+                        {
+                            _pending_sats.push_back(snap_displ + sat_list[k]);
+                            _pending_sat_centrals.push_back(central_abs_idx);
+                            _pending_sat_central_raw_pos.push_back(central_xfm);
+                        }
                     }
                 }
             }
@@ -961,6 +1048,7 @@ protected:
             _in_sat_flush = false;
             _pending_sats.clear();
             _pending_sat_centrals.clear();
+            _pending_sat_central_raw_pos.clear();
             _pending_sat_pos = 0;
             _bat->set_size(0);
             return;
@@ -1041,6 +1129,7 @@ protected:
             _in_sat_flush = false;
             _pending_sats.clear();
             _pending_sat_centrals.clear();
+            _pending_sat_central_raw_pos.clear();
             _pending_sat_pos = 0;
         }
     }
@@ -1066,8 +1155,10 @@ protected:
     // Central galaxies mode state
     std::vector<unsigned long long> _pending_sats; // absolute file indices of pending satellites
     std::vector<unsigned long long> _pending_sat_centrals; // corresponding central abs indices
-    unsigned long long _pending_sat_pos = 0;               // position in pending lists
-    bool _in_sat_flush = false;                            // currently flushing satellite buffer
+    std::vector<std::array<double, 3>>
+        _pending_sat_central_raw_pos;        // raw [x,y,z] of each satellite's central (for MIC)
+    unsigned long long _pending_sat_pos = 0; // position in pending lists
+    bool _in_sat_flush = false;              // currently flushing satellite buffer
 
     struct field_binding
     {
