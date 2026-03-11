@@ -136,8 +136,8 @@ echo "CMAKE_EXTRA_FLAGS: $CMAKE_EXTRA_FLAGS"
 # Clone the selected SAGE repository in place in case it doesn't exist
 # That is, clone if doesn't exist, otherwise pull latest
 
-#SAGE_REPO="https://github.com/sage-home/sage-model.git"
-SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
+SAGE_REPO="https://github.com/sage-home/sage-model.git"
+#SAGE_REPO="https://github.com/sage-home/sage-model-update.git"
 
 # Clone if doesn't exist, otherwise pull latest
 if [ ! -d "sage-model" ]; then
