@@ -115,6 +115,14 @@ Key findings (Mini-Millennium, ra/dec/z ∈ [0,1]):
 - Baseline produces zero outside-cone galaxies; `--cg --orphans` allows 354 CSR
   satellites outside (by design — those satellites' centrals are in-cone)
 
+**Note on central–satellite separation analysis**: The output `Posx/Posy/Posz` fields
+contain observer-frame coordinates (overwritten by `_calc_fields()`), not raw SAGE box
+coordinates. Also, the same galaxy appears multiple times in the output (once per
+lightcone tile). When matching satellites to centrals by `(SnapNum, CentralGalaxyIndex)`,
+always pick the **nearest** candidate in 3D observer space — the `/lightcone-sat-distance`
+skill does this correctly. Naively keeping the last match per key produces false large
+separations (~150 Mpc/h) from cross-tile confusion.
+
 ## Architecture
 
 ### HDF5 File Formats
@@ -305,6 +313,24 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
   against the cone bounds (ra/dec/distance) so no galaxy lands outside the query volume.
   `--centralgalaxies` mode intentionally bypasses this filter.
 - Validated end-to-end with Mini-Millennium dataset (see `plans/VALIDATE_SATELLITE.md`)
+
+### Completed (branch `feature/minimum-image-convention`)
+- **Minimum-image convention (MIC) fix** in `src/libtao/base/kdtree_backend/kdtree_backend.hh`:
+  Satellites emitted via CSR are now placed in the periodic image nearest to their central
+  before observer coordinates are computed. Without this fix, a satellite and central on
+  opposite sides of the simulation box (e.g., box-x≈0 vs box-x≈60 for box_size=62.5 Mpc/h)
+  can appear ~60 Mpc/h apart in observer space depending on the tile translation.
+  - **Key insight**: MIC must be applied AFTER the tile rotation+translation in `_calc_fields()`,
+    not before. Applying it to raw box coordinates first is wrong because `_calc_fields()`
+    re-applies modulo wrapping which undoes the correction.
+  - **Implementation**: `_collect_satellites()` stores the central's fully-transformed
+    (post-rotation, post-translation, post-origin-shift) position. `_calc_fields()` in
+    satellite mode applies MIC in that transformed frame, after translating the satellite
+    but before computing observer distance/ra/dec.
+  - **Validated**: Mini-Millennium test (ra/dec/z ∈ [0,1]) gives max separation 3.4 Mpc/h,
+    median 0.29 Mpc/h (using correct nearest-tile matching in analysis). The fix is needed
+    for correctness in general — the test data happens to use tile translations that avoid
+    the worst case, but other query geometries will trigger it.
 
 ### Remaining (plans/CENTRAL_GALAXIES_INDEXING.md — To Validate)
 - [ ] Verify `central_spatial_index` values are correct for all satellites in output
