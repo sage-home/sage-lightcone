@@ -134,7 +134,7 @@ public:
 
     void open(hpc::fs::path const& fn);
 
-    virtual tao::simulation const* load_simulation();
+    virtual tao::simulation const* load_simulation() override;
 
     virtual void add_conditional_fields(query<real_type>& qry) override;
 
@@ -505,51 +505,34 @@ protected:
 
         _bat->set_size(count);
 
-        hpc::h5::group data = _be->kdtree_file().group("data");
-        std::vector<std::string> fields;
-        H5Lvisit(data.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, getFields, &fields);
+        _ensure_field_cache();
 
-        for (std::string field : fields)
+        for (auto const& binding : _field_cache)
         {
-            // Convert HDF5 field name (CamelCase) to lowercase for batch lookup
-            std::string field_lower = field;
-            std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+            auto const& field_lower = binding.lower_name;
+            if (!_bat->has_field(field_lower))
+                continue;
 
-            if (_bat->has_field(field_lower))
+            _bat->field(field_lower);
+            auto const& ds = binding.dataset;
+            switch (static_cast<tao::batch<real_type>::field_value_type>(
+                _bat->get_field_type(field_lower)))
             {
-                _bat->field(field_lower);
-                auto ds = _be->kdtree_file().dataset("data/" + field);
-                switch (static_cast<tao::batch<real_type>::field_value_type>(
-                    _bat->get_field_type(field_lower)))
-                {
-                case tao::batch<real_type>::DOUBLE: {
-                    ds.read(_bat->scalar<double>(field_lower).data(),
-                            hpc::h5::datatype::native_double, count, off);
-                    view<std::vector<double>> abc = _bat->scalar<double>(field_lower);
-                    double abcv = abc[0];
-                    // std::cout << "["<<field<<"][0]="<<abcv<<std::endl;
-                }
+            case tao::batch<real_type>::DOUBLE:
+                ds.read(_bat->scalar<double>(field_lower).data(), hpc::h5::datatype::native_double,
+                        count, off);
                 break;
-                case tao::batch<real_type>::INTEGER: {
-                    ds.read(_bat->scalar<int>(field_lower).data(), hpc::h5::datatype::native_int,
-                            count, off);
-                    view<std::vector<int>> abc = _bat->scalar<int>(field_lower);
-                    int abcv = abc[0];
-                    // std::cout << "[" << field << "][0]=" << abcv << std::endl;
-                }
+            case tao::batch<real_type>::INTEGER:
+                ds.read(_bat->scalar<int>(field_lower).data(), hpc::h5::datatype::native_int, count,
+                        off);
                 break;
-                case tao::batch<real_type>::LONG_LONG: {
-                    ds.read(_bat->scalar<long long>(field_lower).data(),
-                            hpc::h5::datatype::native_llong, count, off);
-                    // view<std::vector<long long>> abc = _bat->scalar<long long>(field);
-                    // long long abcv = abc[0];
-                    // std::cout << "[" << field << "][0]=" << abcv << std::endl;
-                }
+            case tao::batch<real_type>::LONG_LONG:
+                ds.read(_bat->scalar<long long>(field_lower).data(),
+                        hpc::h5::datatype::native_llong, count, off);
                 break;
-                default:
-                    std::cout << "datatype not handled" << std::endl;
-                    break;
-                }
+            default:
+                std::cout << "datatype not handled" << std::endl;
+                break;
             }
         }
 
@@ -779,6 +762,25 @@ protected:
         }
     }
 
+    void _ensure_field_cache()
+    {
+        if (!_field_cache.empty())
+            return;
+
+        hpc::h5::group data = _be->kdtree_file().group("data");
+        std::vector<std::string> fields;
+        H5Lvisit(data.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, getFields, &fields);
+        _field_cache.reserve(fields.size());
+
+        for (const std::string& field : fields)
+        {
+            std::string field_lower = field;
+            std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
+            _field_cache.push_back(
+                field_binding{field_lower, _be->kdtree_file().dataset("data/" + field)});
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Central galaxies mode helpers
     // -------------------------------------------------------------------------
@@ -967,24 +969,20 @@ protected:
         unsigned count = (unsigned)std::min(available, (unsigned long long)_bat->max_size());
         _bat->set_size(count);
 
-        // Discover field names from data/ group
-        hpc::h5::group data = _be->kdtree_file().group("data");
-        std::vector<std::string> fields;
-        H5Lvisit(data.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, getFields, &fields);
+        // Discover field names from data/ group once per iterator
+        _ensure_field_cache();
 
         for (unsigned i = 0; i < count; ++i)
         {
             unsigned long long sat_abs_idx = _pending_sats[_pending_sat_pos + i];
 
-            for (const std::string& field : fields)
+            for (auto const& binding : _field_cache)
             {
-                std::string field_lower = field;
-                std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(),
-                               ::tolower);
+                auto const& field_lower = binding.lower_name;
                 if (!_bat->has_field(field_lower))
                     continue;
 
-                auto ds = _be->kdtree_file().dataset("data/" + field);
+                auto const& ds = binding.dataset;
                 switch (static_cast<tao::batch<real_type>::field_value_type>(
                     _bat->get_field_type(field_lower)))
                 {
@@ -1070,6 +1068,14 @@ protected:
     std::vector<unsigned long long> _pending_sat_centrals; // corresponding central abs indices
     unsigned long long _pending_sat_pos = 0;               // position in pending lists
     bool _in_sat_flush = false;                            // currently flushing satellite buffer
+
+    struct field_binding
+    {
+        std::string lower_name;
+        hpc::h5::dataset dataset;
+    };
+
+    std::vector<field_binding> _field_cache;
 };
 
 } // namespace backends

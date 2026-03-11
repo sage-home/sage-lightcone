@@ -785,70 +785,69 @@ public:
                 // Dump first chunk.
                 auto val = bat.field(field);
 
-                unsigned ii = 0;
                 switch (std::get<2>(val))
                 {
                 case tao::batch<real_type>::STRING: {
                     const hpc::view<std::vector<std::string>> thedata =
                         bat.scalar<std::string>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
+                    unsigned si = 0;
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++si)
                     {
                         dspace = dset->dataspace();
-                        dspace.select_one(ii);
+                        dspace.select_one(si);
                         _write_field_STRING(bat, *it, field, *dset, dspace, mem_space, thedata);
                     }
                 }
                 break;
                 case tao::batch<real_type>::DOUBLE: {
                     const hpc::view<std::vector<double>> thedata = bat.scalar<double>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_DOUBLE(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<double> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)0);
                 }
                 break;
                 case tao::batch<real_type>::FLOAT: {
                     const hpc::view<std::vector<float>> thedata = bat.scalar<float>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_FLOAT(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<float> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)0);
                 }
                 break;
                 case tao::batch<real_type>::INTEGER: {
                     const hpc::view<std::vector<int>> thedata = bat.scalar<int>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_INTEGER(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<int> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)0);
                 }
                 break;
                 case tao::batch<real_type>::UNSIGNED_LONG_LONG: {
                     const hpc::view<std::vector<unsigned long long>> thedata =
                         bat.scalar<unsigned long long>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_UNSIGNED_LONG_LONG(bat, *it, field, *dset, dspace, mem_space,
-                                                        thedata);
-                    }
+                    std::vector<long long> buf; // preserve existing signed reinterpretation
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(static_cast<long long>(thedata[*it]));
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)0);
                 }
                 break;
                 case tao::batch<real_type>::LONG_LONG: {
                     const hpc::view<std::vector<long long>> thedata = bat.scalar<long long>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_LONG_LONG(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<long long> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)0);
                 }
                 break;
                 default:
@@ -857,7 +856,7 @@ public:
                 lblit++;
 
                 // Set number written for first batch.
-                _records = ii;
+                _records = thistime;
             }
 
             // Flag as complete.
@@ -879,67 +878,68 @@ public:
                 // Dump current chunk.
                 auto val = bat.field(field);
 
-                unsigned ii = offset;
-
                 switch (std::get<2>(val))
                 {
                 case tao::batch<real_type>::STRING: {
                     const hpc::view<std::vector<std::string>> thedata =
                         bat.scalar<std::string>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
+                    unsigned si = offset;
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++si)
                     {
-                        dspace.select_one(ii);
+                        dspace.select_one(si);
                         _write_field_STRING(bat, *it, field, *dset, dspace, mem_space, thedata);
                     }
                 }
                 break;
                 case tao::batch<real_type>::DOUBLE: {
                     const hpc::view<std::vector<double>> thedata = bat.scalar<double>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        // dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_DOUBLE(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<double> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)offset);
                 }
                 break;
                 case tao::batch<real_type>::FLOAT: {
                     const hpc::view<std::vector<float>> thedata = bat.scalar<float>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        // dspace = dset->dataspace();
-                        dspace.select_one(ii);
-                        _write_field_FLOAT(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<float> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)offset);
                 }
                 break;
                 case tao::batch<real_type>::INTEGER: {
                     const hpc::view<std::vector<int>> thedata = bat.scalar<int>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace.select_one(ii);
-                        _write_field_INTEGER(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<int> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)offset);
                 }
                 break;
                 case tao::batch<real_type>::UNSIGNED_LONG_LONG: {
                     const hpc::view<std::vector<unsigned long long>> thedata =
                         bat.scalar<unsigned long long>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace.select_one(ii);
-                        _write_field_UNSIGNED_LONG_LONG(bat, *it, field, *dset, dspace, mem_space,
-                                                        thedata);
-                    }
+                    std::vector<long long> buf; // preserve existing signed reinterpretation
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(static_cast<long long>(thedata[*it]));
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)offset);
                 }
                 break;
                 case tao::batch<real_type>::LONG_LONG: {
                     const hpc::view<std::vector<long long>> thedata = bat.scalar<long long>(field);
-                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it, ++ii)
-                    {
-                        dspace.select_one(ii);
-                        _write_field_LONG_LONG(bat, *it, field, *dset, dspace, mem_space, thedata);
-                    }
+                    std::vector<long long> buf;
+                    buf.reserve(thistime);
+                    for (auto it = _filt->begin(bat, true); it != _filt->end(bat, true); ++it)
+                        buf.push_back(thedata[*it]);
+                    if (!buf.empty())
+                        dset->write(buf, (hsize_t)offset);
                 }
                 break;
                 default:
