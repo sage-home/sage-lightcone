@@ -193,6 +193,15 @@ public:
         return _sat_to_central;
     }
 
+    // Array field metadata: (n_cols, elem_type) for 2D fields in /data/
+    std::unordered_map<std::string, hsize_t> const& array_field_ncols() const
+    {
+        return _array_field_ncols;
+    }
+
+    // Shadow backend::init_batch to also register 2D array fields as VECTOR
+    void init_batch(batch<real_type>& bat, query<real_type>& qry) const;
+
 protected:
     std::string _fn;
     hpc::h5::file _file;
@@ -213,6 +222,9 @@ protected:
     bool _central_galaxies_mode = false;
     bool _include_orphan_satellites_mode = false;
     std::unordered_map<unsigned long long, unsigned long long> _sat_to_central;
+
+    // n_cols > 0 for 2D array fields (maps lowercase field name -> n_cols)
+    std::unordered_map<std::string, hsize_t> _array_field_ncols;
 };
 
 template <class DomainT>
@@ -515,24 +527,56 @@ protected:
 
             _bat->field(field_lower);
             auto const& ds = binding.dataset;
-            switch (static_cast<tao::batch<real_type>::field_value_type>(
-                _bat->get_field_type(field_lower)))
+
+            if (binding.n_cols > 0)
             {
-            case tao::batch<real_type>::DOUBLE:
-                ds.read(_bat->scalar<double>(field_lower).data(), hpc::h5::datatype::native_double,
-                        count, off);
-                break;
-            case tao::batch<real_type>::INTEGER:
-                ds.read(_bat->scalar<int>(field_lower).data(), hpc::h5::datatype::native_int, count,
-                        off);
-                break;
-            case tao::batch<real_type>::LONG_LONG:
-                ds.read(_bat->scalar<long long>(field_lower).data(),
-                        hpc::h5::datatype::native_llong, count, off);
-                break;
-            default:
-                std::cout << "datatype not handled" << std::endl;
-                break;
+                // 2D array field: read count rows starting at off
+                std::vector<hsize_t> start2 = {static_cast<hsize_t>(off), 0};
+                std::vector<hsize_t> count2 = {static_cast<hsize_t>(count), binding.n_cols};
+                std::vector<hsize_t> empty_v;
+                hpc::h5::dataspace file_space = ds.dataspace();
+                file_space.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2, start2,
+                                                                   empty_v, empty_v);
+                hpc::h5::dataspace mem_space(count2);
+                switch (static_cast<tao::batch<real_type>::field_value_type>(
+                    _bat->get_field_type(field_lower)))
+                {
+                case tao::batch<real_type>::DOUBLE: {
+                    auto& mat = _bat->vector<double>(field_lower);
+                    ds.read(&mat(0, 0), hpc::h5::datatype::native_double, mem_space, file_space);
+                    break;
+                }
+                case tao::batch<real_type>::LONG_LONG: {
+                    auto& mat = _bat->vector<long long>(field_lower);
+                    ds.read(&mat(0, 0), hpc::h5::datatype::native_llong, mem_space, file_space);
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+            else
+            {
+                // 1D scalar field
+                switch (static_cast<tao::batch<real_type>::field_value_type>(
+                    _bat->get_field_type(field_lower)))
+                {
+                case tao::batch<real_type>::DOUBLE:
+                    ds.read(_bat->scalar<double>(field_lower).data(),
+                            hpc::h5::datatype::native_double, count, off);
+                    break;
+                case tao::batch<real_type>::INTEGER:
+                    ds.read(_bat->scalar<int>(field_lower).data(), hpc::h5::datatype::native_int,
+                            count, off);
+                    break;
+                case tao::batch<real_type>::LONG_LONG:
+                    ds.read(_bat->scalar<long long>(field_lower).data(),
+                            hpc::h5::datatype::native_llong, count, off);
+                    break;
+                default:
+                    std::cout << "datatype not handled" << std::endl;
+                    break;
+                }
             }
         }
 
@@ -802,8 +846,19 @@ protected:
         {
             std::string field_lower = field;
             std::transform(field_lower.begin(), field_lower.end(), field_lower.begin(), ::tolower);
-            _field_cache.push_back(
-                field_binding{field_lower, _be->kdtree_file().dataset("data/" + field)});
+
+            hpc::h5::dataset ds(_be->kdtree_file(), "data/" + field);
+            hsize_t n_cols = 0;
+            {
+                hpc::h5::dataspace sp = ds.dataspace();
+                if (sp.simple_extent_num_dims() == 2)
+                {
+                    std::vector<hsize_t> dims(2);
+                    sp.simple_extent_dims<std::vector<hsize_t>>(dims);
+                    n_cols = dims[1];
+                }
+            }
+            _field_cache.push_back(field_binding{field_lower, std::move(ds), n_cols});
         }
     }
 
@@ -1071,21 +1126,54 @@ protected:
                     continue;
 
                 auto const& ds = binding.dataset;
-                switch (static_cast<tao::batch<real_type>::field_value_type>(
-                    _bat->get_field_type(field_lower)))
+
+                if (binding.n_cols > 0)
                 {
-                case tao::batch<real_type>::DOUBLE: {
-                    auto v = _bat->template scalar<double>(field_lower);
-                    ds.read(v.data() + i, hpc::h5::datatype::native_double, 1, sat_abs_idx);
-                    break;
+                    // 2D array field: read one row at sat_abs_idx
+                    std::vector<hsize_t> start2 = {sat_abs_idx, 0};
+                    std::vector<hsize_t> count2 = {1, binding.n_cols};
+                    std::vector<hsize_t> empty_v;
+                    hpc::h5::dataspace file_space = ds.dataspace();
+                    file_space.select_hyperslab<std::vector<hsize_t>>(
+                        H5S_SELECT_SET, count2, start2, empty_v, empty_v);
+                    hpc::h5::dataspace mem_space(count2);
+                    switch (static_cast<tao::batch<real_type>::field_value_type>(
+                        _bat->get_field_type(field_lower)))
+                    {
+                    case tao::batch<real_type>::DOUBLE: {
+                        auto& mat = _bat->vector<double>(field_lower);
+                        ds.read(&mat(i, 0), hpc::h5::datatype::native_double, mem_space,
+                                file_space);
+                        break;
+                    }
+                    case tao::batch<real_type>::LONG_LONG: {
+                        auto& mat = _bat->vector<long long>(field_lower);
+                        ds.read(&mat(i, 0), hpc::h5::datatype::native_llong, mem_space, file_space);
+                        break;
+                    }
+                    default:
+                        break;
+                    }
                 }
-                case tao::batch<real_type>::LONG_LONG: {
-                    auto v = _bat->template scalar<long long>(field_lower);
-                    ds.read(v.data() + i, hpc::h5::datatype::native_llong, 1, sat_abs_idx);
-                    break;
-                }
-                default:
-                    break;
+                else
+                {
+                    // 1D scalar field
+                    switch (static_cast<tao::batch<real_type>::field_value_type>(
+                        _bat->get_field_type(field_lower)))
+                    {
+                    case tao::batch<real_type>::DOUBLE: {
+                        auto v = _bat->template scalar<double>(field_lower);
+                        ds.read(v.data() + i, hpc::h5::datatype::native_double, 1, sat_abs_idx);
+                        break;
+                    }
+                    case tao::batch<real_type>::LONG_LONG: {
+                        auto v = _bat->template scalar<long long>(field_lower);
+                        ds.read(v.data() + i, hpc::h5::datatype::native_llong, 1, sat_abs_idx);
+                        break;
+                    }
+                    default:
+                        break;
+                    }
                 }
             }
 
@@ -1164,6 +1252,7 @@ protected:
     {
         std::string lower_name;
         hpc::h5::dataset dataset;
+        hsize_t n_cols; // 0 for scalar fields, >0 for 2D array fields
     };
 
     std::vector<field_binding> _field_cache;

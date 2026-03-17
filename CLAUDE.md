@@ -136,8 +136,8 @@ model_X.hdf5
 │   ├── BulgeMass
 │   ├── Posx, Posy, Posz
 │   ├── SAGETreeIndex
-│   ├── SfrBulgeSTEPS    # 2D array fields: shape (n_galaxies, n_timesteps) - NOT YET SUPPORTED
-│   ├── SfrDiskSTEPS     # 2D array fields: shape (n_galaxies, n_timesteps) - NOT YET SUPPORTED
+│   ├── SFHMassBulge     # 2D array fields: shape (n_galaxies, n_cols) - SUPPORTED
+│   ├── SFHMassDisk      # 2D array fields: shape (n_galaxies, n_cols) - SUPPORTED
 │   └── ... (50+ fields)
 ├── Snap_1/
 └── TreeInfo/
@@ -145,7 +145,7 @@ model_X.hdf5
 
 **Field Types**:
 - **1D scalar fields** (shape `(n_galaxies,)`): One value per galaxy. Examples: `StellarMass`, `Posx`, `ColdGas`. **Currently supported**.
-- **2D array fields** (shape `(n_galaxies, n_timesteps)`): Time-series data with multiple values per galaxy. Examples: `SfrBulgeSTEPS`, `SfrDiskSTEPS`. **Currently skipped** - see Known Issues.
+- **2D array fields** (shape `(n_galaxies, n_cols)`): Multi-valued data per galaxy. Examples: `SFHMassBulge`, `SFHMassDisk` (64 star-formation history bins). **Fully supported** — flows through the complete pipeline as 2D HDF5 datasets.
 
 #### Intermediate HDF5 (Output of sage2h5/sageh5toh5)
 ```
@@ -314,6 +314,13 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
   `--centralgalaxies` mode intentionally bypasses this filter.
 - Validated end-to-end with Mini-Millennium dataset (see `plans/VALIDATE_SATELLITE.md`)
 
+### Completed (see `plans/ARRAYS.md`, branch `feature/minimum-image-convention`)
+- **2D array field support** throughout the full pipeline: SAGE HDF5 → `sage2kdtree` → KD-tree HDF5 → `cli_lightcone` → lightcone output. Fields with shape `(n_galaxies, n_cols)` (e.g. `SFHMassBulge`, `SFHMassDisk`, 64 SFH bins) are now stored as 2D HDF5 datasets at every stage.
+  - `sage2kdtree` Phase 1: skip condition changed from `ndims != 1` to `ndims > 2`; broadcasts ndims/n_cols to all MPI ranks for collective dataset creation; 2D hyperslab writes
+  - `sage2kdtree` Phase 4: creates 2D datasets; row-wise KD-tree permutation preserves all `n_cols` values per galaxy atomically
+  - `kdtree_backend`: `_array_field_ncols` map; `field_binding.n_cols`; `init_batch` shadow pre-registers VECTOR fields before base class; 2D hyperslab reads in `_fetch()` and `_fetch_satellites()`
+  - `hdf5.hh` (cli_lightcone output): `_write_2d_batch` helper; `_dset_ncols`/`_dset_names` parallel lists; first-batch creates 2D chunked extendable datasets via raw HDF5 API; alt-batch extends via `H5Dset_extent` then calls `_write_2d_batch`
+
 ### Completed (branch `feature/minimum-image-convention`)
 - **Minimum-image convention (MIC) fix** in `src/libtao/base/kdtree_backend/kdtree_backend.hh`:
   Satellites emitted via CSR are now placed in the periodic image nearest to their central
@@ -346,7 +353,6 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
 - Direct `sageh5tokdtree` conversion (bypassing intermediate steps)
 - Proper subsize calculation from SAGE HDF5
 - Validation against binary workflow baseline
-- **Array field support**: Currently only 1D scalar fields are processed. Multi-dimensional array fields (e.g., `SfrBulgeSTEPS`, `SfrDiskSTEPS`) with shape `(n_galaxies, n_timesteps)` are skipped. Future work needed to flatten or properly handle these time-series fields.
 
 ### Known Issues
 - Release mode (`-DNDEBUG`) breaks at runtime — use Debug builds only
@@ -354,7 +360,6 @@ The `subsize` field in `lightcone/data` represents the total number of galaxies 
 - Checkpointing currently disabled
 - `_fetch_satellites()` issues individual point reads per field per satellite (performance
   only — correctness unaffected); future optimisation: sort and batch contiguous ranges
-- **Array fields not supported**: Multi-dimensional fields (ndims > 1) are currently skipped during conversion. This includes time-series fields like `SfrBulgeSTEPS` and `SfrDiskSTEPS` that store values at multiple timesteps. Only 1D scalar fields (one value per galaxy) are processed.
 
 ## Code Style & Conventions
 

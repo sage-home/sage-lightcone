@@ -321,6 +321,16 @@ private:
     unsigned _ppc;                      // Particles per cell for KD-tree
     int _verb;                          // Verbosity level
     bool _build_central_galaxies_index; // Build CSR satellite index
+    bool _no_arrays;                    // Skip 2D array fields
+
+    // Phase 4 field-ndims cache: built once during dataset creation, reused per-snapshot.
+    // Eliminates O(n_snapshots × n_fields) simple_extent_num_dims() calls in _write_attributes.
+    std::unordered_map<std::string, int> _phase4_ndims;
+
+    // Phase 4 I/O scratch buffers: grown on demand, never shrunk.
+    // Reusing across fields and snapshots eliminates per-field malloc/zero-init/free.
+    std::vector<char> _attr_field_buf;
+    std::vector<char> _attr_permuted_buf;
 
     // Cosmology parameters (loaded in Phase 1)
     double _box_size;
@@ -350,6 +360,7 @@ sage2kdtree_application::sage2kdtree_application(int argc, char* argv[])
     , _ppc(1000)
     , _verb(1)
     , _build_central_galaxies_index(false)
+    , _no_arrays(false)
 {
 
     // Setup command-line options
@@ -365,7 +376,9 @@ sage2kdtree_application::sage2kdtree_application(int argc, char* argv[])
         "Verbosity level (0=quiet, 1=progress, 2=info, 3=debug)")(
         "centralgalaxies",
         hpc::po::bool_switch(&_build_central_galaxies_index)->default_value(false),
-        "Build central galaxies satellite lookup index");
+        "Build central galaxies satellite lookup index")(
+        "noarrays", hpc::po::bool_switch(&_no_arrays)->default_value(false),
+        "Skip 2D array fields from SAGE output (e.g. SFHMassBulge, SFHMassDisk)");
 
     // Allow positional arguments
     positional_options().add("sage", 1);
@@ -605,6 +618,20 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
         }
     }
 
+    // Field metadata cache: built once from the first non-empty snapshot and reused
+    // for all subsequent snapshots.  ndims, n_cols, and element type are constant
+    // across snapshots, so querying HDF5 once per field (not once per field per
+    // snapshot) eliminates O(n_snapshots × n_fields) redundant H5Dopen/H5Gopen calls.
+    struct FieldMeta
+    {
+        int     type_code = 0;  // 0=float, 1=int, 2=llong
+        int     ndims = 1;
+        hsize_t n_cols = 0;     // 0 for 1D fields
+        bool    skip = false;
+    };
+    std::unordered_map<std::string, FieldMeta> meta_cache;
+    bool meta_cache_built = false;
+
     for (size_t snap = 0; snap < _redshifts.size(); ++snap)
     {
         std::stringstream ss_in;
@@ -736,29 +763,88 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                       _comm->mpi_comm());
         }
 
-        for (const auto& fname : fields)
+        // Build the field metadata cache from this snapshot (first non-empty one).
+        if (!meta_cache_built && rank == global_info_rank && !open_files.empty())
         {
-            // Skip array fields (only process 1D scalar fields)
-            // Array fields like SfrBulgeSTEPS have shape (n_galaxies, n_timesteps)
-            // We only want fields with shape (n_galaxies,)
-            bool is_array_field = false;
-            if (rank == global_info_rank)
+            hpc::h5::group g;
+            g.open(*open_files[0], group_in);
+            for (const auto& fname : fields)
             {
-                hpc::h5::group g;
-                g.open(*open_files[0], group_in);
-                hpc::h5::dataset ds = g.dataset(fname);
+                FieldMeta m;
+                hpc::h5::dataset  ds = g.dataset(fname);
                 hpc::h5::dataspace sp = ds.dataspace();
                 int ndims = sp.simple_extent_num_dims();
-
-                // Only process 1D fields (ndims == 1)
-                if (ndims != 1)
+                m.ndims = ndims;
+                if (ndims > 2)
                 {
-                    is_array_field = true;
-                    if (_verb >= 1)
+                    m.skip = true;
+                }
+                else if (ndims == 2)
+                {
+                    m.skip = _no_arrays;
+                    if (!m.skip)
                     {
-                        std::cout << "    → Skipping array field: " << fname << " (ndims=" << ndims
+                        std::vector<hsize_t> dims(2);
+                        sp.simple_extent_dims<std::vector<hsize_t>>(dims);
+                        m.n_cols = dims[1];
+                    }
+                }
+                if (!m.skip)
+                {
+                    H5T_class_t cls = ds.type_class();
+                    size_t sz = H5Tget_size(ds.datatype().id());
+                    if (cls == H5T_INTEGER)
+                        m.type_code = (sz == 8) ? 2 : 1;
+                }
+                meta_cache[fname] = m;
+            }
+            meta_cache_built = true;
+        }
+
+        for (const auto& fname : fields)
+        {
+            // Look up field metadata from cache (built once from first non-empty snapshot).
+            bool is_array_field = false;
+            int ndims_val = 1;
+            hsize_t n_cols = 0; // >0 for 2D array fields
+            int type_code = 0;
+            if (rank == global_info_rank)
+            {
+                auto it = meta_cache.find(fname);
+                if (it != meta_cache.end())
+                {
+                    const FieldMeta& m = it->second;
+                    ndims_val    = m.ndims;
+                    n_cols       = m.n_cols;
+                    type_code    = m.type_code;
+                    is_array_field = m.skip;
+                    if (is_array_field && _verb >= 1)
+                    {
+                        if (m.ndims > 2)
+                            std::cout << "    → Skipping field: " << fname << " (ndims=" << m.ndims
+                                      << " > 2, not supported)" << std::endl;
+                        else
+                            std::cout << "    → Skipping field: " << fname
+                                      << " (ndims=2, --noarrays)" << std::endl;
+                    }
+                    else if (!is_array_field && m.ndims == 2 && _verb >= 1)
+                    {
+                        std::cout << "    → Array field: " << fname << " (n_cols=" << m.n_cols
                                   << ")" << std::endl;
                     }
+                }
+                else
+                {
+                    // Field not in cache (unexpected) — fall back to direct HDF5 query.
+                    hpc::h5::group g;
+                    g.open(*open_files[0], group_in);
+                    hpc::h5::dataset  ds = g.dataset(fname);
+                    hpc::h5::dataspace sp = ds.dataspace();
+                    ndims_val = sp.simple_extent_num_dims();
+                    H5T_class_t cls = ds.type_class();
+                    size_t sz = H5Tget_size(ds.datatype().id());
+                    if (cls == H5T_INTEGER)
+                        type_code = (sz == 8) ? 2 : 1;
                 }
             }
 
@@ -768,24 +854,17 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
             if (skip_field)
                 continue;
 
-            hpc::h5::datatype type = hpc::h5::datatype::native_float;
-
-            int type_code = 0;
-            if (rank == global_info_rank)
+            MPI_Bcast(&ndims_val, 1, MPI_INT, global_info_rank, _comm->mpi_comm());
             {
-                hpc::h5::group g;
-                g.open(*open_files[0], group_in);
-                H5T_class_t cls = g.dataset(fname).type_class();
-                size_t sz = H5Tget_size(g.dataset(fname).datatype().id());
-                if (cls == H5T_INTEGER)
-                {
-                    if (sz == 8)
-                        type_code = 2;
-                    else
-                        type_code = 1;
-                }
+                unsigned long long n_cols_ull = static_cast<unsigned long long>(n_cols);
+                MPI_Bcast(&n_cols_ull, 1, MPI_UNSIGNED_LONG_LONG, global_info_rank,
+                          _comm->mpi_comm());
+                n_cols = static_cast<hsize_t>(n_cols_ull);
             }
+
             MPI_Bcast(&type_code, 1, MPI_INT, global_info_rank, _comm->mpi_comm());
+
+            hpc::h5::datatype type = hpc::h5::datatype::native_float;
 
             if (type_code == 1)
                 type = hpc::h5::datatype::native_int;
@@ -794,8 +873,19 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
             else
                 type = hpc::h5::datatype::native_float;
 
-            hpc::h5::dataspace dspace(total_gals);
-            hpc::h5::dataset dset(out_group, fname, type, dspace, hpc::h5::property_list());
+            // Create dataset: 1D for scalar fields, 2D for array fields
+            hpc::h5::dataset dset;
+            if (ndims_val == 2)
+            {
+                std::vector<hsize_t> dims2 = {total_gals, n_cols};
+                hpc::h5::dataspace dspace(dims2);
+                dset = hpc::h5::dataset(out_group, fname, type, dspace, hpc::h5::property_list());
+            }
+            else
+            {
+                hpc::h5::dataspace dspace(total_gals);
+                dset = hpc::h5::dataset(out_group, fname, type, dspace, hpc::h5::property_list());
+            }
 
             if (my_count > 0 && !open_files.empty())
             {
@@ -807,51 +897,84 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                     if (g.has_link(fname))
                     {
                         hpc::h5::dataset src = g.dataset(fname);
-                        hsize_t count = src.dataspace().size();
-
-                        // DEBUG: Verify dataset size matches expectation
-                        hpc::h5::dataspace check_space = dset.dataspace();
-                        hsize_t actual_dataset_size = check_space.size();
-
-                        if (_verb >= 2 && rank == 0)
-                        {
-                            std::cout << "    DEBUG: " << group_out << "/" << fname << std::endl;
-                            std::cout << "      total_gals=" << total_gals
-                                      << ", actual_dataset_size=" << actual_dataset_size
-                                      << ", count=" << count
-                                      << ", current_offset=" << current_offset
-                                      << ", offset+count=" << (current_offset + count) << std::endl;
-                        }
-
-                        if (current_offset + count > actual_dataset_size)
-                        {
-                            std::cerr << "ERROR: Write would exceed dataset bounds!" << std::endl;
-                            std::cerr << "  Snapshot: " << group_out << std::endl;
-                            std::cerr << "  Field: " << fname << std::endl;
-                            std::cerr << "  Dataset size: " << actual_dataset_size << std::endl;
-                            std::cerr << "  Requested total_gals: " << total_gals << std::endl;
-                            std::cerr << "  Write offset: " << current_offset << std::endl;
-                            std::cerr << "  Write count: " << count << std::endl;
-                            std::cerr << "  offset + count: " << (current_offset + count)
-                                      << std::endl;
-                            throw std::runtime_error("Dataset size mismatch detected");
-                        }
-
-                        size_t el_size = H5Tget_size(type.id());
-                        std::vector<char> buf(count * el_size);
-                        src.read(buf.data(), type);
-
-                        std::vector<hsize_t> start = {current_offset};
-                        std::vector<hsize_t> count_vec = {count};
                         std::vector<hsize_t> empty_v;
-                        hpc::h5::dataspace file_space = dset.dataspace();
-                        file_space.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count_vec,
-                                                                          start, empty_v, empty_v);
 
-                        hpc::h5::dataspace mem(count);
-                        dset.write(buf.data(), type, mem, file_space);
+                        if (ndims_val == 2)
+                        {
+                            // 2D array field: get row count from first dimension
+                            hpc::h5::dataspace src_space = src.dataspace();
+                            std::vector<hsize_t> src_dims(2);
+                            src_space.simple_extent_dims<std::vector<hsize_t>>(src_dims);
+                            hsize_t n_rows = src_dims[0];
 
-                        current_offset += count;
+                            size_t el_size = H5Tget_size(type.id());
+                            std::vector<char> buf(n_rows * n_cols * el_size);
+
+                            // Read all rows as flat memory
+                            std::vector<hsize_t> flat_dims = {n_rows * n_cols};
+                            hpc::h5::dataspace mem_space(flat_dims);
+                            src.read(buf.data(), type, mem_space, src_space);
+
+                            // Write to output at (current_offset, 0)
+                            std::vector<hsize_t> start2 = {current_offset, 0};
+                            std::vector<hsize_t> count2 = {n_rows, n_cols};
+                            hpc::h5::dataspace file_space = dset.dataspace();
+                            file_space.select_hyperslab<std::vector<hsize_t>>(
+                                H5S_SELECT_SET, count2, start2, empty_v, empty_v);
+                            dset.write(buf.data(), type, mem_space, file_space);
+
+                            current_offset += n_rows;
+                        }
+                        else
+                        {
+                            // 1D scalar field
+                            hsize_t count = src.dataspace().size();
+
+                            // DEBUG: Verify dataset size matches expectation
+                            hpc::h5::dataspace check_space = dset.dataspace();
+                            hsize_t actual_dataset_size = check_space.size();
+
+                            if (_verb >= 2 && rank == 0)
+                            {
+                                std::cout << "    DEBUG: " << group_out << "/" << fname << std::endl;
+                                std::cout << "      total_gals=" << total_gals
+                                          << ", actual_dataset_size=" << actual_dataset_size
+                                          << ", count=" << count
+                                          << ", current_offset=" << current_offset
+                                          << ", offset+count=" << (current_offset + count)
+                                          << std::endl;
+                            }
+
+                            if (current_offset + count > actual_dataset_size)
+                            {
+                                std::cerr << "ERROR: Write would exceed dataset bounds!"
+                                          << std::endl;
+                                std::cerr << "  Snapshot: " << group_out << std::endl;
+                                std::cerr << "  Field: " << fname << std::endl;
+                                std::cerr << "  Dataset size: " << actual_dataset_size << std::endl;
+                                std::cerr << "  Requested total_gals: " << total_gals << std::endl;
+                                std::cerr << "  Write offset: " << current_offset << std::endl;
+                                std::cerr << "  Write count: " << count << std::endl;
+                                std::cerr << "  offset + count: " << (current_offset + count)
+                                          << std::endl;
+                                throw std::runtime_error("Dataset size mismatch detected");
+                            }
+
+                            size_t el_size = H5Tget_size(type.id());
+                            std::vector<char> buf(count * el_size);
+                            src.read(buf.data(), type);
+
+                            std::vector<hsize_t> start = {current_offset};
+                            std::vector<hsize_t> count_vec = {count};
+                            hpc::h5::dataspace file_space = dset.dataspace();
+                            file_space.select_hyperslab<std::vector<hsize_t>>(
+                                H5S_SELECT_SET, count_vec, start, empty_v, empty_v);
+
+                            hpc::h5::dataspace mem(count);
+                            dset.write(buf.data(), type, mem, file_space);
+
+                            current_offset += count;
+                        }
                     }
                 }
             }
@@ -1740,16 +1863,33 @@ void sage2kdtree_application::phase4_build_kdtree_index()
 
                     std::string field_path = ss.str() + "/" + field_name;
 
-                    // Open the field dataset to get its type
+                    // Open the field dataset to get its type and shape
                     hpc::h5::dataset field_ds = snap_file.dataset(field_path);
                     hpc::h5::datatype field_type = field_ds.datatype();
 
-                    // Create data/* dataset - HDF5 auto-creates "data" group (preserve
-                    // original case)
+                    // Create data/* dataset - shape depends on field dimensionality.
+                    // Cache ndims here so _write_attributes() can reuse it without re-querying HDF5.
                     std::string out_name = field_name;
-                    hpc::h5::dataspace field_space(total_gals);
-                    hpc::h5::dataset out_ds(out_file, "data/" + out_name, field_type, field_space,
-                                            hpc::h5::property_list());
+                    hpc::h5::dataspace src_sp = field_ds.dataspace();
+                    int field_ndims_init = src_sp.simple_extent_num_dims();
+                    _phase4_ndims[field_name] = field_ndims_init;
+                    if (field_ndims_init == 2)
+                    {
+                        std::vector<hsize_t> src_dims(2);
+                        src_sp.simple_extent_dims<std::vector<hsize_t>>(src_dims);
+                        std::vector<hsize_t> out_dims = {total_gals, src_dims[1]};
+                        hpc::h5::dataspace field_space(out_dims);
+                        hpc::h5::dataset out_ds(out_file, "data/" + out_name, field_type,
+                                                field_space, hpc::h5::property_list());
+                        (void)out_ds;
+                    }
+                    else
+                    {
+                        hpc::h5::dataspace field_space(total_gals);
+                        hpc::h5::dataset out_ds(out_file, "data/" + out_name, field_type,
+                                                field_space, hpc::h5::property_list());
+                        (void)out_ds;
+                    }
 
                     // Copy attributes from Phase 3 input
                     std::string desc =
@@ -2052,32 +2192,74 @@ void sage2kdtree_application::_write_attributes(hpc::h5::file& file, std::string
         hpc::h5::datatype field_type = field_ds.datatype();
         size_t elem_size = field_type.size();
 
-        // Read entire field
-        std::vector<char> field_data(n_gals * elem_size);
-        hpc::h5::dataspace mem_space(n_gals);
-        hpc::h5::dataspace file_space = field_ds.dataspace();
-        field_ds.read(field_data.data(), field_type, mem_space, file_space);
+        // Determine field dimensionality — use Phase 4 init cache to avoid per-snapshot HDF5 calls.
+        auto ndims_it = _phase4_ndims.find(field_name);
+        int field_ndims = (ndims_it != _phase4_ndims.end()) ? ndims_it->second : 1;
+        hpc::h5::dataspace src_space = field_ds.dataspace();
+        hsize_t n_cols = 1;
+        if (field_ndims == 2)
+        {
+            std::vector<hsize_t> src_dims(2);
+            src_space.simple_extent_dims<std::vector<hsize_t>>(src_dims);
+            n_cols = src_dims[1];
+        }
+        size_t row_size = n_cols * elem_size;
 
-        // Permute to KD-tree spatial order
-        std::vector<char> permuted_data(n_gals * elem_size);
+        // Read entire field (all rows) — reuse persistent scratch buffers to avoid
+        // per-field malloc/zero-init/free (the dominant cost revealed by profiling).
+        size_t buf_needed = n_gals * row_size;
+        if (_attr_field_buf.size() < buf_needed)
+            _attr_field_buf.resize(buf_needed);
+        if (_attr_permuted_buf.size() < buf_needed)
+            _attr_permuted_buf.resize(buf_needed);
+        char* field_data    = _attr_field_buf.data();
+        char* permuted_data = _attr_permuted_buf.data();
+
+        if (field_ndims == 2)
+        {
+            std::vector<hsize_t> flat_dims = {n_gals * n_cols};
+            hpc::h5::dataspace mem_space(flat_dims);
+            field_ds.read(field_data, field_type, mem_space, src_space);
+        }
+        else
+        {
+            hpc::h5::dataspace mem_space(n_gals);
+            field_ds.read(field_data, field_type, mem_space, src_space);
+        }
+
+        // Permute rows to KD-tree spatial order
         for (unsigned long long jj = 0; jj < n_gals; ++jj)
         {
             unsigned long long src_idx = idxs[jj];
-            memcpy(permuted_data.data() + jj * elem_size, field_data.data() + src_idx * elem_size,
-                   elem_size);
+            memcpy(permuted_data + jj * row_size, field_data + src_idx * row_size, row_size);
         }
 
         // Write to /data/{field_name} (preserve original case)
         std::string out_name = field_name;
         hpc::h5::dataset out_ds(out_file, "data/" + out_name);
-        hpc::h5::dataspace out_mem_space(n_gals);
-        hpc::h5::dataspace out_file_space(out_ds);
-        out_file_space.select_range(displ, displ + n_gals);
-
         hpc::h5::property_list props(H5P_DATASET_XFER);
         props.set_preserve();
-        out_ds.write(permuted_data.data(), field_type, out_mem_space, out_file_space,
-                     hpc::mpi::comm::self, props);
+        if (field_ndims == 2)
+        {
+            std::vector<hsize_t> mem_dims2 = {n_gals, n_cols};
+            hpc::h5::dataspace out_mem_space(mem_dims2);
+            hpc::h5::dataspace out_file_space(out_ds);
+            std::vector<hsize_t> start2 = {displ, 0};
+            std::vector<hsize_t> count2 = {n_gals, n_cols};
+            std::vector<hsize_t> empty_v;
+            out_file_space.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2, start2,
+                                                                  empty_v, empty_v);
+            out_ds.write(permuted_data, field_type, out_mem_space, out_file_space,
+                         hpc::mpi::comm::self, props);
+        }
+        else
+        {
+            hpc::h5::dataspace out_mem_space(n_gals);
+            hpc::h5::dataspace out_file_space(out_ds);
+            out_file_space.select_range(displ, displ + n_gals);
+            out_ds.write(permuted_data, field_type, out_mem_space, out_file_space,
+                         hpc::mpi::comm::self, props);
+        }
     }
 }
 

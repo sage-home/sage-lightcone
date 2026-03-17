@@ -73,7 +73,6 @@ herr_t static getFields(hid_t g_id, const char* name, const H5L_info_t* info, vo
 
 void kdtree_backend::connect(const cli_dict& global_cli_dict)
 {
-    std::cerr << "DEBUG: kdtree_backend::connect() called" << std::endl;
     std::string fn = global_cli_dict._dataset;
     _field_types.clear();
     _central_galaxies_mode = global_cli_dict._central_galaxies;
@@ -81,8 +80,6 @@ void kdtree_backend::connect(const cli_dict& global_cli_dict)
 
     // Open HDF5 file and read field information
     this->open(fn);
-    std::cerr << "DEBUG: After open(), _field_types has " << _field_types.size() << " entries"
-              << std::endl;
     hpc::h5::group data = kdtree_file().group("data");
     std::vector<std::string> Hfields;
     H5Lvisit(data.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, getFields, &Hfields);
@@ -166,10 +163,6 @@ void kdtree_backend::connect(const cli_dict& global_cli_dict)
     //        missing essential field: ",
     //               item.second);
     //}
-
-    std::cerr << "DEBUG: At end of connect(), _field_types has " << _field_types.size()
-              << " entries" << std::endl;
-    std::cerr << "DEBUG: _field_map has " << _field_map.size() << " entries" << std::endl;
 }
 
 void kdtree_backend::close() {}
@@ -259,7 +252,7 @@ void kdtree_backend::open(hpc::fs::path const& fn)
         std::transform(field_name_lower.begin(), field_name_lower.end(), field_name_lower.begin(),
                        ::tolower);
 
-        // Open dataset and get its type class
+        // Open dataset and get its type class and shape
         hpc::h5::dataset ds(data_group, field_name);
         H5T_class_t type_class = ds.type_class();
 
@@ -279,6 +272,21 @@ void kdtree_backend::open(hpc::fs::path const& fn)
         {
             // Default to DOUBLE for unknown types
             ftype = batch<real_type>::DOUBLE;
+        }
+
+        // Detect 2D array fields and record n_cols
+        {
+            hpc::h5::dataspace dsp = ds.dataspace();
+            if (dsp.simple_extent_num_dims() == 2)
+            {
+                std::vector<hsize_t> dims(2);
+                dsp.simple_extent_dims<std::vector<hsize_t>>(dims);
+                hsize_t n_cols = dims[1];
+                _array_field_ncols[field_name_lower] = n_cols;
+                // Also store under CamelCase name if different
+                if (field_name_lower != field_name)
+                    _array_field_ncols[field_name] = n_cols;
+            }
         }
 
         // Store field type using actual field name (CamelCase from HDF5)
@@ -685,6 +693,62 @@ std::string kdtree_backend::debug_kdtree_info() const
         oss << " [EMPTY/UNINITIALIZED]";
     }
     return oss.str();
+}
+
+void kdtree_backend::init_batch(batch<real_type>& bat, query<real_type>& qry) const
+{
+    // Pre-register 2D array fields as VECTOR before calling base class.
+    // The base class calls set_scalar(), which is a no-op if the field is already set,
+    // so we pre-empt it here for array fields.
+    for (auto const& field : qry.output_fields())
+    {
+        // Resolve alias
+        std::string resolved = field;
+        auto alias_it = this->_field_map.find(field);
+        if (alias_it != this->_field_map.end())
+            resolved = alias_it->second;
+
+        // Check if it's an array field (lookup by resolved name or lowercase variant)
+        auto it = _array_field_ncols.find(resolved);
+        if (it == _array_field_ncols.end())
+        {
+            std::string resolved_lower = resolved;
+            std::transform(resolved_lower.begin(), resolved_lower.end(), resolved_lower.begin(),
+                           ::tolower);
+            it = _array_field_ncols.find(resolved_lower);
+        }
+
+        if (it != _array_field_ncols.end())
+        {
+            hsize_t n_cols = it->second;
+            // Look up element type
+            auto ftype_it = this->_field_types.find(resolved);
+            if (ftype_it == this->_field_types.end())
+            {
+                std::string resolved_lower = resolved;
+                std::transform(resolved_lower.begin(), resolved_lower.end(), resolved_lower.begin(),
+                               ::tolower);
+                ftype_it = this->_field_types.find(resolved_lower);
+            }
+            if (ftype_it != this->_field_types.end())
+            {
+                switch (ftype_it->second)
+                {
+                case batch<real_type>::DOUBLE:
+                    bat.set_vector<double>(field, static_cast<size_t>(n_cols));
+                    break;
+                case batch<real_type>::LONG_LONG:
+                    bat.set_vector<long long>(field, static_cast<size_t>(n_cols));
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    // Call base class to register scalar fields (no-ops for already-set VECTOR fields)
+    backend::init_batch(bat, qry);
 }
 
 } // namespace backends
