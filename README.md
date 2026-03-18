@@ -6,9 +6,10 @@ These are modules designed to carry out the workflow of converting sage binary o
 
 ## Dependencies
 
- * Boost - A set of efficient C++ extensions.
+ * C++17 compiler or later (GCC 7+, Clang 5+, Apple Clang 10+)
+ * CMake 3.10 or later
+ * Boost - A set of efficient C++ extensions (filesystem, program options).
  * HDF5 - Hierarchical Data Format libraries. Currently tested with version 1.14.0.
- * GSL - The GNU Scientific Library.
  * MPI - Message Passing Interface implementation. Tested with OpenMPI. (Optional)
 
 ## Set up: Clone repository with submodules
@@ -46,10 +47,140 @@ To build in other environments refer to the .gitlab-ci.yml on how this is done w
 that has numerous dependencies, we recommend installing as many of them
 as possible using your system's package management software.
 
+## Command Line Reference
+
+The two main executables in the pipeline each accept a set of command line arguments described below. Both can be run with `-h` / `--help` to print a summary. `sage2kdtree` converts SAGE HDF5 output into a KD-tree indexed file ready for lightcone extraction. `cli_lightcone` queries that file to produce a flat HDF5 lightcone catalogue for a given sky volume and redshift range.
+
+### sage2kdtree
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--sage` | `-s` | *(required)* | Path to the directory containing SAGE HDF5 output files (`model_N.hdf5`) |
+| `--param` | `-p` | *(required)* | SAGE parameter file (`.par`) used to read cosmology and simulation settings |
+| `--alist` | `-a` | *(required)* | SAGE expansion factor list file (maps snapshot numbers to scale factors) |
+| `--output` | `-o` | *(required)* | Output KD-tree HDF5 file path |
+| `--ppc` | | `1000` | Particles per KD-tree cell — controls spatial index granularity |
+| `--centralgalaxies` | | off | Build the central galaxy satellite lookup index (CSR index) alongside the KD-tree, required for `cli_lightcone --centralgalaxies` |
+| `--noarrays` | | off | Skip 2D array fields (e.g. `SFHMassBulge`, `SFHMassDisk`) from the SAGE output |
+| `--verbose` | `-v` | `1` | Verbosity level: 0 = quiet, 1 = progress, 2 = info, 3 = debug |
+| `--help` | `-h` | | Print help and exit |
+
+### cli_lightcone
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--dataset` | `-d` | *(required)* | Path to the KD-tree indexed HDF5 file produced by `sage2kdtree` |
+| `--decmin` | | `0` | Minimum declination of the output cone (degrees) |
+| `--decmax` | | `10` | Maximum declination of the output cone (degrees) |
+| `--ramin` | | `0` | Minimum right ascension of the output cone (degrees) |
+| `--ramax` | | `10` | Maximum right ascension of the output cone (degrees) |
+| `--zmin` | | `0` | Minimum redshift |
+| `--zmax` | | `1` | Maximum redshift |
+| `--outfile` | `-o` | `output.hdf5` | Output lightcone HDF5 filename |
+| `--outdir` | | `output` | Directory for output files |
+| `--outfields` | | *(all fields)* | Space-separated list of fields to include in the output; omit to include all fields plus all calculated fields |
+| `--centralgalaxies` | | off | Include all satellites whose central galaxy falls in the cone, regardless of the satellite's own sky position |
+| `--unique` | | `0` | If `1`, produce a unique lightcone (no repeated galaxies); if `0`, produce a random lightcone |
+| `--seed` | | `0` | RNG seed for random lightcone mode |
+| `--filterfield` | `-f` | `stellar_mass` | Galaxy property field to apply a value filter on |
+| `--filtermin` | | `0` | Minimum value for the filter field |
+| `--filtermax` | | *(none)* | Maximum value for the filter field |
+| `--verbose` | `-v` | off | Enable verbose output |
+| `--debug` | | off | Enable debug output |
+| `--version` | | | Print version number and exit |
+| `--help` | `-h` | | Print help and exit |
+
 ## Testing
 
-The verify_kdtree_output.sh run the end to end test including first building using build_platform_ware.sh if necessary,
-The script test_cli_validation.sh will test that the build has succeeded and that a suite of validation tests correctly inform the user of errors in the command line arguments.
+All test and validation scripts live in the `tests/` directory and can be run from any working directory.
+
+| Script | Purpose |
+|--------|---------|
+| `first_run.sh` | Downloads the Mini-Millennium tree files and scale-factor list into `tests/sage-model-tests/input/` if not already present. Called automatically by the test scripts when input data is missing. |
+| `test_sage_hdf5.sh` | **Primary end-to-end test.** Runs the full pipeline from scratch: builds executables if needed, downloads tree data if missing, runs SAGE, `sage2kdtree`, and `cli_lightcone`, then plots SnapNum and redshift verification plots. Supports `--centralgalaxies` to exercise that code path. |
+| `test_sage_hdf5_mpi.sh` | Same as `test_sage_hdf5.sh` but runs `sage2kdtree` and `cli_lightcone` under MPI with `--np N` tasks. Confirms the parallel code path produces correct output. |
+| `test_cli_validation.sh` | Tests command-line argument validation for `cli_lightcone`: exercises invalid ra/dec/redshift ranges and confirms the executable reports errors correctly. |
+| `validate_kdtree_output.sh` | Runs `sage2kdtree` and `cli_lightcone` against pre-existing SAGE output (does not re-run SAGE) and writes a full log to `validate_kdtree_output.txt` at the project root. Use this to check correctness of the conversion and lightcone steps in isolation. |
+| `validate_kdtree_output_mpi.sh` | Same as `validate_kdtree_output.sh` but runs under MPI with `--np N` tasks. |
+| `setup_validate_kdtree_output.sh` | Prepares the environment for `validate_kdtree_output.sh`: builds executables if needed and ensures SAGE output exists. Called automatically by `validate_kdtree_output.sh`. |
+| `validate_and_time_workflow.sh` | Runs the full pipeline end-to-end (SAGE → `sage2kdtree` → `cli_lightcone`), timing and profiling each phase with peak memory and disk usage recorded to CSV files. Generates a timestamped Markdown report in `benchmark_reports/`. |
+| `validate_and_time_centralgalaxies_option.sh` | Validates the `--centralgalaxies` option by running the full pipeline three times with different flag combinations and confirming the expected galaxy count ordering between passes. |
+| `profile_xctrace_cli_lightcone.sh` | macOS only. Profiles `cli_lightcone` using Instruments `xctrace` (Time Profiler). Produces a `.trace` file openable in Instruments.app. |
+| `profile_xctrace_sage2kdtree.sh` | macOS only. Profiles `sage2kdtree` from both the `main` and `before` branches using `xctrace` and the `sample` command, producing `.trace` and plain-text call-tree files in `profile_output/`. |
+
+# SAGE HDF5 Output Format Requirements
+
+`sage2kdtree` reads SAGE HDF5 output files directly. This section defines what a conformant SAGE HDF5 output must contain.
+
+## File Layout
+
+Each SAGE output file (e.g. `model_0.hdf5`, `model_1.hdf5`, …) must have this top-level structure:
+
+```
+model_N.hdf5
+├── Header/
+│   └── Simulation/          # Cosmology attributes (see below)
+├── Snap_0/                  # One group per snapshot
+│   ├── Posx                 # Columnar datasets, shape (n_galaxies,)
+│   ├── Posy
+│   ├── ...
+├── Snap_1/
+├── ...
+└── TreeInfo/                # (optional but expected by SAGE)
+```
+
+- Snapshot groups must be named `Snap_0`, `Snap_1`, … (consecutive integers starting at 0).
+- Each snapshot group contains one HDF5 dataset per galaxy field.
+- **1D scalar fields** have shape `(n_galaxies,)`.
+- **2D array fields** (e.g. star-formation history bins) have shape `(n_galaxies, n_cols)` and are fully supported throughout the pipeline.
+
+## Header/Simulation Attributes
+
+The `Header/Simulation` group must contain the following scalar attributes (case-insensitive matching is applied):
+
+| Attribute | Description |
+|-----------|-------------|
+| `BoxSize` | Simulation box size in Mpc/h |
+| `Hubble_h` | Dimensionless Hubble parameter *h* |
+| `Omega_m` | Matter density parameter Ω_m |
+| `Omega_lambda` | Dark energy density parameter Ω_Λ |
+
+If `Header/Simulation` is absent or any of these attributes is missing, `sage2kdtree` will emit a warning and attempt to read cosmology from the parameter file (`-p` argument) instead.
+
+## Mandatory Galaxy Fields
+
+The following fields must be present in every `Snap_N` group. `sage2kdtree` validates their presence at startup and aborts with a clear error message listing any that are missing. Field name matching is case-insensitive.
+
+### Spatial coordinates (required for KD-tree indexing)
+| Field | Description |
+|-------|-------------|
+| `Posx` | x position (Mpc/h, comoving) |
+| `Posy` | y position (Mpc/h, comoving) |
+| `Posz` | z position (Mpc/h, comoving) |
+
+### Snapshot identification
+| Field | Description |
+|-------|-------------|
+| `SnapNum` | Snapshot number this galaxy belongs to |
+
+### Galaxy and tree identifiers
+| Field | Description |
+|-------|-------------|
+| `GalaxyIndex` | Unique galaxy index within the tree |
+| `CentralGalaxyIndex` | Index of this galaxy's central (= `GalaxyIndex` for centrals) |
+
+### Velocities (required for lightcone redshift calculations)
+| Field | Description |
+|-------|-------------|
+| `Velx` | x peculiar velocity (km/s) |
+| `Vely` | y peculiar velocity (km/s) |
+| `Velz` | z peculiar velocity (km/s) |
+
+All other fields present in the snapshot groups are passed through the pipeline unchanged and will appear in the final KD-tree HDF5 output.
+
+## Output Format Requirement
+
+SAGE must be run with `OutputFormat = sage_hdf5`. Binary (`sage_binary`) output is not accepted by `sage2kdtree`.
 
 # Structure of HDF5 format simulations with KD-TREE indexing
 
@@ -182,4 +313,58 @@ This structure allows efficient spatial queries by:
 1. Using `snapshot_displs` to find the data range for a specific redshift/snapshot
 2. Using KD-TREE indices within that snapshot to quickly locate galaxies in specific spatial regions
 3. All field arrays (x_pos, y_pos, mass, etc.) maintain the same ordering for consistent indexing
+
+## Output lightcone HDF5 format
+
+`cli_lightcone` writes a single flat HDF5 file containing all galaxies that fall within the requested sky volume. There are no snapshot or spatial sub-groups — every dataset lives directly at the file root.
+
+### File layout
+
+```
+output-lightcone.h5
+├── SageOutputHeader/          # Copied verbatim from the input KD-tree file
+│   └── ...                    # (which copied it from the original SAGE output)
+├── LightconeOutputHeader/     # Attributes recording the query parameters
+│   ├── dataset                # Path to the input KD-tree file
+│   ├── ramin, ramax           # Right ascension bounds (degrees)
+│   ├── decmin, decmax         # Declination bounds (degrees)
+│   ├── zmin, zmax             # Redshift bounds
+│   ├── outfile, outdir        # Output path components
+│   ├── output_fields          # Comma-separated list of fields written
+│   ├── filter_field, filter_min, filter_max  # Optional galaxy filter
+│   ├── unique                 # Whether duplicate suppression was applied
+│   └── rng_seed               # RNG seed used
+├── Posx                       # Observer-frame x coordinate (Mpc/h) [N galaxies]
+├── Posy                       # Observer-frame y coordinate (Mpc/h) [N galaxies]
+├── Posz                       # Observer-frame z coordinate (Mpc/h) [N galaxies]
+├── ra                         # Right ascension (degrees)            [N galaxies]
+├── dec                        # Declination (degrees)                [N galaxies]
+├── distance                   # Comoving distance from observer (Mpc/h)
+├── redshift_cosmological      # Redshift from comoving distance
+├── redshift_observed          # Redshift including peculiar velocity
+├── sfr                        # Total SFR = SfrDisk + SfrBulge (Msun/yr)
+├── SnapNum                    # Snapshot the galaxy is drawn from
+├── StellarMass                # (and all other SAGE fields)
+├── SFHMassDisk                # 2D array fields shape (N, n_cols) if present
+└── ...                        # All other fields from the KD-tree /data/ group
+```
+
+`central_spatial_index` (absolute KD-tree index of the host central; -1 for centrals) is also written when `--centralgalaxies` mode is active.
+
+### Relationship to the SAGE and KD-tree formats
+
+| Aspect | SAGE HDF5 | KD-tree HDF5 | Lightcone output |
+|--------|-----------|--------------|------------------|
+| Galaxy grouping | Per snapshot (`Snap_N/`) | Per snapshot in `data/`, spatially ordered | **Flat** — one list of all matched galaxies |
+| Spatial ordering | None | KD-tree order within each snapshot | Extraction order (tile × snapshot) |
+| Field location | Inside `Snap_N/` groups | Inside `data/` group | **Root level** |
+| Field names | CamelCase SAGE names | SAGE names + lowercase computed names | Same as KD-tree |
+| 2D array fields | `(n_galaxies, n_cols)` | `(n_galaxies, n_cols)` in `data/` | `(N, n_cols)` at root |
+| Cosmology | `Header/Simulation` attrs | `cosmology/` group | Via `SageOutputHeader` |
+| Position fields | Box coordinates | Box coordinates | **Observer-frame** coordinates (overwritten by `_calc_fields()`) |
+| Extra metadata | — | — | `LightconeOutputHeader` with query parameters |
+
+### Dataset attributes
+
+Each calculated field dataset (`ra`, `dec`, `distance`, `redshift_cosmological`, `redshift_observed`, `sfr`, `central_spatial_index`) carries `Description` and `Units` string attributes. SAGE pass-through fields carry these attributes only if they were present in the KD-tree file.
 

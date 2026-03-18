@@ -149,10 +149,7 @@ if(APPLE AND NOT SKIP_MACOS_DEP_CHECK)
     # Boost
     check_homebrew_package("Boost" "boost" "C++ libraries for program options, filesystem, etc.")
 
-    # GSL (GNU Scientific Library)
-    check_homebrew_package("GSL" "gsl" "GNU Scientific Library for numerical computations")
-
-    # LLVM/Clang (optional but recommended for better C++ support)
+# LLVM/Clang (optional but recommended for better C++ support)
     execute_process(
         COMMAND brew list llvm
         RESULT_VARIABLE LLVM_RESULT

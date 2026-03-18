@@ -40,7 +40,7 @@ done
 SCRIPT="${BASH_SOURCE[0]}"
 [ -z "$SCRIPT" ] && SCRIPT="$0"
 export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$SCRIPT")" && pwd)
-export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
+export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/.." && pwd)
 
 # Store MY_SCRIPTS_DIRECTORY to restore it after sourcing setup scripts
 # (setup_mac.sh overwrites it based on its own location)
@@ -61,7 +61,7 @@ fi
 export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
 
 # Change to script directory - required for relative paths like ./first_run.sh
-cd "${MY_SCRIPTS_DIRECTORY}"
+cd "${MY_ROOT}/tests/sage-model-tests"
 
 # Ensure sage-model repository exists (clone if missing)
 SAGE_REPO="https://github.com/MBradley1985/SAGE26.git"

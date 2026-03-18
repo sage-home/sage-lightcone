@@ -536,7 +536,7 @@ protected:
                 std::vector<hsize_t> empty_v;
                 hpc::h5::dataspace file_space = ds.dataspace();
                 file_space.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2, start2,
-                                                                   empty_v, empty_v);
+                                                                  empty_v, empty_v);
                 hpc::h5::dataspace mem_space(count2);
                 switch (static_cast<tao::batch<real_type>::field_value_type>(
                     _bat->get_field_type(field_lower)))
@@ -1134,8 +1134,8 @@ protected:
                     std::vector<hsize_t> count2 = {1, binding.n_cols};
                     std::vector<hsize_t> empty_v;
                     hpc::h5::dataspace file_space = ds.dataspace();
-                    file_space.select_hyperslab<std::vector<hsize_t>>(
-                        H5S_SELECT_SET, count2, start2, empty_v, empty_v);
+                    file_space.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2,
+                                                                      start2, empty_v, empty_v);
                     hpc::h5::dataspace mem_space(count2);
                     switch (static_cast<tao::batch<real_type>::field_value_type>(
                         _bat->get_field_type(field_lower)))

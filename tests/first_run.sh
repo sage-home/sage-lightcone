@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Locate project root and work from the test data directory
+_F="${BASH_SOURCE[0]:-$0}"
+_SCRIPTS_DIR="$(cd "$(dirname "$_F")" && pwd)"
+MY_ROOT="$(cd "${_SCRIPTS_DIR}/.." && pwd)"
+cd "${MY_ROOT}/tests/sage-model-tests" || exit 1
+
 echo "Welcome the Semi Analytic Galaxy Evolution model!"
 echo "Always keep up to date by visiting our main Github page."
 echo "https://github.com/sage-home"
@@ -7,7 +13,7 @@ echo ""
 
 # We're going to execute things assuming we're in the root directory.
 # Hence let's first ensure that we're actually there.
-parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+parent_path=$(pwd)
 current_dir_end=${PWD##*/}  # This is the current directory without the base-name.
 if [[ ${current_dir_end} != *"sage-model"* ]]; then
    echo "This setup script should be run from inside the 'sage-model' directory."

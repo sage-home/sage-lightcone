@@ -29,12 +29,7 @@ constexpr const char* SNAPNUM = "SnapNum";
 // Galaxy identifiers (needed for tree structure)
 constexpr const char* GALAXY_INDEX = "GalaxyIndex";
 constexpr const char* CENTRAL_GALAXY_INDEX = "CentralGalaxyIndex";
-constexpr const char* SAGE_TREE_INDEX = "SAGETreeIndex";
 
-// Merger tree information (needed for tree traversal in Phase 2)
-constexpr const char* MERGE_TYPE = "mergeType";
-constexpr const char* MERGE_INTO_ID = "mergeIntoID";
-constexpr const char* MERGE_INTO_SNAPNUM = "mergeIntoSnapNum";
 } // namespace sage_fields
 
 /// Fields computed by the pipeline (not in SAGE output)

@@ -29,7 +29,6 @@ variables:
   - apt-get install -y gcc-12 g++-12
   - apt-get install -y libboost-all-dev
   - apt-get install -y libopenmpi-dev openmpi-bin
-  - apt-get install -y libgsl-dev
   - apt-get install -y pkg-config zlib1g-dev libsz2
   - apt-get install -y python3 python3-venv python3-pip
   # Set GCC 12 as default
@@ -167,16 +166,16 @@ test_verify_kdtree:
       # 4. Running a sample kd-tree conversion
 
       echo "Running verification..."
-      ./verify_kdtree_output.sh
+      ./tests/validate_kdtree_output.sh
 
       # Enforce success message check
-      if ! grep -q "Plot saved as: lightcone_3d_SnapNum.png" verify_kdtree_output.txt; then
+      if ! grep -q "Plot saved as: lightcone_3d_SnapNum.png" validate_kdtree_output.txt; then
         echo "ERROR: CI Check Failed - Validation success message not found in logs."
         exit 1
       fi
   artifacts:
     paths:
-      - verify_kdtree_output.txt
+      - validate_kdtree_output.txt
     when: always
     expire_in: 1 week
   dependencies:

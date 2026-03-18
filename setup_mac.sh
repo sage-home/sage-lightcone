@@ -100,9 +100,6 @@ export PATH="$MPI_ROOT/bin:$PATH"
 # Boost paths
 export BOOST_ROOT="/opt/homebrew"
 
-# GSL paths
-export GSL_ROOT="/opt/homebrew"
-
 # CMake paths - robust discovery
 CMAKE_CANDIDATES=(
     "/opt/homebrew"                          # Homebrew on Apple Silicon
@@ -165,7 +162,6 @@ else
     echo "  - OpenMPI: $(mpicc --version 2>/dev/null | head -1 || echo 'Not found')"
 fi
 echo "  - Boost: $(brew list boost --versions 2>/dev/null || echo 'Not found')"
-echo "  - GSL: $(brew list gsl --versions 2>/dev/null || echo 'Not found')"
 echo "  - CMake: $(cmake --version 2>/dev/null | head -1 || echo 'Not found')"
 
 # Validate critical dependencies

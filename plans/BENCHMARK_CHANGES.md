@@ -29,7 +29,7 @@ SAGE produces non-deterministic outputs when run multiple times with identical p
 - Changed from running SAGE to copying shared output
 - Falls back to standalone SAGE run if shared output not found
 
-### 3. `run_test_hdf5_one_step_benchmark.sh` (NEW workflow)
+### 3. `run_validate_and_time_workflow.sh` (NEW workflow)
 - **Modified**: PHASE 1 (lines 151-172)
 - Changed from running SAGE to copying shared output
 - Falls back to standalone SAGE run if shared output not found
@@ -47,7 +47,7 @@ SAGE produces non-deterministic outputs when run multiple times with identical p
 ### Running individual workflows:
 ```bash
 ./run_test_hdf5_benchmark.sh          # OLD workflow
-./run_test_hdf5_one_step_benchmark.sh # NEW workflow
+./run_validate_and_time_workflow.sh # NEW workflow
 ```
 - Falls back to running SAGE standalone
 - Each workflow may have different SAGE outputs

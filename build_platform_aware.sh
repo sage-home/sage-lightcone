@@ -220,9 +220,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Using HDF5_DIR: $HDF5_DIR"
     fi
 
-    # Use system compiler on macOS unless Parallel HDF5 forces us to use mpicc
-    if [ "$USING_PARALLEL_HDF5" -eq 1 ]; then
-        echo "SAGE: Parallel HDF5 detected on macOS, forcing mpicc..."
+    # Use system compiler on macOS unless MPI is enabled or Parallel HDF5 forces mpicc
+    if [ "$USING_PARALLEL_HDF5" -eq 1 ] || [[ "$USE_MPI" == "yes" ]]; then
+        echo "SAGE: MPI/Parallel HDF5 detected on macOS, forcing mpicc..."
         if command -v mpicc >/dev/null; then
             export CC=mpicc
             export CXX=mpicxx

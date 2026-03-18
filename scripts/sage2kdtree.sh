@@ -16,4 +16,4 @@ else
     module load gsl/2.7   # required by SAGE (sage-model submodule)
 fi
 
-"${MY_ROOT}/bin/cli_lightcone" "$@"
+"${MY_ROOT}/bin/sage2kdtree" "$@"

@@ -148,7 +148,7 @@ prepare_parameter_file() {
         echo "✓ Tree files already present - skipping download."
     else
         echo "Tree files not found - running first_run.sh to download..."
-        ./first_run.sh
+        "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
         FIRST_RUN_STATUS=$?
         echo ==== Have finished with first_run.sh ====
 
@@ -185,7 +185,7 @@ prepare_parameter_file() {
 
     # Extract settings from millennium.par
     echo "Extracting settings from millennium.par..."
-    python3 utils/extract_settings.py
+    python3 "${MY_SCRIPTS_DIRECTORY}/utils/extract_settings.py"
 
     # Generate .par files by concatenating headers with settings
     cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par

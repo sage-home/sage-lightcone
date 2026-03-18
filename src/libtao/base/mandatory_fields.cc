@@ -20,19 +20,9 @@ bool iequals(const std::string& a, const std::string& b)
 
 std::set<std::string> get_mandatory_sage_fields()
 {
-    return {sage_fields::POSX,
-            sage_fields::POSY,
-            sage_fields::POSZ,
-            sage_fields::VELX,
-            sage_fields::VELY,
-            sage_fields::VELZ,
-            sage_fields::SNAPNUM,
-            sage_fields::GALAXY_INDEX,
-            sage_fields::CENTRAL_GALAXY_INDEX,
-            sage_fields::SAGE_TREE_INDEX,
-            sage_fields::MERGE_TYPE,
-            sage_fields::MERGE_INTO_ID,
-            sage_fields::MERGE_INTO_SNAPNUM};
+    return {sage_fields::POSX,    sage_fields::POSY,         sage_fields::POSZ,
+            sage_fields::VELX,    sage_fields::VELY,         sage_fields::VELZ,
+            sage_fields::SNAPNUM, sage_fields::GALAXY_INDEX, sage_fields::CENTRAL_GALAXY_INDEX};
 }
 
 std::set<std::string> get_kdtree_required_fields()

@@ -624,10 +624,10 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
     // snapshot) eliminates O(n_snapshots × n_fields) redundant H5Dopen/H5Gopen calls.
     struct FieldMeta
     {
-        int     type_code = 0;  // 0=float, 1=int, 2=llong
-        int     ndims = 1;
-        hsize_t n_cols = 0;     // 0 for 1D fields
-        bool    skip = false;
+        int type_code = 0; // 0=float, 1=int, 2=llong
+        int ndims = 1;
+        hsize_t n_cols = 0; // 0 for 1D fields
+        bool skip = false;
     };
     std::unordered_map<std::string, FieldMeta> meta_cache;
     bool meta_cache_built = false;
@@ -771,7 +771,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
             for (const auto& fname : fields)
             {
                 FieldMeta m;
-                hpc::h5::dataset  ds = g.dataset(fname);
+                hpc::h5::dataset ds = g.dataset(fname);
                 hpc::h5::dataspace sp = ds.dataspace();
                 int ndims = sp.simple_extent_num_dims();
                 m.ndims = ndims;
@@ -814,9 +814,9 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                 if (it != meta_cache.end())
                 {
                     const FieldMeta& m = it->second;
-                    ndims_val    = m.ndims;
-                    n_cols       = m.n_cols;
-                    type_code    = m.type_code;
+                    ndims_val = m.ndims;
+                    n_cols = m.n_cols;
+                    type_code = m.type_code;
                     is_array_field = m.skip;
                     if (is_array_field && _verb >= 1)
                     {
@@ -838,7 +838,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                     // Field not in cache (unexpected) — fall back to direct HDF5 query.
                     hpc::h5::group g;
                     g.open(*open_files[0], group_in);
-                    hpc::h5::dataset  ds = g.dataset(fname);
+                    hpc::h5::dataset ds = g.dataset(fname);
                     hpc::h5::dataspace sp = ds.dataspace();
                     ndims_val = sp.simple_extent_num_dims();
                     H5T_class_t cls = ds.type_class();
@@ -936,13 +936,13 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
 
                             if (_verb >= 2 && rank == 0)
                             {
-                                std::cout << "    DEBUG: " << group_out << "/" << fname << std::endl;
-                                std::cout << "      total_gals=" << total_gals
-                                          << ", actual_dataset_size=" << actual_dataset_size
-                                          << ", count=" << count
-                                          << ", current_offset=" << current_offset
-                                          << ", offset+count=" << (current_offset + count)
+                                std::cout << "    DEBUG: " << group_out << "/" << fname
                                           << std::endl;
+                                std::cout
+                                    << "      total_gals=" << total_gals
+                                    << ", actual_dataset_size=" << actual_dataset_size
+                                    << ", count=" << count << ", current_offset=" << current_offset
+                                    << ", offset+count=" << (current_offset + count) << std::endl;
                             }
 
                             if (current_offset + count > actual_dataset_size)
@@ -1341,8 +1341,7 @@ void sage2kdtree_application::_validate_inputs()
 
                 // Validate required fields in Snap_0
                 auto snap0 = test_file.group("Snap_0");
-                std::vector<std::string> required_fields = {"Posx", "Posy", "Posz",
-                                                            "SAGETreeIndex"};
+                std::vector<std::string> required_fields = {"Posx", "Posy", "Posz"};
                 std::vector<std::string> missing_fields;
 
                 for (const auto& field : required_fields)
@@ -1868,7 +1867,8 @@ void sage2kdtree_application::phase4_build_kdtree_index()
                     hpc::h5::datatype field_type = field_ds.datatype();
 
                     // Create data/* dataset - shape depends on field dimensionality.
-                    // Cache ndims here so _write_attributes() can reuse it without re-querying HDF5.
+                    // Cache ndims here so _write_attributes() can reuse it without re-querying
+                    // HDF5.
                     std::string out_name = field_name;
                     hpc::h5::dataspace src_sp = field_ds.dataspace();
                     int field_ndims_init = src_sp.simple_extent_num_dims();
@@ -2212,7 +2212,7 @@ void sage2kdtree_application::_write_attributes(hpc::h5::file& file, std::string
             _attr_field_buf.resize(buf_needed);
         if (_attr_permuted_buf.size() < buf_needed)
             _attr_permuted_buf.resize(buf_needed);
-        char* field_data    = _attr_field_buf.data();
+        char* field_data = _attr_field_buf.data();
         char* permuted_data = _attr_permuted_buf.data();
 
         if (field_ndims == 2)

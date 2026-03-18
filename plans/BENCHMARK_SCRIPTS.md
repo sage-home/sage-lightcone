@@ -122,11 +122,11 @@ Runs the OLD HDF5 workflow.
 
 Output: `output_sage_hdf5_benchmark/myhdf5millennium-kdtree.h5`
 
-### `run_test_hdf5_one_step_benchmark.sh`
+### `run_validate_and_time_workflow.sh`
 Runs the NEW single-step workflow.
 
 ```bash
-./run_test_hdf5_one_step_benchmark.sh
+./run_validate_and_time_workflow.sh
 ```
 
 Output: `output_sage_hdf5_one_step_benchmark/myhdf5millennium-kdtree-onestep.h5`

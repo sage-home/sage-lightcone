@@ -1,12 +1,9 @@
 import os
 import re
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-# script_dir is root/tests/sage-model-tests/utils
-# We want to go to root/tests/sage-model-tests/input/millennium.par
-input_path = os.path.join(script_dir, '../input/millennium.par')
-# We want to output to root/tests/sage-model-tests/mypar_files/millennium_settings.txt
-output_path = os.path.join(script_dir, '../mypar_files/millennium_settings.txt')
+# Use CWD-relative paths: callers always cd to tests/sage-model-tests/ before invoking
+input_path = 'input/millennium.par'
+output_path = 'mypar_files/millennium_settings.txt'
 
 # Ensure the output directory exists
 os.makedirs(os.path.dirname(output_path), exist_ok=True)

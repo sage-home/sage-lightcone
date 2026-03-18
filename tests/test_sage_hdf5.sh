@@ -1,18 +1,17 @@
 #!/bin/bash
 
-# Load utilities
-source $(dirname $0)/utils/benchmark_utils.sh
-
-# Exit on error
-set -e
-
 # Parse command line arguments
+BUILD_CENTRAL_GALAXY_INDEX=0
 FORCE_REBUILD=0
 for arg in "$@"; do
     case $arg in
         --rebuild)
             FORCE_REBUILD=1
             echo "Force rebuild requested"
+            ;;
+        --centralgalaxies)
+            BUILD_CENTRAL_GALAXY_INDEX=1
+            echo "Central galaxies index build requested"
             ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
@@ -25,14 +24,13 @@ for arg in "$@"; do
 done
 
 # What's my code's root directory
-SCRIPT="${BASH_SOURCE[0]}"
-[ -z "$SCRIPT" ] && SCRIPT="$0"
-export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$SCRIPT")" && pwd)
-export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
+export MY_SCRIPT=${BASH_SOURCE:-$0}
+export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname $MY_SCRIPT)" && pwd)
+export MY_ROOT=$(cd ${MY_SCRIPTS_DIRECTORY}/.. && pwd)
+export MY_SCRIPT=
 
-# Store MY_SCRIPTS_DIRECTORY to restore it after sourcing setup scripts
-# (setup_mac.sh overwrites it based on its own location)
-ORIGINAL_SCRIPTS_DIRECTORY=$MY_SCRIPTS_DIRECTORY
+# Change to script directory - required for relative paths like "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
+cd "${MY_ROOT}/tests/sage-model-tests"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macOS detected - using Homebrew setup"
@@ -44,12 +42,6 @@ else
     echo "Unknown platform - falling back to basic setup"
     source ${MY_ROOT}/setup.sh
 fi
-
-# Restore the correct scripts directory for this script
-export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
-
-# Change to script directory - required for relative paths like ./first_run.sh
-cd "${MY_SCRIPTS_DIRECTORY}"
 
 # Ensure sage-model repository exists (clone if missing)
 SAGE_REPO="https://github.com/MBradley1985/SAGE26.git"
@@ -104,10 +96,10 @@ if [ $NEED_REBUILD -eq 1 ]; then
 fi
 
 export RAWNAME=myhdf5millennium
-export OUTPUTDIR=output_sage_hdf5_one_step_benchmark
-rm -rf ${OUTPUTDIR}
-export BENCHMARK_CSV=${OUTPUTDIR}/benchmark_timings.csv
-export DISK_IO_CSV=${OUTPUTDIR}/benchmark_disk_io.csv
+export OUTPUTDIR=output_test_sage_hdf5
+export VALIDATIONDIR=validate_test_sage_hdf5
+# keep the validation directory separate from the output directory to avoid accidentally deleting it during cleanup
+mkdir -p ${VALIDATIONDIR}
 
 # Clean up previous test outputs, but preserve downloaded tree files
 rm -rf output
@@ -115,13 +107,6 @@ rm -rf ${OUTPUTDIR}
 rm -f *${RAWNAME}*
 # Only remove input/*.par files, preserve input/millennium/trees/
 rm -f input/*.par 2>/dev/null
-
-# Create output directory early for CSV files
-mkdir -p ${OUTPUTDIR}
-
-# Initialize CSV files
-echo "phase,duration_sec,peak_mem_mb" > $BENCHMARK_CSV
-echo "phase,disk_mb" > $DISK_IO_CSV
 
 # Ensure input directory exists and copy base millennium.par from sage-model
 mkdir -p input
@@ -134,12 +119,12 @@ else
     exit 1
 fi
 
-# Check if tree files already exist - skip first_run.sh if so
+# Check if tree files already exist - skip download if so
 if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/millennium.a_list" ]; then
     echo "✓ Tree files already present - skipping download."
 else
     echo "Tree files not found - running first_run.sh to download..."
-    ./first_run.sh
+    "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
     FIRST_RUN_STATUS=$?
     echo ==== Have finished with first_run.sh ====
 
@@ -176,7 +161,7 @@ echo "✓ Updated paths in millennium.par"
 
 # Extract settings from millennium.par
 echo "Extracting settings from millennium.par..."
-python3 utils/extract_settings.py
+python3 "${MY_SCRIPTS_DIRECTORY}/utils/extract_settings.py"
 
 # Generate .par files by concatenating headers with settings
 cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
@@ -186,29 +171,38 @@ echo "✓ Parameter files generated."
 
 mkdir -p output/millennium/
 
-# PHASE 1: Run sage
-# NOTE: SAGE is run once by benchmark_workflows.sh and shared between workflows
-# to ensure identical input data (see SAGE_REPRODUCIBILITY_ISSUE.md)
-echo "========== PHASE 1: Running SAGE =========="
+${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par
+mv output ${OUTPUTDIR}
 
-# Check if shared SAGE output exists (from benchmark_workflows.sh)
+echo "Create kdtree in one step, then generate lightcone and plot SnapNum..."
+source ${MY_ROOT}/.venv/bin/activate
 
-echo "Running SAGE standalone"
-run_with_profiling "sage" "$BENCHMARK_CSV" \
-    ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par > /dev/null
-mv output/millennium ${OUTPUTDIR}/
-mv output/log ${OUTPUTDIR}/ 2>/dev/null || true
-
-measure_disk_usage "${OUTPUTDIR}/millennium" "sage_output" "$DISK_IO_CSV"
+if [ $BUILD_CENTRAL_GALAXY_INDEX -eq 1 ]; then
+    echo ******* Building with central galaxy index included *******
+    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2 --centralgalaxies
+    echo "Test by creating a lightcone and plotting SnapNum..."
+    ${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5 --centralgalaxies
+    cp ${OUTPUTDIR}/${RAWNAME}-lightcone.h5 ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5 SnapNum
+    cp lightcone_3d_SnapNum.png ${VALIDATIONDIR}/$RAWNAME-lightcone-snapnum-centralgalaxies.png
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone-centralgalaxies.h5 redshift_cosmological
+    cp lightcone_3d_redshift_cosmological.png ${VALIDATIONDIR}/$RAWNAME-lightcone-redshift-centralgalaxies.png
+else
+#   Build with central galaxy index
+#   export DEFAULT_MODE=--centralgalaxies
+#    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2
+#   Build without central galaxy index (should be faster to build and query, but larger file size)
+    export DEFAULT_MODE=
+    ${MY_ROOT}/bin/sage2kdtree -s ${OUTPUTDIR}/millennium -p input/millennium_sage_hdf5.par -a input/millennium/trees/millennium.a_list -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --ppc 1000 -v 2 ${DEFAULT_MODE}
+    echo "Test by creating a lightcone and plotting SnapNum..."
+    ${MY_ROOT}/bin/cli_lightcone --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
+    cp ${OUTPUTDIR}/${RAWNAME}-lightcone.h5 ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5 SnapNum
+    cp lightcone_3d_SnapNum.png ${VALIDATIONDIR}/$RAWNAME-lightcone-snapnum.png
+    python3 ${MY_ROOT}/src/plot_lightcone.py ${VALIDATIONDIR}/${RAWNAME}-lightcone.h5 redshift_cosmological
+    cp lightcone_3d_redshift_cosmological.png ${VALIDATIONDIR}/$RAWNAME-lightcone-redshift.png
+fi
 
 # Clean up
 rm -f log.00000
 rm -rf log
-
-echo ""
-echo "=========================================="
-echo "Setup for verify kdtree complete."
-echo "Results:"
-echo "  Timings: ${BENCHMARK_CSV}"
-echo "  Disk I/O: ${DISK_IO_CSV}"
-echo "=========================================="
