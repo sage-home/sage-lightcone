@@ -32,7 +32,7 @@ static const double mpc = 3.08567758e22;      // m
 static const double gravitation = 6.672e-8;   // ?
 
 // Mathematical.
-static const double pi = M_PI;
+static const double pi = 3.14159265358979323846;
 
 } // namespace constant
 } // namespace hpc

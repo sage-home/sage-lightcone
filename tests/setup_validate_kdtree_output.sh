@@ -28,7 +28,7 @@ done
 SCRIPT="${BASH_SOURCE[0]}"
 [ -z "$SCRIPT" ] && SCRIPT="$0"
 export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$SCRIPT")" && pwd)
-export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
+export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/.." && pwd)
 
 # Store MY_SCRIPTS_DIRECTORY to restore it after sourcing setup scripts
 # (setup_mac.sh overwrites it based on its own location)
@@ -48,8 +48,8 @@ fi
 # Restore the correct scripts directory for this script
 export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
 
-# Change to script directory - required for relative paths like ./first_run.sh
-cd "${MY_SCRIPTS_DIRECTORY}"
+# Change to script directory - required for relative paths like "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
+cd "${MY_ROOT}/tests/sage-model-tests"
 
 # Ensure sage-model repository exists (clone if missing)
 SAGE_REPO="https://github.com/MBradley1985/SAGE26.git"
@@ -105,6 +105,7 @@ fi
 
 export RAWNAME=myhdf5millennium
 export OUTPUTDIR=output_sage_hdf5_one_step_benchmark
+rm -rf ${OUTPUTDIR}
 export BENCHMARK_CSV=${OUTPUTDIR}/benchmark_timings.csv
 export DISK_IO_CSV=${OUTPUTDIR}/benchmark_disk_io.csv
 
@@ -138,7 +139,7 @@ if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/m
     echo "✓ Tree files already present - skipping download."
 else
     echo "Tree files not found - running first_run.sh to download..."
-    ./first_run.sh
+    "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
     FIRST_RUN_STATUS=$?
     echo ==== Have finished with first_run.sh ====
 
@@ -175,7 +176,7 @@ echo "✓ Updated paths in millennium.par"
 
 # Extract settings from millennium.par
 echo "Extracting settings from millennium.par..."
-python3 utils/extract_settings.py
+python3 "${MY_SCRIPTS_DIRECTORY}/utils/extract_settings.py"
 
 # Generate .par files by concatenating headers with settings
 cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
@@ -185,57 +186,20 @@ echo "✓ Parameter files generated."
 
 mkdir -p output/millennium/
 
-# PHASE 1: Use shared SAGE output (run by benchmark_workflows.sh)
+# PHASE 1: Run sage
 # NOTE: SAGE is run once by benchmark_workflows.sh and shared between workflows
 # to ensure identical input data (see SAGE_REPRODUCIBILITY_ISSUE.md)
-echo "========== PHASE 1: Using shared SAGE output =========="
+echo "========== PHASE 1: Running SAGE =========="
 
 # Check if shared SAGE output exists (from benchmark_workflows.sh)
-if [ -d "../shared_sage_output" ]; then
-    echo "Using shared SAGE output from benchmark_workflows.sh"
-    cp -r ../shared_sage_output ${OUTPUTDIR}/millennium
-elif [ -d "shared_sage_output" ]; then
-    echo "Using shared SAGE output"
-    cp -r shared_sage_output ${OUTPUTDIR}/millennium
-else
-    # Fallback: run SAGE if not run by benchmark_workflows.sh (for standalone testing)
-    echo "No shared SAGE output found - running SAGE standalone"
-    run_with_profiling "sage" "$BENCHMARK_CSV" \
-        ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par > /dev/null
-    mv output/millennium ${OUTPUTDIR}/
-    mv output/log ${OUTPUTDIR}/ 2>/dev/null || true
-fi
+
+echo "Running SAGE standalone"
+run_with_profiling "sage" "$BENCHMARK_CSV" \
+    ${MY_ROOT}/bin/sage input/millennium_sage_hdf5.par > /dev/null
+mv output/millennium ${OUTPUTDIR}/
+mv output/log ${OUTPUTDIR}/ 2>/dev/null || true
 
 measure_disk_usage "${OUTPUTDIR}/millennium" "sage_output" "$DISK_IO_CSV"
-
-# PHASE 2: sage2kdtree (replaces sageh5toh5 + sageimport + dstreeinit)
-echo "========== PHASE 2: Running sage2kdtree =========="
-run_with_profiling "sage2kdtree" "$BENCHMARK_CSV" \
-    ${MY_ROOT}/bin/sage2kdtree \
-    -s ${OUTPUTDIR}/millennium \
-    -p input/millennium_sage_hdf5.par \
-    -a input/millennium/trees/millennium.a_list \
-    -o ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
-    --ppc 1000 -v 2
-
-measure_disk_usage "${OUTPUTDIR}" "after_sage2kdtree" "$DISK_IO_CSV"
-
-# PHASE 3: cli_lightcone
-echo "========== PHASE 3: Running cli_lightcone =========="
-run_with_profiling "cli_lightcone" "$BENCHMARK_CSV" \
-    ${MY_ROOT}/bin/cli_lightcone \
-    --dataset ${OUTPUTDIR}/${RAWNAME}-kdtree-onestep.h5 \
-    --decmin 0 --decmax 1 --ramin 0 --ramax 1 --zmin 0 --zmax 1 \
-    --outdir ${OUTPUTDIR} --outfile $RAWNAME-lightcone.h5
-    #--outdir ${OUTPUTDIR} --outfields ra dec redshift_cosmological redshift_observed sfr --outfile $RAWNAME-lightcone.h5
-
-measure_disk_usage "${OUTPUTDIR}" "final" "$DISK_IO_CSV"
-
-# PHASE 4: Plot (not benchmarked - visualization only)
-echo "========== PHASE 4: Plotting =========="
-source ${MY_ROOT}/.venv/bin/activate
-# Field names are case-insensitive in plot_lightcone.py (SnapNum = snapnum)
-python3 ${MY_ROOT}/src/plot_lightcone.py ${OUTPUTDIR}/$RAWNAME-lightcone.h5 SnapNum
 
 # Clean up
 rm -f log.00000
@@ -243,7 +207,7 @@ rm -rf log
 
 echo ""
 echo "=========================================="
-echo "NEW workflow benchmark complete."
+echo "Setup for verify kdtree complete."
 echo "Results:"
 echo "  Timings: ${BENCHMARK_CSV}"
 echo "  Disk I/O: ${DISK_IO_CSV}"

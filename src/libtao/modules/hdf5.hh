@@ -688,11 +688,11 @@ public:
                         h5_elem_type = H5T_NATIVE_LLONG;
                     }
                     field_ncols = n_cols;
-                    hsize_t dims2[2]    = {static_cast<hsize_t>(thistime), n_cols};
+                    hsize_t dims2[2] = {static_cast<hsize_t>(thistime), n_cols};
                     hsize_t maxdims2[2] = {H5S_UNLIMITED, n_cols};
-                    hsize_t chunk2[2]   = {static_cast<hsize_t>(_chunk_size), n_cols};
+                    hsize_t chunk2[2] = {static_cast<hsize_t>(_chunk_size), n_cols};
                     hid_t fspace_id = H5Screate_simple(2, dims2, maxdims2);
-                    hid_t plist_id  = H5Pcreate(H5P_DATASET_CREATE);
+                    hid_t plist_id = H5Pcreate(H5P_DATASET_CREATE);
                     H5Pset_chunk(plist_id, 2, chunk2);
                     hid_t dset_id = H5Dcreate2(_file.id(), field_name.c_str(), h5_elem_type,
                                                fspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
@@ -911,14 +911,14 @@ public:
         }
         else if (alt)
         {
-            auto dset_it   = _dsets.begin();
-            auto ncols_it  = _dset_ncols.begin();
-            auto name_it   = _dset_names.begin();
+            auto dset_it = _dsets.begin();
+            auto ncols_it = _dset_ncols.begin();
+            auto name_it = _dset_names.begin();
             uint32_t offset = _records;
             for (const auto& field : _fields)
             {
-                h5::dataset* dset      = (*dset_it++).get();
-                hsize_t      n_cols    = *ncols_it++;
+                h5::dataset* dset = (*dset_it++).get();
+                hsize_t n_cols = *ncols_it++;
                 const std::string& dset_name = *name_it++;
 
                 if (n_cols > 0)
@@ -957,8 +957,7 @@ public:
                              ++it, ++si)
                         {
                             dspace.select_one(si);
-                            _write_field_STRING(bat, *it, field, *dset, dspace, mem_space,
-                                                thedata);
+                            _write_field_STRING(bat, *it, field, *dset, dspace, mem_space, thedata);
                         }
                     }
                     break;
@@ -1332,7 +1331,7 @@ protected:
     unsigned long long _records;
     std::list<std::string> _labels;
     std::list<std::unique_ptr<h5::dataset>> _dsets;
-    std::list<hsize_t> _dset_ncols;    // 0 for scalar; n_cols for 2D array fields
+    std::list<hsize_t> _dset_ncols;     // 0 for scalar; n_cols for 2D array fields
     std::list<std::string> _dset_names; // encoded dataset name for each field
     hsize_t _chunk_size;
     bool _ready;

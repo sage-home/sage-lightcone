@@ -4,6 +4,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
+#include <stdexcept>
+#include <string>
 // #include <pugixml.hpp>
 
 #define STRINGIFY(x) #x
@@ -200,6 +202,18 @@ bool KdApplication::validate(const cli_dict& _global_cli_dict)
         return false;
     }
 
+    if (_global_cli_dict._outfile.empty())
+    {
+        std::cerr << "Error: --outfile cannot be empty." << std::endl;
+        return false;
+    }
+
+    if (_global_cli_dict._filter_field.empty())
+    {
+        std::cerr << "Error: --filterfield cannot be empty." << std::endl;
+        return false;
+    }
+
     if (_global_cli_dict._filter_min.empty() && _global_cli_dict._filter_max.empty())
     {
         std::cerr << "Error: --filtermin and --filtermax cannot both be empty." << std::endl;
@@ -210,6 +224,32 @@ bool KdApplication::validate(const cli_dict& _global_cli_dict)
         std::cerr << "Error: --filtermin and --filtermax cannot be the same." << std::endl;
         return false;
     }
+
+    // When filtermax is set, both values must parse as numbers and filtermax must exceed filtermin
+    if (!_global_cli_dict._filter_max.empty())
+    {
+        try
+        {
+            double fmin = std::stod(_global_cli_dict._filter_min);
+            double fmax = std::stod(_global_cli_dict._filter_max);
+            if (fmax <= fmin)
+            {
+                std::cerr << "Error: --filtermax must be greater than --filtermin." << std::endl;
+                return false;
+            }
+        }
+        catch (const std::invalid_argument&)
+        {
+            std::cerr << "Error: --filtermin and --filtermax must be numeric values." << std::endl;
+            return false;
+        }
+        catch (const std::out_of_range&)
+        {
+            std::cerr << "Error: --filtermin or --filtermax value is out of range." << std::endl;
+            return false;
+        }
+    }
+
     return true;
 }
 

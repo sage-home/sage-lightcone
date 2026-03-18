@@ -165,24 +165,6 @@ function(init_3rd_party_GBP_DOCS_BUILD lib_name required_in)
     endif()
 endfunction()
 
-# Initialize GSL
-function(init_3rd_party_GSL lib_name required_in)
-    set_required_variables(${required_in})
-    if(USE_${lib_name})
-        add_definitions(-DUSE_${lib_name})
-        find_package(${lib_name} ${required})
-
-        # Check status and print message    
-        check_3rd_party_status( GSL_FOUND )
-
-        # Personalized set-up:
-        include_directories( ${GSL_INCLUDE_DIRS} )
-        link_libraries( ${GSL_LIBRARIES} )
-    else()
-        skip_3rd_party_status(required_in)
-    endif()
-endfunction()
-
 # Initialize MPI
 function(init_3rd_party_MPI lib_name required_in)
     set_required_variables(${required_in})

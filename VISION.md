@@ -18,12 +18,13 @@ These principles guide all design decisions and implementation choices in Sage-l
 
 ### 1. SAGE output hdf5 as the single point of truth
 
-**Principle**: The process of reformating with kdtree indexing and eventual light-cone extraction maintains all the meta data available in the sage output hdf5 file.
+**Principle**: Will accept either sage2016 or sage2026 generated sage HDF5 outputs.
 
 **Requirements**:
 - Core systems (memory management, I/O, tree processing) operate independently of physics.
-- Inputs will be any conformant sage HDF5 output.
-- The results can always be validated against the standard sage example.
+- Inputs will be any conformant sage HDF5 output as described in README.md under a heading "SAGE output format".
+- The process of reformating with kdtree indexing and eventual light-cone extraction maintains all the meta data available in the sage output hdf5 file.
+- The results can always be validated using the standard sage example with the sage_hdf5 OutputFormat.
 
 **Benefits**: Enables independent development and simplifies testing, and reduces complexity in core systems.
 
@@ -45,7 +46,7 @@ These principles guide all design decisions and implementation choices in Sage-l
 **Principle**: The metadata contained in the sage hdf5 output is maintained throughout the transformations to kdtree format hdf5 file and ultimately to the light-cone hdf5 file.
 
 **Requirements**:
-- Galaxy properties (e.g., `StellarMass`, `ColdGas`) are defined in metadata the sage output hdf5 file.
+- Galaxy properties (e.g., `StellarMass`, `ColdGas`) are defined in metadata of the sage output hdf5 file.
 
 **Benefits**: Reduces code duplication, eliminates manual synchronization between different representations, enables build-time optimization, and simplifies maintenance by creating a single source of truth.
 

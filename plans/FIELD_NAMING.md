@@ -54,10 +54,12 @@ Fields that originate from SAGE HDF5 output use **CamelCase** naming:
 - `SnapNum` - Snapshot number
 - `GalaxyIndex` - Unique galaxy identifier within tree
 - `CentralGalaxyIndex` - Index of central galaxy
-- `SAGETreeIndex` - SAGE tree identifier
+- `SAGETreeIndex` - SAGE tree identifier (passes through; not mandatory)
 - `mergeType` - Type of merger (0=none, 1=minor, 2=major)
 - `mergeIntoID` - Galaxy index this galaxy merges into
 - `mergeIntoSnapNum` - Snapshot number of merger
+
+Note: `mergeType`, `mergeIntoID`, and `mergeIntoSnapNum` are present in SAGE HDF5 output and pass through the pipeline unchanged, but are **not mandatory** — the pipeline does not read them.
 
 ### Pipeline-Computed Fields (lowercase)
 
@@ -102,14 +104,6 @@ SnapNum                 # Snapshot number
 ```
 GalaxyIndex            # Galaxy identifier
 CentralGalaxyIndex     # Central galaxy reference
-SAGETreeIndex          # Tree identifier
-```
-
-### Required for Merger Tree Traversal:
-```
-mergeType              # Merger classification
-mergeIntoID            # Target galaxy for merger
-mergeIntoSnapNum       # Merger snapshot
 ```
 
 ### Required for Lightcone Extraction:

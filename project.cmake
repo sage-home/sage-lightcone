@@ -65,7 +65,6 @@ macro(project_options_and_dependencies)
         set_3rd_party_required("MPI")
     endif()
     set_3rd_party_required("HDF5")
-    set_3rd_party_required("GSL")
 
     # Set-up documentation support by default
     set_3rd_party_requested("GBP_DOCS_BUILD" ON)

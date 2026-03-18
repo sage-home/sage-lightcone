@@ -73,11 +73,11 @@ SAGE (HDF5) → sage2kdtree --centralgalaxies → cli_lightcone --centralgalaxie
 ### End-to-End Testing
 
 ```bash
-cd tests/sage-model-tests
-./run_test_sage_hdf5.sh                        # Primary: sage2kdtree workflow
-./run_test_sage_hdf5.sh --centralgalaxies      # With central galaxies feature
-./run_test_hdf5.sh                             # Legacy HDF5 workflow (reference)
-./run_test_binary.sh                           # Legacy binary workflow (baseline)
+cd tests
+./test_sage_hdf5.sh                        # Primary: sage2kdtree workflow
+./test_sage_hdf5.sh --centralgalaxies      # With central galaxies feature
+./sage-model-tests/run_test_hdf5.sh        # Legacy HDF5 workflow (reference)
+./sage-model-tests/run_test_binary.sh      # Legacy binary workflow (baseline)
 ```
 
 These scripts:

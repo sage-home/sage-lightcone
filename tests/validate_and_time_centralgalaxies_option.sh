@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# run_validate_and_time_centralgalaxies_option.sh
+# validate_and_time_centralgalaxies_option.sh
 #
 # Validates the --centralgalaxies option by running the full
 # sage -> sage2kdtree -> cli_lightcone pipeline three times:
 #
 #   Pass 1: --centralgalaxies passed explicitly to sage2kdtree and cli_lightcone
 #   Pass 2: DEFAULT_MODE="--centralgalaxies" passed via $DEFAULT_MODE to sage2kdtree only;
-#           cli_lightcone gets no flag (mirrors the else-branch in run_test_sage_hdf5.sh)
+#           cli_lightcone gets no flag (mirrors the else-branch in test_sage_hdf5.sh)
 #   Pass 3: DEFAULT_MODE="" passed to sage2kdtree (expands to nothing); cli_lightcone no flag
 #
 # Expected galaxy count ordering: pass1 > pass2 > pass3
@@ -102,7 +102,7 @@ done
 
 export MY_SCRIPT="${BASH_SOURCE[0]:-$0}"
 export MY_SCRIPTS_DIRECTORY=$(cd "$(dirname "$MY_SCRIPT")" && pwd)
-export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/../.." && pwd)
+export MY_ROOT=$(cd "${MY_SCRIPTS_DIRECTORY}/.." && pwd)
 ORIGINAL_SCRIPTS_DIRECTORY=$MY_SCRIPTS_DIRECTORY
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -117,7 +117,7 @@ else
 fi
 
 export MY_SCRIPTS_DIRECTORY=$ORIGINAL_SCRIPTS_DIRECTORY
-cd "${MY_SCRIPTS_DIRECTORY}"
+cd "${MY_ROOT}/tests/sage-model-tests"
 
 # ---------------------------------------------------------------------------
 # Ensure sage-model submodule is present
@@ -216,7 +216,7 @@ if [ -f "input/millennium/trees/trees_063.7" ] && [ -f "input/millennium/trees/m
     echo "✓ Tree files already present - skipping download."
 else
     echo "Tree files not found - running first_run.sh to download..."
-    ./first_run.sh
+    "${MY_SCRIPTS_DIRECTORY}/first_run.sh"
     FIRST_RUN_STATUS=$?
     echo "==== Have finished with first_run.sh ===="
     if [ $FIRST_RUN_STATUS -ne 0 ]; then
@@ -241,7 +241,7 @@ sed -i'' -e "s|^FileWithSnapList.*|FileWithSnapList ${CURRENT_DIR}/input/millenn
 echo "✓ Updated paths in millennium.par"
 
 echo "Extracting settings from millennium.par..."
-python3 utils/extract_settings.py
+python3 "${MY_SCRIPTS_DIRECTORY}/utils/extract_settings.py"
 
 cat mypar_files/millennium_sage_binary_header.txt mypar_files/millennium_settings.txt > input/millennium.par
 cat mypar_files/millennium_sage_binary_kdtreeindex_header.txt mypar_files/millennium_settings.txt > input/millennium_minus1.par
@@ -356,7 +356,7 @@ if [ $S2K2_STATUS -ne 0 ] || [ ! -f "${OUTPUTDIR}/pass2-${RAWNAME}-kdtree.h5" ];
     T_CLI2="SKIPPED"; GALAXIES_PASS2="N/A"
 else
     # cli_lightcone does NOT get --centralgalaxies in pass 2: only sage2kdtree does.
-    # This mirrors the else-branch in run_test_sage_hdf5.sh where $DEFAULT_MODE is
+    # This mirrors the else-branch in test_sage_hdf5.sh where $DEFAULT_MODE is
     # only used in the sage2kdtree call, not in cli_lightcone.
     echo "========== PASS 2: cli_lightcone (no flag) =========="
     T_CLI2_START=$(now_sec)
