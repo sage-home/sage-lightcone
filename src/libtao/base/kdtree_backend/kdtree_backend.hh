@@ -174,6 +174,13 @@ public:
 
     std::vector<unsigned long long> const& cell_offs() const;
 
+    // Snapshot boundary satellite gap detection
+    void check_satellite_boundary_gaps(
+        unsigned snap_a, const std::vector<unsigned long long>& offs_a,
+        const std::vector<unsigned long long>& list_a,
+        unsigned snap_b, const std::vector<unsigned long long>& offs_b,
+        const std::vector<unsigned long long>& list_b) const;
+
     // Debug methods for inspecting kdtree structure
     bool is_kdtree_loaded() const;
     unsigned get_kdtree_dims() const;
@@ -188,6 +195,7 @@ public:
     bool has_central_index() const { return _has_central_index; }
     bool central_galaxies_mode() const { return _central_galaxies_mode; }
     bool include_orphan_satellites_mode() const { return _include_orphan_satellites_mode; }
+    bool satellites_batched() const { return _satellites_batched; }
     std::unordered_map<unsigned long long, unsigned long long> const& sat_to_central() const
     {
         return _sat_to_central;
@@ -221,6 +229,8 @@ protected:
     bool _has_central_index = false;
     bool _central_galaxies_mode = false;
     bool _include_orphan_satellites_mode = false;
+    bool _satellites_batched = false;
+    bool _detect_satellite_gaps = false;
     std::unordered_map<unsigned long long, unsigned long long> _sat_to_central;
 
     // n_cols > 0 for 2D array fields (maps lowercase field name -> n_cols)
@@ -501,7 +511,10 @@ protected:
         // Flush pending satellite batches (CSR epoch coupling)
         if (_in_sat_flush)
         {
-            _fetch_satellites();
+            if (_be->satellites_batched())
+                _fetch_satellites_batch();
+            else
+                _fetch_satellites();
             return;
         }
 
@@ -1222,6 +1235,188 @@ protected:
         }
     }
 
+    // Batched variant: one H5Sselect_elements read per field instead of one read per
+    // satellite per field.  Sorts the batch by absolute index, reads all satellites for
+    // each field in a single HDF5 call, then scatters back to batch order.
+    void _fetch_satellites_batch()
+    {
+        unsigned long long available = _pending_sats.size() - _pending_sat_pos;
+        if (available == 0)
+        {
+            _in_sat_flush = false;
+            _pending_sats.clear();
+            _pending_sat_centrals.clear();
+            _pending_sat_central_raw_pos.clear();
+            _pending_sat_pos = 0;
+            _bat->set_size(0);
+            return;
+        }
+
+        unsigned count = (unsigned)std::min(available, (unsigned long long)_bat->max_size());
+        _bat->set_size(count);
+
+        _ensure_field_cache();
+
+        // Build sort_order: permutation that orders batch entries by ascending sat_abs_idx.
+        _sat_sort_order.resize(count);
+        std::iota(_sat_sort_order.begin(), _sat_sort_order.end(), 0u);
+        std::sort(_sat_sort_order.begin(), _sat_sort_order.end(), [&](unsigned a, unsigned b) {
+            return _pending_sats[_pending_sat_pos + a] < _pending_sats[_pending_sat_pos + b];
+        });
+
+        // Build the sorted index list for H5Sselect_elements.
+        _sat_sorted_indices.resize(count);
+        for (unsigned i = 0; i < count; ++i)
+            _sat_sorted_indices[i] = _pending_sats[_pending_sat_pos + _sat_sort_order[i]];
+
+        for (auto const& binding : _field_cache)
+        {
+            auto const& field_lower = binding.lower_name;
+            if (!_bat->has_field(field_lower))
+                continue;
+
+            auto const& ds = binding.dataset;
+            hpc::h5::dataspace file_space = ds.dataspace();
+
+            if (binding.n_cols > 0)
+            {
+                // 2D array field: select count rows via H5Sselect_elements on the first
+                // dimension, then read all rows in one call into a flat buffer and scatter.
+                // Each element in H5Sselect_elements for a 2D dataset selects one row start.
+                // We use a hyperslab union approach: iterate sorted rows as hyperslabs.
+                // Simpler: fall back to per-row hyperslab reads (still sorted, so sequential).
+                hsize_t n_cols = binding.n_cols;
+                switch (static_cast<tao::batch<real_type>::field_value_type>(
+                    _bat->get_field_type(field_lower)))
+                {
+                case tao::batch<real_type>::DOUBLE: {
+                    _sat_read_buf_d.resize(count * n_cols);
+                    auto& mat = _bat->vector<double>(field_lower);
+                    for (unsigned si = 0; si < count; ++si)
+                    {
+                        std::vector<hsize_t> start2 = {_sat_sorted_indices[si], 0};
+                        std::vector<hsize_t> count2 = {1, n_cols};
+                        std::vector<hsize_t> empty_v;
+                        hpc::h5::dataspace fs2 = ds.dataspace();
+                        fs2.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2,
+                                                                   start2, empty_v, empty_v);
+                        hpc::h5::dataspace ms2(count2);
+                        ds.read(_sat_read_buf_d.data() + si * n_cols,
+                                hpc::h5::datatype::native_double, ms2, fs2);
+                    }
+                    // Scatter sorted buffer to batch order
+                    for (unsigned si = 0; si < count; ++si)
+                    {
+                        unsigned bi = _sat_sort_order[si];
+                        for (hsize_t c = 0; c < n_cols; ++c)
+                            mat(bi, c) = _sat_read_buf_d[si * n_cols + c];
+                    }
+                    break;
+                }
+                case tao::batch<real_type>::LONG_LONG: {
+                    _sat_read_buf_ll.resize(count * n_cols);
+                    auto& mat = _bat->vector<long long>(field_lower);
+                    for (unsigned si = 0; si < count; ++si)
+                    {
+                        std::vector<hsize_t> start2 = {_sat_sorted_indices[si], 0};
+                        std::vector<hsize_t> count2 = {1, n_cols};
+                        std::vector<hsize_t> empty_v;
+                        hpc::h5::dataspace fs2 = ds.dataspace();
+                        fs2.select_hyperslab<std::vector<hsize_t>>(H5S_SELECT_SET, count2,
+                                                                   start2, empty_v, empty_v);
+                        hpc::h5::dataspace ms2(count2);
+                        ds.read(_sat_read_buf_ll.data() + si * n_cols,
+                                hpc::h5::datatype::native_llong, ms2, fs2);
+                    }
+                    for (unsigned si = 0; si < count; ++si)
+                    {
+                        unsigned bi = _sat_sort_order[si];
+                        for (hsize_t c = 0; c < n_cols; ++c)
+                            mat(bi, c) = _sat_read_buf_ll[si * n_cols + c];
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+            else
+            {
+                // 1D scalar field: use H5Sselect_elements to read all satellites in one call.
+                H5Sselect_elements(file_space.id(), H5S_SELECT_SET, count,
+                                   _sat_sorted_indices.data());
+                std::vector<hsize_t> mem_dims_v = {count};
+                hpc::h5::dataspace mem_space(mem_dims_v);
+
+                switch (static_cast<tao::batch<real_type>::field_value_type>(
+                    _bat->get_field_type(field_lower)))
+                {
+                case tao::batch<real_type>::DOUBLE: {
+                    _sat_read_buf_d.resize(count);
+                    ds.read(_sat_read_buf_d.data(), hpc::h5::datatype::native_double,
+                            mem_space, file_space);
+                    auto v = _bat->template scalar<double>(field_lower);
+                    for (unsigned si = 0; si < count; ++si)
+                        v[_sat_sort_order[si]] = _sat_read_buf_d[si];
+                    break;
+                }
+                case tao::batch<real_type>::LONG_LONG: {
+                    _sat_read_buf_ll.resize(count);
+                    ds.read(_sat_read_buf_ll.data(), hpc::h5::datatype::native_llong,
+                            mem_space, file_space);
+                    auto v = _bat->template scalar<long long>(field_lower);
+                    for (unsigned si = 0; si < count; ++si)
+                        v[_sat_sort_order[si]] = _sat_read_buf_ll[si];
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+        }
+
+        // Set central_spatial_index for this satellite
+        if (_bat->has_field("central_spatial_index"))
+        {
+            auto csi = _bat->template scalar<long long>("central_spatial_index");
+            for (unsigned i = 0; i < count; ++i)
+                csi[i] = static_cast<long long>(_pending_sat_centrals[_pending_sat_pos + i]);
+        }
+
+        _calc_fields(true /* satellite_mode */);
+
+        if (!_be->central_galaxies_mode() && _lc)
+        {
+            real_type ra_min = to_degrees(_lc->min_ra());
+            real_type ra_max = to_degrees(_lc->max_ra());
+            real_type dec_min = to_degrees(_lc->min_dec());
+            real_type dec_max = to_degrees(_lc->max_dec());
+            real_type d_min = _lc->min_dist();
+            real_type d_max = _lc->max_dist();
+            auto ra_v = _bat->template scalar<real_type>("ra");
+            auto dec_v = _bat->template scalar<real_type>("dec");
+            auto dist_v = _bat->template scalar<real_type>("distance");
+            for (unsigned i = 0; i < _bat->size(); ++i)
+            {
+                if (_bat->masked(i))
+                    continue;
+                if (ra_v[i] < ra_min || ra_v[i] > ra_max || dec_v[i] < dec_min ||
+                    dec_v[i] > dec_max || dist_v[i] < d_min || dist_v[i] > d_max)
+                    _bat->mask(i);
+            }
+        }
+
+        _pending_sat_pos += count;
+        if (_pending_sat_pos >= _pending_sats.size())
+        {
+            _in_sat_flush = false;
+            _pending_sats.clear();
+            _pending_sat_centrals.clear();
+            _pending_sat_central_raw_pos.clear();
+            _pending_sat_pos = 0;
+        }
+    }
+
 protected:
     kdtree_backend const* _be;
     hpc::kdtree<real_type> const* _kdt;
@@ -1247,6 +1442,12 @@ protected:
         _pending_sat_central_raw_pos;        // raw [x,y,z] of each satellite's central (for MIC)
     unsigned long long _pending_sat_pos = 0; // position in pending lists
     bool _in_sat_flush = false;              // currently flushing satellite buffer
+
+    // Scratch buffers for _fetch_satellites_batch() — grown on demand, never shrunk
+    std::vector<hsize_t>  _sat_sorted_indices; // sorted absolute indices for H5Sselect_elements
+    std::vector<unsigned> _sat_sort_order;     // permutation: sorted position -> batch position
+    std::vector<double>   _sat_read_buf_d;     // read target for double fields
+    std::vector<long long> _sat_read_buf_ll;   // read target for long long fields
 
     struct field_binding
     {

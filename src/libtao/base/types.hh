@@ -27,6 +27,9 @@ struct cli_dict
     std::vector<std::string> _output_fields;
     std::string _outdir;
     bool _central_galaxies = false;
+    bool _satellites_batched = false;
+    bool _detect_satellite_gaps = false;
+    std::string _dump_tiles;
 };
 
 } // namespace tao

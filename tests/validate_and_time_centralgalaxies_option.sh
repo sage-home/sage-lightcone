@@ -291,7 +291,7 @@ ${MY_ROOT}/bin/sage2kdtree \
     -p input/millennium_sage_hdf5.par \
     -a input/millennium/trees/millennium.a_list \
     -o ${OUTPUTDIR}/pass1-${RAWNAME}-kdtree.h5 \
-    --ppc 1000 -v 2 ${ARRAYS_OPTION}
+    --ppc 1000 -v 1 ${ARRAYS_OPTION}
 S2K1_STATUS=$?
 T_S2K1_END=$(now_sec)
 T_S2K1=$(elapsed_sec $T_S2K1_START $T_S2K1_END)
@@ -346,7 +346,7 @@ ${MY_ROOT}/bin/sage2kdtree \
     -p input/millennium_sage_hdf5.par \
     -a input/millennium/trees/millennium.a_list \
     -o ${OUTPUTDIR}/pass2-${RAWNAME}-kdtree.h5 \
-    --ppc 1000 -v 2 ${DEFAULT_MODE} ${ARRAYS_OPTION}
+    --ppc 1000 -v 1 ${DEFAULT_MODE} ${ARRAYS_OPTION}
 S2K2_STATUS=$?
 T_S2K2_END=$(now_sec)
 T_S2K2=$(elapsed_sec $T_S2K2_START $T_S2K2_END)
@@ -403,7 +403,7 @@ ${MY_ROOT}/bin/sage2kdtree \
     -p input/millennium_sage_hdf5.par \
     -a input/millennium/trees/millennium.a_list \
     -o ${OUTPUTDIR}/pass3-${RAWNAME}-kdtree.h5 \
-    --ppc 1000 -v 2 ${DEFAULT_MODE} --noarrays
+    --ppc 1000 -v 1 ${DEFAULT_MODE} --noarrays
 S2K3_STATUS=$?
 T_S2K3_END=$(now_sec)
 T_S2K3=$(elapsed_sec $T_S2K3_START $T_S2K3_END)

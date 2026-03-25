@@ -1,5 +1,6 @@
 #include "kdtree_backend.hh"
 #include "../mandatory_fields.hh"
+#include <algorithm>
 #include <sstream>
 
 namespace tao
@@ -77,6 +78,8 @@ void kdtree_backend::connect(const cli_dict& global_cli_dict)
     _field_types.clear();
     _central_galaxies_mode = global_cli_dict._central_galaxies;
     _include_orphan_satellites_mode = global_cli_dict._central_galaxies;
+    _satellites_batched = global_cli_dict._satellites_batched;
+    _detect_satellite_gaps = global_cli_dict._detect_satellite_gaps;
 
     // Open HDF5 file and read field information
     this->open(fn);
@@ -528,6 +531,16 @@ void kdtree_backend::load_snapshot(unsigned snap)
         // Load central galaxies satellite index if available
         if (_has_central_index)
         {
+            // Save outgoing CSR data for snapshot-boundary gap detection
+            std::vector<unsigned long long> prev_sat_offs;
+            std::vector<unsigned long long> prev_sat_list;
+            unsigned prev_snap_num = _snap;
+            if (_detect_satellite_gaps && _snap != std::numeric_limits<unsigned>::max())
+            {
+                prev_sat_offs = _sat_offs;
+                prev_sat_list = _sat_list;
+            }
+
             // The centralgalaxies group uses "snapshot###" (not "lightcone/snapshot###")
             std::ostringstream cg_ss;
             cg_ss << "centralgalaxies/snapshot" << hpc::index_string(snap, 3);
@@ -578,10 +591,165 @@ void kdtree_backend::load_snapshot(unsigned snap)
                     }
                 }
             }
+
+            // Detect satellite gaps at the snapshot boundary
+            if (_detect_satellite_gaps &&
+                prev_snap_num != std::numeric_limits<unsigned>::max() &&
+                (snap == prev_snap_num + 1 ||
+                 (prev_snap_num > 0 && snap == prev_snap_num - 1)) &&
+                !prev_sat_offs.empty() && !_sat_offs.empty())
+            {
+                check_satellite_boundary_gaps(prev_snap_num, prev_sat_offs, prev_sat_list,
+                                              snap, _sat_offs, _sat_list);
+            }
         }
 
         _snap = snap;
     }
+}
+
+// Helper: read GalaxyIndex (long long) at a single absolute position.
+static long long read_gi(hpc::h5::dataset& ds, unsigned long long abs_idx)
+{
+    long long val = -1;
+    ds.read(&val, hpc::h5::datatype::native_llong, 1, abs_idx);
+    return val;
+}
+
+// At a snapshot boundary (snap_a → snap_b), compare the CSR satellite sets for each
+// central that appears in both snapshots (matched by GalaxyIndex).  Emits a summary
+// line to stderr for every central whose satellite set changes size, plus a per-boundary
+// totals line.
+void kdtree_backend::check_satellite_boundary_gaps(
+    unsigned snap_a, const std::vector<unsigned long long>& offs_a,
+    const std::vector<unsigned long long>& list_a,
+    unsigned snap_b, const std::vector<unsigned long long>& offs_b,
+    const std::vector<unsigned long long>& list_b) const
+{
+    // Locate the GalaxyIndex field (CamelCase SAGE name, with lowercase fallback)
+    std::string gi_field;
+    if (_file.has_link("data/GalaxyIndex"))
+        gi_field = "data/GalaxyIndex";
+    else if (_file.has_link("data/galaxyindex"))
+        gi_field = "data/galaxyindex";
+    else
+    {
+        std::cerr << "[satellite-gap] Cannot check gaps snap " << snap_a << "→" << snap_b
+                  << ": no GalaxyIndex field in data/\n";
+        return;
+    }
+
+    hpc::h5::dataset gi_ds = _file.dataset(gi_field);
+
+    unsigned long long displ_a = (snap_a < _snap_displs.size()) ? _snap_displs[snap_a] : 0ULL;
+    unsigned long long displ_b = (snap_b < _snap_displs.size()) ? _snap_displs[snap_b] : 0ULL;
+
+    // Build map: GalaxyIndex → (snapshot-relative central index) for snap_a centrals
+    // that have at least one satellite in the CSR.
+    std::unordered_map<long long, unsigned long long> gi_to_ci_a;
+    for (unsigned long long ci = 0; ci + 1 < offs_a.size(); ++ci)
+    {
+        if (offs_a[ci] < offs_a[ci + 1])
+            gi_to_ci_a[read_gi(gi_ds, displ_a + ci)] = ci;
+    }
+
+    // Same for snap_b.
+    std::unordered_map<long long, unsigned long long> gi_to_ci_b;
+    for (unsigned long long ci = 0; ci + 1 < offs_b.size(); ++ci)
+    {
+        if (offs_b[ci] < offs_b[ci + 1])
+            gi_to_ci_b[read_gi(gi_ds, displ_b + ci)] = ci;
+    }
+
+    // Build per-central satellite GalaxyIndex sets for detailed comparison.
+    // Helper lambda: given CSR data and snap displacement, return sorted set of satellite GIs
+    // for central at snapshot-relative index ci.
+    auto sat_gi_set = [&](const std::vector<unsigned long long>& offs,
+                          const std::vector<unsigned long long>& list,
+                          unsigned long long displ,
+                          unsigned long long ci) -> std::vector<long long>
+    {
+        std::vector<long long> gis;
+        unsigned long long s = offs[ci], e = offs[ci + 1];
+        gis.reserve(e - s);
+        for (unsigned long long k = s; k < e; ++k)
+            gis.push_back(read_gi(gi_ds, displ + list[k]));
+        std::sort(gis.begin(), gis.end());
+        return gis;
+    };
+
+    unsigned long long n_count_changed = 0;
+    unsigned long long n_absent_in_b = 0;
+    unsigned long long n_absent_in_a = 0;
+
+    // Centrals present in snap_a: compare with snap_b
+    for (auto& [gi, ci_a] : gi_to_ci_a)
+    {
+        auto it = gi_to_ci_b.find(gi);
+        if (it == gi_to_ci_b.end())
+        {
+            ++n_absent_in_b;
+            std::cerr << "[satellite-gap] snap " << snap_a << "→" << snap_b
+                      << "  central GI=" << gi << " has "
+                      << (offs_a[ci_a + 1] - offs_a[ci_a]) << " satellites in snap " << snap_a
+                      << " but central absent from snap " << snap_b << "\n";
+        }
+        else
+        {
+            unsigned long long ci_b = it->second;
+            unsigned long long n_a = offs_a[ci_a + 1] - offs_a[ci_a];
+            unsigned long long n_b = offs_b[ci_b + 1] - offs_b[ci_b];
+            if (n_a != n_b)
+            {
+                ++n_count_changed;
+                // Build satellite GI sets to identify which satellites changed
+                auto sats_a = sat_gi_set(offs_a, list_a, displ_a, ci_a);
+                auto sats_b = sat_gi_set(offs_b, list_b, displ_b, ci_b);
+                std::vector<long long> lost, gained;
+                std::set_difference(sats_a.begin(), sats_a.end(), sats_b.begin(), sats_b.end(),
+                                    std::back_inserter(lost));
+                std::set_difference(sats_b.begin(), sats_b.end(), sats_a.begin(), sats_a.end(),
+                                    std::back_inserter(gained));
+                std::cerr << "[satellite-gap] snap " << snap_a << "→" << snap_b
+                          << "  central GI=" << gi << ": " << n_a << " sats → " << n_b << " sats";
+                if (!lost.empty())
+                {
+                    std::cerr << "  lost=[";
+                    for (size_t i = 0; i < lost.size(); ++i)
+                        std::cerr << (i ? "," : "") << lost[i];
+                    std::cerr << "]";
+                }
+                if (!gained.empty())
+                {
+                    std::cerr << "  gained=[";
+                    for (size_t i = 0; i < gained.size(); ++i)
+                        std::cerr << (i ? "," : "") << gained[i];
+                    std::cerr << "]";
+                }
+                std::cerr << "\n";
+            }
+        }
+    }
+
+    // Centrals new in snap_b (not in snap_a)
+    for (auto& [gi, ci_b] : gi_to_ci_b)
+    {
+        if (gi_to_ci_a.find(gi) == gi_to_ci_a.end())
+        {
+            ++n_absent_in_a;
+            std::cerr << "[satellite-gap] snap " << snap_a << "→" << snap_b
+                      << "  central GI=" << gi << " absent from snap " << snap_a
+                      << " but has " << (offs_b[ci_b + 1] - offs_b[ci_b])
+                      << " satellites in snap " << snap_b << "\n";
+        }
+    }
+
+    std::cerr << "[satellite-gap] snap " << snap_a << "→" << snap_b
+              << ": " << gi_to_ci_a.size() << " centrals-with-sats in snap " << snap_a
+              << ", " << gi_to_ci_b.size() << " in snap " << snap_b
+              << " | count-changed=" << n_count_changed
+              << " absent-in-" << snap_b << "=" << n_absent_in_b
+              << " new-in-" << snap_b << "=" << n_absent_in_a << "\n";
 }
 
 real_type kdtree_backend::get_max_smoothing() { ASSERT(0); }

@@ -511,6 +511,39 @@ if (!_be->central_galaxies_mode() && _lc)
 distance bounds across all snapshots, avoiding false rejection of CSR satellites whose
 distance does not match the snapshot's thin distance shell.
 
+#### Detailed Discussion
+                                                                         
+  There are two distinct distance-bound semantics:                                                                                            
+  
+  1. No-snap overloads (_lc->min_dist() / _lc->max_dist()):
+  Returns _dist[0] / _dist[1] — the comoving distances corresponding to the user's --zmin and --zmax. This is the full query volume.                                                                                            
+
+  2. Per-snap overloads (_lc->min_dist(_snap) / _lc->max_dist(_snap)):
+  Returns _dist_bins[offset+1] / _dist_bins[offset] — the thin distance shell assigned to one snapshot. Each snapshot occupies a narrow radial slice of the cone. This is what the KD-tree traversal itself uses to partition   
+  galaxies among snapshots.
+
+  Why the no-snap overloads are correct here
+
+  A CSR satellite's physical position can differ from its central's by a few Mpc/h. Snapshot shells in the Mini-Millennium box can be as thin as ~10–50 Mpc/h. So a satellite can legitimately land just outside its central's
+  thin shell even though it's well within the user's requested [z_min, z_max].
+
+  If the post-filter used _lc->min_dist(_snap) / _lc->max_dist(_snap), a satellite 2 Mpc/h closer than the shell inner edge would be masked — a false rejection. Using the overall bounds means the only satellites filtered out
+   are those genuinely outside the user's cone, which is the right behaviour.
+
+  The one subtle concern this opens up
+  There is a theoretical double-counting path: if a satellite's distance d_sat falls in snapshot M's shell (M ≠ N), then:
+  - At snapshot M (normal KD-tree traversal): the suppression check central_in_cone uses M's thin shell for the central. If the central's epoch is N ≠ M, central_in_cone is false → satellite is not suppressed → it may be
+  emitted normally at M's epoch
+  - At snapshot N (CSR): the satellite is also emitted via CSR
+  In practice this is impossible at the physical scales involved — central–satellite separations (~1–10 Mpc/h from validation data) are far smaller than inter-snapshot shell widths (~50–200 Mpc/h). So d_sat is always in the
+  same thin shell as d_central.
+
+  Is the comment accurate?
+  Yes — it correctly describes what the no-snap overloads return and why using them is appropriate. The only thing it doesn't say explicitly is why the satellite's distance might differ from the snapshot shell (i.e.,
+  physical offset from the central), but that's the underlying reason.
+  If you wanted to be more precise, the comment could add: "A satellite is typically within a few Mpc/h of its central, which can place it just outside the central's thin distance shell while still within the overall cone;  
+  using the per-snapshot bounds would falsely reject it."      
+
 ### Result
 
 When running SAGE2016

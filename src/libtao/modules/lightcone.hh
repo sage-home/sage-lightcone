@@ -4,6 +4,7 @@
 #include "libtao/base/base.hh"
 #include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <fstream>
 #include <iostream>
 #include <libhpc/system/math.hh>
 #include <set>
@@ -211,6 +212,12 @@ public:
 
     real_type box_redshift() const { return _box_z; }
 
+    virtual void finalise() override
+    {
+        if (mpi::comm::world.rank() == 0 && !this->_global_cli_dict->_dump_tiles.empty())
+            _write_tiles_file(this->_global_cli_dict->_dump_tiles);
+    }
+
     virtual void log_metrics()
     {
         module_type::log_metrics();
@@ -241,6 +248,40 @@ public:
     }
 
 protected:
+    void _write_tiles_file(const std::string& fn)
+    {
+        std::ofstream out(fn);
+        out << "# tile_id"
+            << "  v0x v0y v0z"
+            << "  v1x v1y v1z"
+            << "  v2x v2y v2z"
+            << "  v3x v3y v3z"
+            << "  v4x v4y v4z"
+            << "  v5x v5y v5z"
+            << "  v6x v6y v6z"
+            << "  v7x v7y v7z\n";
+
+        // Reset RNG so tile sequence matches what was used during galaxy iteration.
+        _lc.rng_reset();
+
+        for (auto it = _lc.tile_begin(); !it.done(); ++it)
+        {
+            auto tile = *it;
+            auto const& mn = tile.min();
+            auto const& mx = tile.max();
+            // Enumerate all 8 corners: (min/max)^3 in x,y,z order.
+            out << it.index();
+            for (int iz = 0; iz < 2; ++iz)
+                for (int iy = 0; iy < 2; ++iy)
+                    for (int ix = 0; ix < 2; ++ix)
+                        out << "  " << (ix ? mx[0] : mn[0])
+                            << " "  << (iy ? mx[1] : mn[1])
+                            << " "  << (iz ? mx[2] : mn[2]);
+            out << "\n";
+        }
+        std::cout << "Tile vertices written to: " << fn << "\n";
+    }
+
     void _read_options(const cli_dict& global_cli_dict)
     {
         bool use_cli_exclusively = true;

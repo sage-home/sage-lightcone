@@ -61,6 +61,16 @@ KdApplication::KdApplication(int argc, char* argv[])
         ("centralgalaxies",
          hpc::po::bool_switch(&_global_cli_dict._central_galaxies)->default_value(false),
          "Central galaxies mode: include all satellites when their central is in lightcone")(
+            "satellites_batched",
+            hpc::po::bool_switch(&_global_cli_dict._satellites_batched)->default_value(false),
+            "Use batched HDF5 reads for satellite data (compare performance with default)")(
+            "detect-satellite-gaps",
+            hpc::po::bool_switch(&_global_cli_dict._detect_satellite_gaps)->default_value(false),
+            "At each snapshot boundary, report centrals whose satellite count changes between "
+            "adjacent snapshots (requires central galaxy index)")(
+            "dump-tiles",
+            hpc::po::value<std::string>(&_global_cli_dict._dump_tiles)->default_value(""),
+            "Write tile bounding-box vertices to FILE (CSV). Empty = disabled.")(
             "verbose,v",
             "verbose output")("debug", "debug output")("version", "print version number and exit");
 
@@ -110,6 +120,7 @@ KdApplication::KdApplication(int argc, char* argv[])
         std::cout << "outfile=" << _global_cli_dict._outfile << std::endl;
         std::cout << "outdir=" << _global_cli_dict._outdir << std::endl;
         std::cout << "centralgalaxies=" << _global_cli_dict._central_galaxies << std::endl;
+        std::cout << "satellites_batched=" << _global_cli_dict._satellites_batched << std::endl;
     }
     if (_global_cli_dict._rng_seed == 0)
     {
