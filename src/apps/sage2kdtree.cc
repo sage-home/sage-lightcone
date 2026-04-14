@@ -1083,7 +1083,10 @@ void sage2kdtree_application::operator()()
             if (e.phase() >= 3 && hpc::fs::exists(_bysnap_fn))
                 std::cerr << "  Phase 3 output: " << _bysnap_fn << std::endl;
         }
-        _comm->abort(1);
+        if (_comm->size() > 1)
+            _comm->abort(1);
+        else
+            exit(1);
     }
     catch (std::exception& e)
     {
@@ -1092,7 +1095,10 @@ void sage2kdtree_application::operator()()
             std::cerr << "\n=== UNEXPECTED ERROR ===" << std::endl;
             std::cerr << "Error: " << e.what() << std::endl;
         }
-        _comm->abort(1);
+        if (_comm->size() > 1)
+            _comm->abort(1);
+        else
+            exit(1);
     }
 }
 

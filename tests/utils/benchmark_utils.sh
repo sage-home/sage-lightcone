@@ -44,16 +44,9 @@ run_with_profiling() {
 
     # Use /usr/bin/time for memory profiling (works on macOS and Linux)
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS version
-        /usr/bin/time -l "$@" 2> /tmp/benchmark_time_${phase_name}.txt
+        # macOS version: tee stderr to terminal in real time and capture for stat parsing
+        /usr/bin/time -l "$@" 2> >(tee /tmp/benchmark_time_${phase_name}.txt >&2)
         local exit_code=$?
-
-        # If command failed, print stderr
-        if [ $exit_code -ne 0 ]; then
-             echo "ERROR: Command failed with exit code $exit_code"
-             echo "Captured stderr:"
-             cat /tmp/benchmark_time_${phase_name}.txt
-        fi
 
         # Extract peak memory (maxrss is in bytes on macOS)
         local peak_mem=$(grep "maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $1}' | head -n 1)
@@ -62,19 +55,9 @@ run_with_profiling() {
             peak_mem_mb=$(echo "scale=2; $peak_mem / 1024 / 1024" | bc)
         fi
     else
-        # Linux version
-        /usr/bin/time -v "$@" 2> /tmp/benchmark_time_${phase_name}.txt
+        # Linux version: tee stderr to terminal in real time and capture for stat parsing
+        /usr/bin/time -v "$@" 2> >(tee /tmp/benchmark_time_${phase_name}.txt >&2)
         local exit_code=$?
-
-        # If command failed, print stderr
-        if [ $exit_code -ne 0 ]; then
-             echo "ERROR: Command failed with exit code $exit_code"
-             echo "Captured stderr:"
-             cat /tmp/benchmark_time_${phase_name}.txt
-        fi
-
-        echo "DEBUG: time output file content:"
-        cat /tmp/benchmark_time_${phase_name}.txt
 
         # Extract peak memory (maxrss is in KB on Linux)
         local peak_mem=$(grep "Maximum resident set size" /tmp/benchmark_time_${phase_name}.txt | awk '{print $6}' | head -n 1)
