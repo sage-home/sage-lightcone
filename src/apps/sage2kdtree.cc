@@ -338,6 +338,7 @@ private:
     double _omega_l;
     double _omega_m;
     std::vector<double> _redshifts; // Redshift per snapshot
+    std::string _file_name_galaxies; // FileNameGalaxies from .par (default "model")
 
     // Field metadata (used in Phases 2-4)
     std::vector<SageField> _fields;
@@ -357,6 +358,7 @@ sage2kdtree_application::sage2kdtree_application(int argc, char* argv[])
     , _hubble(0)
     , _omega_l(0)
     , _omega_m(0)
+    , _file_name_galaxies("model")
     , _ppc(1000)
     , _verb(1)
     , _build_central_galaxies_index(false)
@@ -430,11 +432,13 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
     std::vector<hpc::fs::path> sage_files;
     if (hpc::fs::is_directory(_sage_dir))
     {
-        // Collect files matching SAGE output pattern: model_N.hdf5 where N >= 0
+        // Collect files matching SAGE output pattern: <FileNameGalaxies>_N.hdf5 where N >= 0
+        // FileNameGalaxies comes from the .par file (default "model").
         // This whitelist approach prevents processing of:
-        // - Master link files (model.hdf5)
+        // - Master link files (<FileNameGalaxies>.hdf5)
         // - Intermediate output files (*-bysnap.h5, *-kdtree.h5, etc.)
         // - Any other HDF5 files in the directory
+        const std::string& fname_prefix = _file_name_galaxies + "_";
         for (const auto& entry : hpc::fs::directory_iterator(_sage_dir))
         {
             std::string filename = entry.path().filename().string();
@@ -444,13 +448,15 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
             if (extension != ".hdf5" && extension != ".h5")
                 continue;
 
-            // Must match pattern: model_N.hdf5 where N is a non-negative integer
-            // Examples: model_0.hdf5, model_1.hdf5, model_42.hdf5
+            // Must match pattern: <FileNameGalaxies>_N.hdf5 where N is a non-negative integer
+            // Examples (default): model_0.hdf5, model_1.hdf5
+            // Examples (microuchuu): Uchuu100_Planck_0.hdf5, Uchuu100_Planck_1.hdf5
             std::string stem = entry.path().stem().string();
-            if (stem.length() >= 7 && stem.substr(0, 6) == "model_")
+            if (stem.length() > fname_prefix.length() &&
+                stem.substr(0, fname_prefix.length()) == fname_prefix)
             {
                 // Check if remaining characters are all digits
-                std::string suffix = stem.substr(6);
+                std::string suffix = stem.substr(fname_prefix.length());
                 bool all_digits =
                     !suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit);
 
@@ -461,20 +467,20 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                 else if (_verb >= 2 && _comm->rank() == 0)
                 {
                     std::cout << "  → Skipping non-SAGE file: \"" << filename
-                              << "\" (expected model_N.hdf5 format)" << std::endl;
+                              << "\" (expected " << fname_prefix << "N.hdf5 format)" << std::endl;
                 }
             }
             else if (_verb >= 2 && _comm->rank() == 0)
             {
                 // Verbose logging for filtered files
-                if (stem == "model")
+                if (stem == _file_name_galaxies)
                 {
                     std::cout << "  → Skipping master file: \"" << filename << "\"" << std::endl;
                 }
                 else
                 {
                     std::cout << "  → Skipping non-SAGE file: \"" << filename
-                              << "\" (expected model_N.hdf5 format)" << std::endl;
+                              << "\" (expected " << fname_prefix << "N.hdf5 format)" << std::endl;
                 }
             }
         }
@@ -1235,8 +1241,9 @@ void sage2kdtree_application::_validate_inputs()
                     continue;
                 }
 
-                // Prefer files matching model_N.hdf5 pattern (actual data files)
-                if (stem.find("model_") == 0 && stem.length() > 6)
+                // Prefer files matching <FileNameGalaxies>_N.hdf5 pattern (actual data files)
+                const std::string& fng_prefix = _file_name_galaxies + "_";
+                if (stem.find(fng_prefix) == 0 && stem.length() > fng_prefix.length())
                 {
                     first_hdf5 = dir_itr->path();
                     break;
@@ -1397,6 +1404,13 @@ void sage2kdtree_application::_validate_inputs()
             std::string key;
             ss >> key;
             found_params.insert(key);
+            if (key == "FileNameGalaxies")
+            {
+                std::string val;
+                ss >> val;
+                if (!val.empty())
+                    _file_name_galaxies = val;
+            }
         }
 
         std::vector<std::string> required_params = {"BoxSize", "Hubble_h"};
@@ -1517,6 +1531,8 @@ void sage2kdtree_application::_load_param(hpc::fs::path const& fn)
             ss >> _omega_l;
         else if (key == "Omega_m" || key == "Omega")
             ss >> _omega_m;
+        else if (key == "FileNameGalaxies")
+            ss >> _file_name_galaxies;
     }
 
     // Validate that we got the critical parameters
@@ -1618,8 +1634,9 @@ void sage2kdtree_application::_copy_header_to_output()
                         hpc::h5::file check_file(dir_itr->path().string(), H5F_ACC_RDONLY);
                         if (check_file.has_link("Header"))
                         {
-                            // Prefer model.hdf5 (master) or model_0.hdf5
-                            if (stem == "model" || stem == "model_0")
+                            // Prefer <FileNameGalaxies>.hdf5 (master) or <FileNameGalaxies>_0.hdf5
+                            if (stem == _file_name_galaxies ||
+                                stem == _file_name_galaxies + "_0")
                             {
                                 sage_file_path = dir_itr->path();
                                 break;
