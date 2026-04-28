@@ -29,8 +29,18 @@ On the HPC system at nt.swin.edu.au or on MacOS the build should be done as foll
 
 after which the executables will be under the bin director.
 
+### To run the sample full workflow using the partial minimillennium simulation
 
-### To run the end to end test (From sage to kd-indexing to extracting a lightcone)
+The following sample scripts are designed for end users to adapt to their own purposes (For example by substituting the minimillennium simulation with another one).
+
+```bash
+cd tests
+./01_sbatch_mergetree2sage_minimillennium.sh interactive
+./02_sbatch_sage2kdtree_minimellennium.sh interactive
+./03_sbatch_kdtree2dlightcone_minimillennium.sh interactive
+```
+
+### To run the end to end test verifying a consistent result (From sage to kd-indexing to extracting a lightcone)
 
 ```bash
 ./verify_kdtree_output.sh
@@ -90,7 +100,7 @@ The two main executables in the pipeline each accept a set of command line argum
 | `--version` | | | Print version number and exit |
 | `--help` | `-h` | | Print help and exit |
 
-## Testing
+## Further testing scripts used during development of this package
 
 All test and validation scripts live in the `tests/` directory and can be run from any working directory.
 

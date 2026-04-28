@@ -16,11 +16,12 @@ This architecture enables researchers to reformat their sage hdf5 outputs and ad
 
 These principles guide all design decisions and implementation choices in Sage-light-cone:
 
-### 1. SAGE output hdf5 as the single point of truth
+### 1. Single point of truth
 
-**Principle**: Will accept either sage2016 or sage2026 generated sage HDF5 outputs.
+**Principle**: SAGE output hdf5 as the single point of truth
 
 **Requirements**:
+- Accept either sage2016 or sage2026 generated sage HDF5 outputs.
 - Core systems (memory management, I/O, tree processing) operate independently of physics.
 - Inputs will be any conformant sage HDF5 output as described in README.md under a heading "SAGE output format".
 - The process of reformating with kdtree indexing and eventual light-cone extraction maintains all the meta data available in the sage output hdf5 file.
