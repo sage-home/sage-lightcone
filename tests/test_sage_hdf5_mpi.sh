@@ -8,7 +8,7 @@ set -e
 
 # Parse command line arguments
 FORCE_REBUILD=0
-MPI_TASKS=1
+MPI_TASKS=3
 
 while [[ $# -gt 0 ]]; do
     case $1 in
