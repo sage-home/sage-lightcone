@@ -28,6 +28,18 @@ elif [[ -f "/etc/modules" ]] || command -v module >/dev/null 2>&1; then
     source setup.sh || true
 fi
 
+# Verify executables were compiled with MPI — this script requires it.
+# nm works on both Linux (ELF) and macOS (Mach-O); macOS prefixes C symbols
+# with '_' but MPI_Init still matches as a substring either way.
+for _bin in "${_PROJECT_ROOT}/bin/sage2kdtree" "${_PROJECT_ROOT}/bin/cli_lightcone"; do
+    if ! nm "$_bin" 2>/dev/null | grep -q 'MPI_Init'; then
+        echo "ERROR: $(basename $_bin) was not built with MPI support."
+        echo "       Rebuild with MPI enabled first:"
+        echo "         USE_MPI=yes ./build_platform_aware.sh"
+        exit 1
+    fi
+done
+
 # 2. Define Inputs
 TEST_DIR="tests/sage-model-tests"
 

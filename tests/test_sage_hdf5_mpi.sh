@@ -145,6 +145,16 @@ prepare_parameter_file
 
 mkdir -p output/millennium/
 
+# Verify sage was compiled with MPI — this script requires it.
+# nm works on both Linux (ELF) and macOS (Mach-O); macOS prefixes C symbols
+# with '_' but MPI_Init still matches as a substring either way.
+if ! nm "${MY_ROOT}/bin/sage" 2>/dev/null | grep -q 'MPI_Init'; then
+    echo "ERROR: sage was not built with MPI support."
+    echo "       Rebuild with MPI enabled first:"
+    echo "         USE_MPI=yes ./build_platform_aware.sh"
+    exit 1
+fi
+
 echo "========== Run sage with mpirun -np $MPI_TASKS =========="
 
 
