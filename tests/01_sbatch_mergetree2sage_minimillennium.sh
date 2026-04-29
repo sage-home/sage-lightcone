@@ -1,5 +1,5 @@
 #!/bin/bash
-export MY_ROOT=$(realpath "$(dirname "$0")/../..")
+export MY_ROOT=$(realpath "$(dirname "$0")/..")
 export SIMULATION=minimillennium
 export task=mergetree2sage
 ./download_minimillennium.sh
