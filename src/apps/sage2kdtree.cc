@@ -24,7 +24,6 @@
 #include <libhpc/system/type_traits.hh>
 #include <libtao/base/batch.hh>
 #include <libtao/base/mandatory_fields.hh>
-#include <libtao/base/sage.hh>
 #include <libtao/base/utils.hh>
 #include <list>
 #include <map>
@@ -45,7 +44,6 @@
 
 using namespace ::tao;
 using namespace ::hpc;
-using namespace ::sage;
 
 // Helper for memory reporting
 long get_peak_rss_kb()
@@ -245,6 +243,19 @@ void write_dataset_string_attribute(hpc::h5::location& loc, const std::string& d
     H5Sclose(space_id);
     H5Tclose(str_type);
     H5Dclose(dset_id);
+}
+
+// Safely retrieve the name of the idx-th object in an HDF5 group.
+// H5Gget_objname_by_idx silently truncates into a fixed buffer; this version
+// queries the required length first and allocates exactly that.
+std::string h5_group_obj_name(hid_t gid, hsize_t idx)
+{
+    ssize_t len = H5Gget_objname_by_idx(gid, idx, nullptr, 0);
+    if (len < 0)
+        throw std::runtime_error("H5Gget_objname_by_idx failed to get name length");
+    std::string name(static_cast<size_t>(len), '\0');
+    H5Gget_objname_by_idx(gid, idx, &name[0], static_cast<size_t>(len) + 1);
+    return name;
 }
 
 //==============================================================================
@@ -673,9 +684,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                         H5Gget_num_objs(g.id(), &n);
                         if (n > 0)
                         {
-                            char name[256];
-                            H5Gget_objname_by_idx(g.id(), 0, name, 256);
-                            count_ds_name = name;
+                            count_ds_name = h5_group_obj_name(g.id(), 0);
                         }
                     }
 
@@ -701,8 +710,17 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
                     }
                 }
             }
+            catch (const std::exception& e)
+            {
+                std::cerr << "[rank " << rank << "] Error: failed to open file "
+                          << sage_files[i].string() << ": " << e.what() << std::endl;
+                throw PipelineException(1, "Failed to open SAGE file: " + sage_files[i].string());
+            }
             catch (...)
             {
+                std::cerr << "[rank " << rank << "] Error: failed to open file "
+                          << sage_files[i].string() << " (unknown error)" << std::endl;
+                throw PipelineException(1, "Failed to open SAGE file: " + sage_files[i].string());
             }
         }
 
@@ -739,11 +757,7 @@ void sage2kdtree_application::phase1_direct_sage_to_snapshot()
             hsize_t num_objs = 0;
             H5Gget_num_objs(g.id(), &num_objs);
             for (hsize_t o = 0; o < num_objs; ++o)
-            {
-                char name[256];
-                H5Gget_objname_by_idx(g.id(), o, name, 256);
-                fields.push_back(name);
-            }
+                fields.push_back(h5_group_obj_name(g.id(), o));
         }
 
         int info_rank = -1;
@@ -1759,11 +1773,7 @@ void sage2kdtree_application::phase4_build_kdtree_index()
                 hsize_t num_objs = 0;
                 H5Gget_num_objs(snap_group.id(), &num_objs);
                 if (num_objs > 0)
-                {
-                    char name_buf[256];
-                    H5Gget_objname_by_idx(snap_group.id(), 0, name_buf, sizeof(name_buf));
-                    field_path = ss.str() + "/" + std::string(name_buf);
-                }
+                    field_path = ss.str() + "/" + h5_group_obj_name(snap_group.id(), 0);
             }
 
             if (!field_path.empty() && snap_file.has_link(field_path))
@@ -1865,9 +1875,7 @@ void sage2kdtree_application::phase4_build_kdtree_index()
 
                 for (hsize_t ii = 0; ii < num_objs; ++ii)
                 {
-                    char name_buf[256];
-                    H5Gget_objname_by_idx(snap_group.id(), ii, name_buf, sizeof(name_buf));
-                    std::string field_name(name_buf);
+                    std::string field_name = h5_group_obj_name(snap_group.id(), ii);
 
                     // Skip computed fields - they should not appear in final output
                     std::string field_name_lower = field_name;
@@ -1980,15 +1988,27 @@ void sage2kdtree_application::phase4_build_kdtree_index()
         {
             hpc::h5::copy(snap_file, "cosmology", out_file);
         }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Warning: failed to copy cosmology metadata: " << e.what() << std::endl;
+        }
         catch (...)
         {
+            std::cerr << "Warning: failed to copy cosmology metadata (unknown error)" << std::endl;
         }
         try
         {
             hpc::h5::copy(snap_file, "snapshot_redshifts", out_file);
         }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Warning: failed to copy snapshot_redshifts metadata: " << e.what()
+                      << std::endl;
+        }
         catch (...)
         {
+            std::cerr << "Warning: failed to copy snapshot_redshifts metadata (unknown error)"
+                      << std::endl;
         }
     }
 
@@ -2195,9 +2215,7 @@ void sage2kdtree_application::_write_attributes(hpc::h5::file& file, std::string
 
     for (hsize_t ii = 0; ii < num_objs; ++ii)
     {
-        char name_buf[256];
-        H5Gget_objname_by_idx(snap_group.id(), ii, name_buf, sizeof(name_buf));
-        std::string field_name(name_buf);
+        std::string field_name = h5_group_obj_name(snap_group.id(), ii);
 
         // Skip computed fields - they should not appear in final output
         std::string field_name_lower = field_name;

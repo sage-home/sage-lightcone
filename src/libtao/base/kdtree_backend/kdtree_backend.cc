@@ -1,5 +1,7 @@
 #include "kdtree_backend.hh"
 #include "../mandatory_fields.hh"
+#include <cstdio>
+#include <cstdlib>
 #include <sstream>
 
 namespace tao
@@ -336,143 +338,6 @@ void kdtree_backend::open(hpc::fs::path const& fn)
     }
 }
 
-void chround(char* a, int ndigits)
-{
-    int i;
-    int len = 0;
-    for (i = 0; i < 1000; i++)
-    {
-        if (a[i] == 0)
-            break;
-        len++;
-    }
-    int count_ndigits = 0;
-    for (i = 0; i < len; i++)
-    {
-        if (a[i] == ' ')
-            continue;
-        if (a[i] == '.')
-            continue;
-        if (a[i] == '0' && count_ndigits == 0)
-            continue;
-        count_ndigits++;
-        if (count_ndigits == ndigits)
-            break;
-    }
-    char last = a[i];
-    bool up = false;
-    bool done = false;
-    for (int j = i + 1; j < len; j++)
-    {
-        switch (a[j])
-        {
-        case '0':
-            done = true;
-            break;
-        case '1':
-            done = true;
-            break;
-        case '2':
-            done = true;
-            break;
-        case '3':
-            done = true;
-            break;
-        case '4':
-            done = true;
-            break;
-        case '5':
-            up = true;
-            done = true;
-            break;
-        case '6':
-            up = true;
-            done = true;
-            break;
-        case '7':
-            up = true;
-            done = true;
-            break;
-        case '8':
-            up = true;
-            done = true;
-            break;
-        case '9':
-            up = true;
-            done = true;
-            break;
-        }
-        if (done)
-            break;
-    }
-    int endofstring_index = i + 1;
-    if (up)
-    {
-        done = false;
-        while (!done)
-        {
-            switch (a[i])
-            {
-            case '0':
-                a[i] = '1';
-                done = true;
-                break;
-            case '1':
-                a[i] = '2';
-                done = true;
-                break;
-            case '2':
-                a[i] = '3';
-                done = true;
-                break;
-            case '3':
-                a[i] = '4';
-                done = true;
-                break;
-            case '4':
-                a[i] = '5';
-                done = true;
-                break;
-            case '5':
-                a[i] = '6';
-                done = true;
-                break;
-            case '6':
-                a[i] = '7';
-                done = true;
-                break;
-            case '7':
-                a[i] = '8';
-                done = true;
-                break;
-            case '8':
-                a[i] = '9';
-                done = true;
-                break;
-            case '9':
-                a[i] = '0';
-                break;
-            }
-            i--;
-            if (i < 0 && !done)
-            {
-                /*
-                 * will need to shift all the characters one to the right and put a '1'
-                 * at the start
-                 */
-
-                for (int j = endofstring_index; j > 0; j--)
-                {
-                    a[j] = a[j - 1];
-                }
-                a[0] = '1';
-                endofstring_index++;
-                done = true;
-            }
-        }
-    }
-    a[endofstring_index] = 0;
-}
 
 tao::simulation const* kdtree_backend::load_simulation()
 {
@@ -484,15 +349,9 @@ tao::simulation const* kdtree_backend::load_simulation()
     for (size_t ii = 0; ii < redshifts.size(); ++ii)
     {
         zs[ii] = redshifts[ii];
-        char chredshift[1000];
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(12) << zs[ii];
-        std::string temp = oss.str();
-        strncpy(chredshift, temp.c_str(), 999);
-        chredshift[999] = '\0';
-        chround(chredshift, 6);
-        // std::cout << "replace " << zs[ii] << " with " << chredshift << std::endl;
-        zs[ii] = atof(chredshift);
+        char chredshift[32];
+        std::snprintf(chredshift, sizeof(chredshift), "%.6g", zs[ii]);
+        zs[ii] = std::atof(chredshift);
     }
 
     auto* sim = new tao::simulation(
